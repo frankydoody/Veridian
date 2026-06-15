@@ -2,7 +2,10 @@
 
 > Application web de mémoire organisationnelle pour réunions d'équipe — propulsée par l'IA.
 
-Projet de fin d'études — Génie logiciel · Université
+Projet de fin d'études — Université TÉLUQ — INF 1430
+
+Ce document n'est pas complet et peut y avoir des erreur pour le moment. 
+Merci
 
 ---
 
@@ -29,7 +32,7 @@ Veridian est une application web qui permet aux équipes en entreprise d'enregis
 |---|---|
 | Backend | Node.js 20+, Express 4 |
 | Frontend | React 18, Vite |
-| Base de données | PostgreSQL 16 + pgvector |
+| Base de données | PostgreSQL 18 + pgvector |
 | Transcription | OpenAI Whisper API |
 | IA / NLP | Anthropic Claude API |
 | Conteneurisation | Docker, Docker Compose |
