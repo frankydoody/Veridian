@@ -1,0 +1,57 @@
+# ========================
+# DÉPENDANCES
+# ========================
+# Le dossier node_modules contient tous les packages npm installés.
+# Il peut peser des centaines de Mo. On ne le sauvegarde jamais —
+# npm install le recrée automatiquement depuis package.json
+node_modules/
+
+# ========================
+# VARIABLES D'ENVIRONNEMENT
+# ========================
+# Ces fichiers contiennent tes clés API (OpenAI, Anthropic) et
+# mots de passe de base de données. JAMAIS dans Git.
+.env
+.env.local
+.env.production
+
+# ========================
+# FICHIERS AUDIO TEMPORAIRES
+# ========================
+# Les enregistrements audio uploadés par les utilisateurs.
+# Traités puis supprimés — pas besoin de les versionner.
+Projet/Backend/uploads/
+*.mp3
+*.wav
+*.webm
+*.m4a
+
+# ========================
+# BUILDS ET COMPILATIONS
+# ========================
+# Fichiers générés automatiquement lors du build React.
+# On ne sauvegarde que le code source, pas le résultat compilé.
+dist/
+build/
+
+# ========================
+# LOGS
+# ========================
+*.log
+logs/
+npm-debug.log*
+
+# ========================
+# SYSTÈME D'EXPLOITATION
+# ========================
+# Fichiers cachés créés automatiquement par Windows et macOS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ========================
+# ÉDITEUR
+# ========================
+# Préférences personnelles de VS Code — chaque dev a les siennes
+.vscode/settings.json
+.idea/ 
