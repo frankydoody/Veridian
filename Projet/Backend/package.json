@@ -1,0 +1,19 @@
+{
+  "name": "veridian-backend",
+  "version": "1.0.0",
+  "description": "API backend pour Veridian",
+  "type": "module",
+  "main": "server.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Francis Cote",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}

@@ -1,0 +1,23 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: veridian_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: veridian
+      POSTGRES_USER: veridian_user
+      POSTGRES_PASSWORD: veridian_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U veridian_user -d veridian"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
