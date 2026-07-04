@@ -88,7 +88,7 @@ cd frontend && npm run dev
 Veridian/
 ├── backend/          # API Node.js/Express
 ├── frontend/         # Interface React/Vite
-├── docs/             # Documentation & diagrammes UML
+├── Documentations/   # Documentation & diagrammes UML
 └── docker-compose.yml
 ```
 
