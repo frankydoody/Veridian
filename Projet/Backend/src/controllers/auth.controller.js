@@ -2,7 +2,7 @@ import { findUserByEmail, createUser } from '../models/user.model.js';
 import { hashPassword, comparePassword } from '../utils/hash.utils.js';
 import { generateToken } from '../utils/jwt.utils.js';
 
-export const register = async (req, res) => {
+export const register = async (req, res, next) => {
   try {
     const { name, email, password } = req.body;
 
@@ -31,13 +31,11 @@ export const register = async (req, res) => {
     });
 
   } catch (error) {
-    return res.status(500).json({
-      message: 'Erreur serveur lors de l\'inscription'
-    });
+    next(error); // Pass the error to the error handling middleware
   }
 };
 
-export const login = async (req, res) => {
+export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
@@ -78,9 +76,8 @@ export const login = async (req, res) => {
     });
 
   } catch (error) {
-    return res.status(500).json({
-      message: 'Erreur serveur lors de la connexion'
-    });
+    next(error); // Pass the error to the error handling middleware
+
   }
 };
 
