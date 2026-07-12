@@ -1,7 +1,7 @@
-import { query } from '../config/db.js';
+import { query, withTransaction } from '../config/db.js';
 
-export const createProject = async (name, description, ownerId) => {
-  const result = await query(
+const createProject = async (client, name, description, ownerId) => {
+  const result = await client.query(
     `INSERT INTO projects (name, description, owner_id)
      VALUES ($1, $2, $3)
      RETURNING id, name, description, owner_id, status, is_active, created_at`,
@@ -9,7 +9,6 @@ export const createProject = async (name, description, ownerId) => {
   );
   return result.rows[0];
 };
-
 
 export const findProjectsByUser = async (userId) => {
   const result = await query(
@@ -64,12 +63,19 @@ export const updateProjectStatus = async (id, status) => {
   return result.rows[0];
 };
 
-export const addProjectMember = async (projectId, userId, role = 'member') => {
-  const result = await query(
+const addProjectMember = async (client, projectId, userId, role = 'owner') => {
+  await client.query(
     `INSERT INTO project_members (project_id, user_id, role)
-     VALUES ($1, $2, $3)
-     RETURNING project_id, user_id, role, joined_at`,
+     VALUES ($1, $2, $3)`,
     [projectId, userId, role]
   );
-  return result.rows[0];
+};
+
+
+export const createProjectWithOwner = async (name, description, ownerId) => {
+  return withTransaction(async (client) => {
+    const project = await createProject(client, name, description, ownerId);
+    await addProjectMember(client, project.id, ownerId, 'owner');
+    return project;
+  });
 };

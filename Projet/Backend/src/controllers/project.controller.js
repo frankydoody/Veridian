@@ -1,10 +1,9 @@
 import {
-  createProject,
+  createProjectWithOwner,
   findProjectsByUser,
   findProjectById,
   updateProject,
   updateProjectStatus,
-  addProjectMember,
 } from '../models/project.model.js';
 
 export const createProjectHandler = async (req, res, next) => {
@@ -17,9 +16,11 @@ export const createProjectHandler = async (req, res, next) => {
       });
     }
 
-    const project = await createProject(name, description, req.user.id);
-    await addProjectMember(project.id, req.user.id, 'owner');
-
+    const project = await createProjectWithOwner(
+      name,
+      description,
+      req.user.id
+    );
 
     return res.status(201).json({
       message: 'Projet créé avec succès',
