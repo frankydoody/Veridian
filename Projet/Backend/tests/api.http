@@ -1,0 +1,62 @@
+### Variables
+@baseUrl = http://localhost:3000/api
+@token = COLLE_TON_TOKEN_ICI
+
+### Health Check
+GET {{baseUrl}}/health
+
+### Inscription
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Francis",
+  "email": "francis@test.com",
+  "password": "123456"
+}
+
+### Connexion
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "francis@test.com",
+  "password": "123456"
+}
+
+### Créer un projet
+POST {{baseUrl}}/projects
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "Projet Test",
+  "description": "Mon premier projet Veridian"
+}
+
+### Lister les projets
+GET {{baseUrl}}/projects
+Authorization: Bearer {{token}}
+
+### Voir un projet
+GET {{baseUrl}}/projects/COLLE_PROJECT_ID_ICI
+Authorization: Bearer {{token}}
+
+### Modifier un projet
+PUT {{baseUrl}}/projects/COLLE_PROJECT_ID_ICI
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "name": "Projet Modifié",
+  "description": "Description mise à jour"
+}
+
+### Changer le statut
+PATCH {{baseUrl}}/projects/COLLE_PROJECT_ID_ICI/status
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "status": "archived"
+}
