@@ -7,10 +7,18 @@
   "directories": {
     "test": "tests"
   },
-  "scripts": {
-    "dev": "nodemon server.js",
-    "start": "node server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+"scripts": {
+  "dev": "nodemon server.js",
+  "start": "node server.js",
+  "test": "dotenv -e .env.test -- node --experimental-vm-modules node_modules/.bin/jest --runInBand",
+  "test:watch": "dotenv -e .env.test -- node --experimental-vm-modules node_modules/.bin/jest --watch --runInBand"
+},
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "verbose": true
   },
   "keywords": [],
   "author": "Francis Cote",
@@ -23,6 +31,10 @@
     "pg": "^8.22.0"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "@jest/globals": "^30.4.1",
+    "dotenv-cli": "^11.0.0",
+    "jest": "^30.4.2",
+    "nodemon": "^3.1.14",
+    "supertest": "^7.2.2"
   }
 }
