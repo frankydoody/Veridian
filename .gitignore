@@ -34,6 +34,7 @@ Projet/Backend/uploads/
 # On ne sauvegarde que le code source, pas le résultat compilé.
 dist/
 build/
+uploads/
 
 # ========================
 # LOGS
