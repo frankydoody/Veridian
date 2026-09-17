@@ -1,7 +1,6 @@
-import { getGeminiModel } from '../config/gemini.js';
+import { generateWithFallback } from '../config/gemini.js';
 
 export const extractDecisions = async (transcription) => {
-  const model = getGeminiModel();
 
   const prompt = `Tu es un assistant spécialisé dans l'analyse de réunions d'entreprise.
 
@@ -20,9 +19,8 @@ Si aucune décision n'est trouvée, retourne un tableau vide [].
 TRANSCRIPTION :
 ${transcription}`;
 
-  const result = await model.generateContent(prompt);
-  const text = result.response.text();
 
+  const text = await generateWithFallback(prompt);
   const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
   return JSON.parse(cleanText);
@@ -32,7 +30,7 @@ ${transcription}`;
 export const detectContradiction = async (newDecision, pastDecisions) => {
   if (pastDecisions.length === 0) return null;
 
-  const model = getGeminiModel();
+
 
   const prompt = `Tu es un expert en analyse de cohérence décisionnelle.
 
@@ -53,8 +51,7 @@ Retourne UNIQUEMENT un objet JSON avec ces champs :
 
 Retourne UNIQUEMENT l'objet JSON, sans texte avant ou après.`;
 
-  const result = await model.generateContent(prompt);
-  const text = result.response.text();
+  const text = await generateWithFallback(prompt);
   const cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   const analysis = JSON.parse(cleanText);
 
@@ -69,7 +66,6 @@ Retourne UNIQUEMENT l'objet JSON, sans texte avant ou après.`;
 
 
 export const chatWithMemory = async (question, relevantDecisions) => {
-  const model = getGeminiModel();
 
   const context = relevantDecisions
     .map((d, i) => `Décision ${i + 1} (réunion du ${new Date(d.created_at).toLocaleDateString('fr-CA')}) :
@@ -90,8 +86,7 @@ Réponds de façon claire et concise en te basant UNIQUEMENT sur les décisions 
 Si l'information n'est pas dans l'historique, dis-le clairement.
 Cite toujours la décision source de ta réponse.`;
 
-  const result = await model.generateContent(prompt);
-  return result.response.text();
+return await generateWithFallback(prompt);
 };
 
 
