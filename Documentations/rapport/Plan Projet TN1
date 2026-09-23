@@ -1,0 +1,302 @@
+# Plan de projet — Veridian
+## INF 1430 — Travail noté 1 (10 %)
+
+**Étudiant :** Francis Côté  
+**Courriel :** cote.francis.4@univ.teluq.ca  
+**Dépôt GitHub :** https://github.com/frankydoody/Veridian  
+**GitHub Projects :** https://github.com/frankydoody/Veridian/projects  
+
+---
+
+## 1. Ampleur du projet
+
+### 1.1 Problématique, but et objectifs
+
+#### Problématique
+
+Les organisations modernes sont confrontées à une perte systématique de leur mémoire décisionnelle. Les décisions prises lors des réunions d'équipe ne sont jamais documentées de façon structurée, traçable et consultable. Les comptes rendus rédigés manuellement sont partiels, subjectifs et rarement consultés. Cette défaillance génère trois problèmes fondamentaux.
+
+**Problème 1 — Absence de traçabilité décisionnelle**
+
+Il est impossible de retrouver, après coup, pourquoi une décision a été prise, quelles alternatives ont été envisagées, et qui en était responsable. Cette opacité engendre des conflits internes, des décisions contradictoires et une perte de confiance entre les membres de l'équipe.
+
+**Problème 2 — Perte de la mémoire organisationnelle**
+
+Le savoir décisionnel accumulé lors des réunions disparaît avec le temps, ou lorsqu'un membre de l'équipe quitte l'organisation. Il n'existe aucun mécanisme pour capitaliser sur l'historique décisionnel d'un projet sur plusieurs mois ou années.
+
+**Problème 3 — Détection tardive des contradictions**
+
+Des décisions contradictoires sont régulièrement prises lors de réunions successives, faute d'accès à l'historique. Ces contradictions ne sont détectées que lorsqu'elles provoquent des problèmes concrets — souvent trop tard pour les corriger sans impact significatif sur le projet.
+
+#### But
+
+Développer **Veridian**, une application web complète permettant aux équipes d'entreprise d'automatiser la capture, la structuration et la gestion de leur mémoire décisionnelle, grâce à l'intelligence artificielle.
+
+#### Objectifs spécifiques
+
+1. Permettre l'enregistrement audio des réunions directement depuis un navigateur web, sans installation logicielle côté client.
+2. Transcrire automatiquement les enregistrements audio en texte grâce au modèle de reconnaissance vocale Whisper d'OpenAI, exécuté localement.
+3. Extraire et structurer les décisions en objets JSON normalisés grâce à l'API Google Gemini.
+4. Maintenir une mémoire vectorielle persistante et consultable par recherche sémantique (architecture RAG).
+5. Détecter automatiquement les contradictions entre les décisions nouvellement extraites et l'historique accumulé.
+6. Offrir une interface de chat en langage naturel pour interroger la mémoire organisationnelle.
+7. Générer des rapports PDF exportables par réunion ou par projet.
+8. Implémenter une interface utilisateur React permettant la gestion complète des projets, des réunions et des décisions.
+
+### 1.2 Hypothèses, contraintes et risques
+
+#### Hypothèses
+
+- Les APIs Google Gemini (niveau gratuit) et le modèle Whisper (exécution locale) demeurent disponibles et fonctionnels durant la durée du projet.
+- Les navigateurs modernes supportent l'API MediaRecorder pour la capture audio directement depuis l'interface web.
+- La machine de développement Ubuntu dispose de suffisamment de ressources pour exécuter Whisper en mode CPU (minimum 8 Go de RAM).
+- Le superviseur académique dispose d'un accès public au dépôt GitHub pour le suivi continu du projet.
+- La charge de travail effective sera d'environ 8 à 9 heures par semaine sur 30 semaines, conformément à la norme de 45 heures par crédit pour un cours de 6 crédits.
+
+#### Contraintes
+
+| Catégorie | Contrainte |
+|---|---|
+| **Temporelle** | Projet étalé sur 30 semaines, avec une disponibilité pouvant être irrégulière selon les obligations professionnelles |
+| **Ressources humaines** | Développeur unique — toutes les couches (backend, frontend, IA, base de données, déploiement) sont sous la responsabilité d'une seule personne |
+| **Budgétaire** | Utilisation exclusive d'outils gratuits ou open source (Gemini niveau gratuit, Whisper local, Docker, PostgreSQL) |
+| **Compatibilité** | L'environnement de développement doit fonctionner identiquement sous Windows 11 et Ubuntu 24.04 |
+| **Sécurité** | Aucune clé API, aucun identifiant ni aucune donnée sensible ne doit apparaître dans le dépôt Git public |
+| **Académique** | Le dépôt public doit refléter un processus de développement professionnel, traçable et documenté, évaluable par le professeur encadrant à tout moment |
+
+#### Risques et stratégies de mitigation
+
+| Risque | Probabilité | Impact | Mitigation |
+|---|:---:|:---:|---|
+| Disponibilité limitée — dépassement de la charge horaire hebdomadaire | Élevée | Élevé | Blocs fonctionnels indépendants permettant d'ajuster le périmètre du MVP en cours de route |
+| Qualité de transcription insuffisante pour des fichiers audio bruités | Moyenne | Moyen | Interface de correction manuelle de la transcription avant l'extraction des décisions |
+| Précision d'extraction Gemini insuffisante sur certains types de contenu | Moyenne | Moyen | Itérations de prompt engineering, validation humaine optionnelle avant persistance |
+| Indisponibilité ou surcharge du modèle Gemini principal | Faible | Moyen | Système de fallback automatique entre modèles (déjà implémenté dès le Bloc 06) |
+| Complexité sous-estimée du pipeline RAG (Bloc 07) | Moyenne | Élevé | Prototype précoce dès le début du Bloc 07, sprint tampon disponible en cas de dépassement |
+| Conflits de versions entre les dépendances Node.js | Faible | Moyen | Versions épinglées dans `package.json`, environnement Docker isolé et reproductible |
+| Perte de la progression suite à un problème machine | Faible | Élevé | Commits fréquents sur GitHub, branches conservées après merge |
+
+---
+
+## 2. Méthode ou approche de développement
+
+### 2.1 Méthodologie adoptée — Agile Scrum adapté au développeur unique
+
+Le projet adopte une méthodologie **Agile Scrum adaptée au contexte d'un développeur unique**, avec les adaptations suivantes au cadre traditionnel.
+
+**Sprints centrés sur les blocs fonctionnels**
+
+Chaque sprint correspond à un bloc fonctionnel indépendant, conçu pour être livrable séparément. Cette granularité permet un avancement mesurable à tout moment et une visibilité constante pour le superviseur académique, qui peut consulter l'état du dépôt à n'importe quel moment.
+
+**Backlog structuré dans GitHub Projects**
+
+Toutes les fonctionnalités sont décrites sous forme d'Issues GitHub avec étiquettes (`enhancement`, `bug`, `documentation`), organisées dans un board avec quatre colonnes : À faire → En cours → En révision → Terminé. Ce board constitue l'artefact de planification vivant du projet.
+
+**Branches de fonctionnalité avec Pull Requests obligatoires**
+
+Chaque bloc de développement est réalisé sur une branche dédiée suivant la convention `branch/bloc-XX-nom`. Aucun commit direct sur `main` n'est autorisé — une Pull Request documentée est obligatoire avant tout merge. Les branches sont conservées après le merge pour maintenir la traçabilité complète de l'historique décisionnel technique.
+
+**Application fonctionnelle en permanence**
+
+La branche `main` est toujours dans un état compilable et fonctionnel. Chaque merge est précédé de tests manuels des endpoints concernés via `curl`. Les tests unitaires Jest sont exécutés avant chaque PR.
+
+**Convention de commits — Conventional Commits**
+
+Tous les messages de commit suivent la convention standardisée `type: description` :
+- `feat:` — nouvelle fonctionnalité
+- `fix:` — correction de bogue
+- `docs:` — documentation uniquement
+- `chore:` — tâches d'entretien (configuration, dépendances, organisation)
+- `test:` — ajout ou modification de tests
+- `refactor:` — refactorisation sans changement fonctionnel
+
+### 2.2 Architecture de développement
+
+Le projet suit une architecture **client-serveur en trois couches** avec séparation stricte des responsabilités.
+
+```
+┌─────────────────────┐     HTTP/REST      ┌─────────────────────┐
+│  Frontend           │ ─────────────────► │  Backend            │
+│  React 18 + Vite    │ ◄───────────────── │  Node.js 20/Express │
+│  (navigateur)       │     JSON           │  (port 3000)        │
+└─────────────────────┘                    └──────────┬──────────┘
+                                                      │ Pool PostgreSQL
+                                          ┌───────────▼──────────┐
+                                          │  PostgreSQL 16        │
+                                          │  + pgvector 0.8.3    │
+                                          │  (Docker Compose)    │
+                                          └──────────────────────┘
+```
+
+**Patrons architecturaux appliqués**
+
+- **MVC** : séparation stricte entre le modèle (requêtes SQL), le contrôleur (logique métier) et la vue (React)
+- **Service Layer** : isolation de la logique IA dans des services dédiés (`whisper.service.js`, `ia.service.js`, `embedding.service.js`)
+- **Repository Pattern** : abstraction de l'accès à la base de données par entité métier (`user.model.js`, `project.model.js`, etc.)
+- **Middleware Chain** : traitement séquentiel des requêtes HTTP (authentification, validation, gestion des erreurs)
+- **Soft Delete** : aucune instruction `DELETE` SQL dans le code applicatif — suppression logique par `is_active = false`
+- **Transactions atomiques** : toute opération multi-table est encapsulée dans `withTransaction` au niveau du modèle
+
+### 2.3 Stack technologique justifiée
+
+| Couche | Technologie | Version | Justification |
+|---|---|---|---|
+| Backend | Node.js + Express | 20 LTS / 5.x | Écosystème JavaScript unifié avec le frontend, excellent support asynchrone pour les appels IA |
+| Frontend | React + Vite | 18 / 4.x | Composants réutilisables, HMR instantané, performances supérieures à Create React App |
+| Base de données | PostgreSQL | 16 | Robustesse relationnelle éprouvée, plus extension pgvector pour les embeddings vectoriels |
+| Vectoriel | pgvector | 0.8.3 | Index HNSW natif dans PostgreSQL — évite d'introduire un système vectoriel externe (Pinecone, Weaviate) |
+| Conteneurisation | Docker + Compose | 29.x | Reproductibilité cross-platform entre Windows 11 et Ubuntu 24.04 |
+| Transcription | Whisper (local) | openai-whisper 20250625 | Gratuit, modèle identique à l'API OpenAI, support de 99 langues dont le français |
+| LLM / IA | Google Gemini | 2.5-flash | Niveau gratuit (1 million de tokens/jour), excellente extraction JSON structurée |
+| Authentification | JWT + bcryptjs | jsonwebtoken 9.x | Standard REST stateless, aucune session serveur à maintenir |
+| Tests | Jest + dotenv-cli | 29.x | Support des ES Modules via `--experimental-vm-modules`, chargement correct des variables d'environnement |
+
+---
+
+## 3. Plan détaillé
+
+### 3.1 Vue d'ensemble des blocs de développement
+
+Le projet est découpé en **14 blocs de développement**, chacun correspondant à une fonctionnalité cohérente et livrable indépendamment via une Pull Request sur GitHub. Les blocs 01 à 05 constituent la fondation backend, les blocs 06 à 09 le pipeline IA, les blocs 10 à 12 l'interface utilisateur React, et les blocs 13 à 14 la finalisation et le déploiement.
+
+#### État d'avancement au dépôt du TN1
+
+| Bloc | Titre | Issue | Branche | PR | État |
+|---|---|---|---|---|---|
+| 01 | Infrastructure & Base de données | — | mergée | — | ✅ Complété |
+| 02 | Authentification JWT | — | mergée | — | ✅ Complété |
+| 03 | Module Projets CRUD | — | mergée | — | ✅ Complété |
+| 04 | Module Réunions CRUD | — | mergée | — | ✅ Complété |
+| 05 | Transcription Audio (Whisper) | #2 (fermée) | branch/bloc-05-transcription | #12 (mergé) | ✅ Complété |
+| 06 | Extraction des décisions (Gemini) | #3 | branch/bloc-06-decisions | #13 (ouvert) | ✅ Complété |
+| 07 | Mémoire vectorielle (RAG) | #4 | branch/bloc-07-memory | #14 (ouvert) | 🔵 En cours |
+| 08 | Détection contradictions & Alertes | #5 | à créer | — | ⬜ À venir |
+| 09 | Chat mémoire & Export PDF | #6 | à créer | — | ⬜ À venir |
+| 10 | Frontend Auth (React/Vite) | #7 | à créer | — | ⬜ À venir |
+| 11 | Frontend Dashboard | #8 | à créer | — | ⬜ À venir |
+| 12 | Frontend IA (Décisions, Alertes, Chat) | #9 | à créer | — | ⬜ À venir |
+| 13 | Tests d'intégration & Qualité | #10 | à créer | — | ⬜ À venir |
+| 14 | Déploiement & Documentation finale | #11 | à créer | — | ⬜ À venir |
+
+### 3.2 Présentation détaillée des activités
+
+#### Phase 1 — Démarrage et infrastructure (Blocs 01–02) ✅
+
+**Bloc 01 — Infrastructure & Base de données**
+
+Mise en place de l'environnement de développement complet sur deux plateformes (Windows 11 et Ubuntu 24.04) : Git 2.53, Node.js 20.20 via nvm, Docker 29.6 + Compose 5.1, Python 3 avec Whisper et ffmpeg, et Visual Studio Code. Création du dépôt GitHub public `frankydoody/Veridian`, configuration du `.gitignore` couvrant `node_modules/`, `uploads/`, `.env`, et initialisation du board GitHub Projects.
+
+Configuration de `docker-compose.yml` avec l'image `pgvector/pgvector:pg16`, incluant PostgreSQL 16 et l'extension pgvector 0.8.3. Conception et exécution du schéma SQL complet comportant 9 tables relationnelles et 17 index optimisés, dont un index HNSW pour la recherche vectorielle approximative sur les embeddings de 768 dimensions.
+
+*Fichiers produits :* `docker-compose.yml`, `database/schema.sql`, `database/migrations/001_update_vector_dimension.sql`, `src/config/db.js`
+
+**Bloc 02 — Authentification JWT**
+
+Implémentation du système d'authentification complet : inscription (`POST /api/auth/register`), connexion (`POST /api/auth/login`), middleware de vérification JWT peuplant `req.user`, et hachage bcrypt (facteur de coût 10) des mots de passe. Configuration de Jest avec `dotenv-cli` pour les tests unitaires en contexte ES Modules — problème de chargement des variables d'environnement résolu par l'utilisation de `dotenv-cli` avant Node.js dans le script de test. Écriture de 11 tests unitaires couvrant les utilitaires `hash.utils.js` (5 tests) et `jwt.utils.js` (6 tests).
+
+*Fichiers produits :* `auth.controller.js`, `auth.routes.js`, `auth.middleware.js`, `hash.utils.js`, `jwt.utils.js`, `tests/unit/`
+
+#### Phase 2 — Modules backend métier (Blocs 03–04) ✅
+
+**Bloc 03 — Module Projets CRUD**
+
+Développement du module de gestion des projets avec transactions atomiques. Établissement du patron d'architecture appliqué uniformément à tous les modules : fonctions SQL privées dans le modèle (reçoivent un `client` de transaction), fonctions publiques orchestrant les transactions, contrôleur sans SQL direct, routes avec middleware d'authentification global.
+
+La création d'un projet déclenche automatiquement l'insertion du créateur comme membre propriétaire dans `project_members` via `withTransaction`, garantissant la cohérence de la base de données même en cas de défaillance partielle. Cinq endpoints REST : création, liste par utilisateur, détail, mise à jour, changement de statut.
+
+*Fichiers produits :* `project.model.js`, `project.controller.js`, `project.routes.js`
+
+**Bloc 04 — Module Réunions CRUD**
+
+Développement du module de gestion des réunions suivant le même patron architectural. Implémentation de la machine à états des réunions : `planned → active → processing → done` / `cancelled`. Chaque réunion créée est automatiquement associée à son créateur comme participant de rôle `host` via transaction atomique. Quatre endpoints REST.
+
+*Fichiers produits :* `meeting.model.js`, `meeting.controller.js`, `meeting.routes.js`
+
+#### Phase 3 — Pipeline IA (Blocs 05–09)
+
+**Bloc 05 — Transcription Audio Whisper ✅**
+
+Implémentation du pipeline complet d'upload et de transcription audio. Le middleware Multer valide le type MIME du fichier audio (webm, mp4, wav, mpeg, ogg, m4a), génère un nom de fichier unique combinant horodatage et UUID utilisateur, et sauvegarde dans un répertoire situé en dehors de la portée de nodemon pour éviter les redémarrages intempestifs du serveur.
+
+Le service Whisper utilise `spawn` (non `exec`) pour une gestion robuste des processus de longue durée, force le mode CPU (`--device cpu --fp16 False`) pour compatibilité avec la carte GPU Quadro M2200 (Compute Capability 5.2, non supportée par PyTorch actuel), et supprime le fichier audio après transcription réussie. La transcription est persistée en base de données avec son statut (`pending → processing → done`).
+
+*Fichiers produits :* `upload.middleware.js`, `whisper.service.js`, `transcription.model.js`, `transcription.controller.js`, `transcription.routes.js`
+
+**Bloc 06 — Extraction des décisions (Gemini) ✅**
+
+Implémentation de l'extraction structurée des décisions via l'API Google Gemini 2.5-flash. Le service `ia.service.js` utilise un prompt structuré en JSON Schema pour extraire des objets normalisés comportant : le contenu de la décision, son contexte, le responsable désigné, les alternatives rejetées, et un niveau de confiance (0.0–1.0).
+
+Un système de fallback automatique entre modèles est implémenté dans `gemini.js` : en cas d'indisponibilité ou de surcharge du modèle principal, le système bascule automatiquement vers des modèles de remplacement sans interruption du service et sans intervention humaine.
+
+*Fichiers produits :* `ia.service.js`, `gemini.js` (avec fallback), `decision.model.js`, `decision.controller.js`, `decision.routes.js`
+
+**Bloc 07 — Mémoire vectorielle RAG 🔵 (en cours)**
+
+Génération des embeddings vectoriels (768 dimensions) via le modèle `gemini-embedding-001`, stockage dans la table `memory_chunks` avec index HNSW, et implémentation de la recherche sémantique par similarité cosinus. Construction du pipeline RAG (Retrieval-Augmented Generation) : la requête utilisateur est transformée en vecteur, les chunks les plus proches sont récupérés, et Gemini génère une réponse contextualisée.
+
+*En cours :* `embedding.service.js` (complété), `memory.model.js`, `rag.service.js`, `memory.controller.js`, `memory.routes.js`
+
+**Blocs 08–09 — Contradictions, Alertes, Chat, PDF ⬜**
+
+Détection automatique des contradictions entre décisions nouvelles et l'historique vectoriel, génération d'alertes avec niveau de sévérité (`low`, `medium`, `high`, `critical`), interface de chat RAG en langage naturel interrogeant la mémoire organisationnelle, génération de rapports PDF avec `pdfkit`.
+
+#### Phase 4 — Frontend React (Blocs 10–12) ⬜
+
+Développement de l'interface utilisateur avec React 18 + Vite, React Router pour la navigation, Axios pour les appels API, Zustand pour la gestion d'état global, et TailwindCSS pour le style. Pages prévues : Login, Register, Dashboard, ProjectDetail, MeetingRoom (avec `AudioRecorder` utilisant l'API MediaRecorder), DecisionHistory, Alerts, MemoryChat.
+
+#### Phase 5 — Finalisation (Blocs 13–14) ⬜
+
+Tests d'intégration avec Supertest couvrant tous les endpoints REST, revue de sécurité (validation des entrées, rate limiting, headers HTTP), déploiement sur une plateforme cloud (Railway ou Render), documentation technique finale complète, et rédaction du rapport TN4 avec retour réflexif sur le processus.
+
+### 3.3 Calendrier indicatif
+
+| Phase | Semaines | Contenu | Travail noté |
+|---|---|---|---|
+| Démarrage | 1 – 3 | Infrastructure, repo, board, backlog, plan de projet | **TN1 (10 %)** |
+| Itérations — première moitié | 4 – 14 | Blocs 01 à 07 : backend complet + pipeline IA partiel | — |
+| Mi-parcours | 15 | Bilan, rapport intermédiaire, rencontre Teams | **TN2 (20 %)** |
+| Itérations — seconde moitié | 16 – 27 | Blocs 08 à 12 : IA complète + frontend React | — |
+| Finalisation | 28 – 30 | Tests, déploiement, rapport final réflexif | **TN3 (30 %) + TN4 (40 %)** |
+
+---
+
+## 4. Références
+
+- Node.js Foundation. (2024). *Node.js 20 LTS Documentation*. https://nodejs.org/docs/
+- OpenAI. (2022). *Whisper: Robust Speech Recognition via Large-Scale Weak Supervision*. https://openai.com/research/whisper
+- Radford, A., Kim, J. W., Xu, T., Brockman, G., McLeavey, C., & Sutskever, I. (2022). *Robust Speech Recognition via Large-Scale Weak Supervision*. arXiv:2212.04356.
+- Google. (2024). *Gemini API Documentation*. https://ai.google.dev/docs
+- pgvector Contributors. (2024). *pgvector: Open-source vector similarity search for Postgres*. https://github.com/pgvector/pgvector
+- Lewis, P., Perez, E., Piktus, A., Petroni, F., Karpukhin, V., Goyal, N., … Kiela, D. (2020). *Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks*. arXiv:2005.11401.
+- Fowler, M. (2018). *Patterns of Enterprise Application Architecture*. Addison-Wesley Professional.
+- Conventional Commits. (2024). *A specification for adding human and machine readable meaning to commit messages*. https://www.conventionalcommits.org/
+- GitHub. (2024). *GitHub Projects Documentation*. https://docs.github.com/en/issues/planning-and-tracking-with-projects
+
+---
+
+## 5. Définitions et acronymes
+
+| Terme | Définition |
+|---|---|
+| **RAG** | Retrieval-Augmented Generation — technique combinant la recherche sémantique dans une base de connaissances vectorielle et la génération de texte par un grand modèle de langage |
+| **LLM** | Large Language Model — modèle de langage de grande taille entraîné sur des corpus massifs (ex. Gemini, GPT-4) |
+| **JWT** | JSON Web Token — standard RFC 7519 pour la transmission sécurisée de revendications entre parties, sous forme de jeton signé numériquement |
+| **pgvector** | Extension PostgreSQL ajoutant le type de données `vector(n)` et des algorithmes d'indexation vectorielle (IVFFlat, HNSW) |
+| **HNSW** | Hierarchical Navigable Small World — algorithme de recherche approximative du plus proche voisin en espace vectoriel, offrant une complexité O(log n) |
+| **Embedding** | Représentation vectorielle dense d'un texte, capturant sa signification sémantique dans un espace de dimension fixe |
+| **Soft delete** | Stratégie de suppression logique par marquage (`is_active = false`) plutôt que suppression physique (`DELETE SQL`) — préserve l'historique |
+| **CRUD** | Create, Read, Update, Delete — quatre opérations fondamentales sur les données persistantes |
+| **API REST** | Application Programming Interface suivant les contraintes architecturales REST (Representational State Transfer) — interface stateless basée sur HTTP |
+| **ES Modules** | ECMAScript Modules — système de modules JavaScript moderne (`import`/`export`) par opposition à CommonJS (`require`) |
+| **PR** | Pull Request — demande de fusion d'une branche de fonctionnalité vers la branche principale, documentée et soumise à revue |
+| **Whisper** | Modèle de reconnaissance vocale automatique (ASR) développé par OpenAI, exécuté localement sans coût par requête |
+| **Gemini** | Famille de grands modèles de langage développés par Google DeepMind, accessibles via API avec un niveau d'utilisation gratuit |
+| **Docker Compose** | Outil d'orchestration multi-conteneurs Docker via un fichier de configuration YAML |
+| **MVP** | Minimum Viable Product — version minimale d'un produit présentant suffisamment de valeur pour être utilisée et évaluée |
+| **TN** | Travail Noté — désignation des évaluations formelles du cours INF 1430 |
+| **ASR** | Automatic Speech Recognition — reconnaissance vocale automatique, technologie permettant la transcription de la parole en texte |
+
+---
+
+*Document versionné dans le dépôt GitHub : `Documentations/rapport/plan_projet_TN1.md`*  
+*Veridian — INF 1430 — Francis Côté — ffrancote@gmail.com*
