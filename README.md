@@ -271,4 +271,4 @@ docker compose up -d
 
 ---
 
-*Veridian — INF4018 — Francis Côté*
+*Veridian — INF1430 — Francis Côté*
