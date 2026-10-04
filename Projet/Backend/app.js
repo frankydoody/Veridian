@@ -4,6 +4,7 @@ import projectRoutes from './src/routes/project.routes.js';
 import meetingRoutes from './src/routes/meeting.routes.js';
 import transcriptionRoutes from './src/routes/transcription.routes.js';
 import decisionRoutes from './src/routes/decision.routes.js';
+import memoryRoutes from './src/routes/memory.routes.js';
 import { errorMiddleware } from './src/middlewares/error.middleware.js';
 
 const app = express();
@@ -15,6 +16,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/meetings', meetingRoutes);
 app.use('/api/transcriptions', transcriptionRoutes);
 app.use('/api/decisions', decisionRoutes);
+app.use('/api/memory', memoryRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });

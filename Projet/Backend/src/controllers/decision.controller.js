@@ -6,6 +6,7 @@ import {
 import { findMeetingById } from '../models/meeting.model.js';
 import { findTranscriptionByMeeting } from '../models/transcription.model.js';
 import { extractDecisions } from '../services/ia.service.js';
+import { indexDecisionsSafely } from '../services/memory.service.js';
 
 export const extractDecisionsHandler = async (req, res, next) => {
   try {
@@ -36,10 +37,14 @@ export const extractDecisionsHandler = async (req, res, next) => {
 
     const decisions = await createDecisions(meetingId, meeting.project_id, decisionsData);
 
+    // Bloc 07 : les décisions entrent dans la mémoire vectorielle
+    const memory = await indexDecisionsSafely(meetingId, meeting.project_id, decisions);
+
     return res.status(201).json({
       message: `${decisions.length} décision(s) extraite(s) avec succès`,
       count: decisions.length,
-      decisions
+      decisions,
+      memory
     });
 
   } catch (error) {

@@ -97,19 +97,19 @@ CREATE TABLE IF NOT EXISTS decisions (
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Table: memory_chunks
-CREATE TABLE IF NOT EXISTS memory_chunks (
-  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  decision_id  UUID NOT NULL REFERENCES decisions(id) ON DELETE RESTRICT,
-  project_id   UUID NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
-  content      TEXT NOT NULL,
-  embedding    vector(1536),
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+-- -- Table: memory_chunks
+-- CREATE TABLE IF NOT EXISTS memory_chunks (
+--   id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+--   decision_id  UUID NOT NULL REFERENCES decisions(id) ON DELETE RESTRICT,
+--   project_id   UUID NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
+--   content      TEXT NOT NULL,
+--   embedding    vector(1536),
+--   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+-- );
 
--- Index HNSW pour recherche vectorielle rapide
-CREATE INDEX IF NOT EXISTS idx_memory_chunks_embedding
-  ON memory_chunks USING hnsw (embedding vector_cosine_ops);
+-- -- Index HNSW pour recherche vectorielle rapide
+-- CREATE INDEX IF NOT EXISTS idx_memory_chunks_embedding
+--   ON memory_chunks USING hnsw (embedding vector_cosine_ops);
 
 
 -- Table: alerts
@@ -139,7 +139,7 @@ CREATE INDEX IF NOT EXISTS idx_decisions_meeting_id
 CREATE INDEX IF NOT EXISTS idx_alerts_project_id
   ON alerts(project_id);
 
-CREATE INDEX IF NOT EXISTS idx_memory_chunks_project
-  ON memory_chunks(project_id);
+-- CREATE INDEX IF NOT EXISTS idx_memory_chunks_project
+--   ON memory_chunks(project_id);
 
 

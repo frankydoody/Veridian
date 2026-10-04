@@ -47,3 +47,55 @@ export const generateWithFallback = async (prompt) => {
 
   throw new Error(`Tous les modèles Gemini sont indisponibles. Dernière erreur: ${lastError.message}`);
 };
+
+// ─── Embeddings ──────────────────────────────────────────────────────────────
+
+const EMBED_MODEL = process.env.EMBED_MODEL || 'gemini-embedding-001';
+const EMBED_MAX_RETRIES = 3;
+
+// Doit correspondre à la colonne embedding vector(768) de mtg_memory_chunks
+export const EMBED_DIMENSIONS = 768;
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Transforme un texte en vecteur (embedding) de EMBED_DIMENSIONS nombres.
+ * @param {string} text
+ * @param {string} taskType — RETRIEVAL_DOCUMENT (texte à indexer) | RETRIEVAL_QUERY (question)
+ * @returns {Promise<number[]>}
+ */
+export const embedText = async (text, taskType = 'RETRIEVAL_DOCUMENT') => {
+  const model = genAI.getGenerativeModel({ model: EMBED_MODEL });
+
+  for (let attempt = 1; attempt <= EMBED_MAX_RETRIES; attempt++) {
+    try {
+      const result = await model.embedContent({
+        content: { role: 'user', parts: [{ text }] },
+        taskType,
+        outputDimensionality: EMBED_DIMENSIONS,
+      });
+
+      const values = result.embedding.values;
+
+      if (values.length < EMBED_DIMENSIONS) {
+        throw new Error(
+          `Embedding de ${values.length} dimensions reçu, ${EMBED_DIMENSIONS} attendues (modèle ${EMBED_MODEL})`
+        );
+      }
+
+      // Si le modèle renvoie plus de dimensions que demandé, on garde les premières :
+      // les embeddings Gemini sont conçus pour rester valides une fois tronqués.
+      return values.slice(0, EMBED_DIMENSIONS);
+
+    } catch (error) {
+      const isRetryable =
+        error.message?.includes('429') ||
+        error.message?.includes('503');
+
+      if (!isRetryable || attempt === EMBED_MAX_RETRIES) throw error;
+
+      // Limite de débit atteinte : on attend de plus en plus longtemps
+      await wait(attempt * 2000);
+    }
+  }
+};

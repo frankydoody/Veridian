@@ -65,26 +65,29 @@ Retourne UNIQUEMENT l'objet JSON, sans texte avant ou après.`;
 };
 
 
-export const chatWithMemory = async (question, relevantDecisions) => {
+// chunks : lignes retournées par searchSimilarChunks
+// (chunk_text, chunk_type, meeting_title, similarity)
+export const chatWithMemory = async (question, chunks) => {
 
-  const context = relevantDecisions
-    .map((d, i) => `Décision ${i + 1} (réunion du ${new Date(d.created_at).toLocaleDateString('fr-CA')}) :
-    - Décision : ${d.content}
-    - Contexte : ${d.context || 'Non précisé'}`)
+  const context = chunks
+    .map((c, i) => {
+      const label = c.chunk_type === 'decision' ? 'Décision' : 'Extrait de transcription';
+      return `Source ${i + 1} — ${label} (réunion « ${c.meeting_title} ») :\n${c.chunk_text}`;
+    })
     .join('\n\n');
 
   const prompt = `Tu es l'assistant mémoire organisationnelle de Veridian.
 Tu aides les équipes à retrouver et comprendre les décisions passées de leur projet.
 
-Voici les décisions pertinentes trouvées dans l'historique du projet :
+Voici les extraits pertinents trouvés dans l'historique du projet :
 
 ${context}
 
 Question de l'utilisateur : ${question}
 
-Réponds de façon claire et concise en te basant UNIQUEMENT sur les décisions fournies.
+Réponds de façon claire et concise en te basant UNIQUEMENT sur les extraits fournis.
 Si l'information n'est pas dans l'historique, dis-le clairement.
-Cite toujours la décision source de ta réponse.`;
+Cite toujours la source (numéro et réunion) de ta réponse.`;
 
 return await generateWithFallback(prompt);
 };
