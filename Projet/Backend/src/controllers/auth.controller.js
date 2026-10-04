@@ -81,5 +81,12 @@ export const login = async (req, res, next) => {
   }
 };
 
+export const me = (req, res) => {
+  const { password_hash, ...user } = req.user;
 
+  return res.status(200).json({
+    message: 'Utilisateur connecté',
+    user
+  });
+};
 
