@@ -4,6 +4,41 @@ Application web de mémoire organisationnelle pour réunions d'équipe.
 
 ---
 
+## Démarrage rapide
+
+Une fois l'installation ci-dessous faite une première fois, un seul script démarre tout l'environnement : la base de données, le backend et le frontend.
+
+**Linux (Ubuntu)**
+```bash
+cd ~/dev/Veridian
+chmod +x start.sh   # une seule fois
+./start.sh
+```
+
+**Windows (PowerShell)** — Docker Desktop doit déjà être démarré
+```powershell
+cd C:\Dev\Veridian
+powershell -ExecutionPolicy Bypass -File .\start.ps1
+```
+
+Le script exécute, dans l'ordre :
+
+1. la vérification des prérequis (`docker`, `node`, `npm`, fichier `Projet/Backend/.env`) ;
+2. le démarrage de la base de données (`docker compose up -d`) et l'attente de l'état `healthy` ;
+3. l'installation des dépendances (`npm install`) si elles sont absentes ;
+4. l'ouverture de deux terminaux : **Veridian - Backend** et **Veridian - Frontend** (`npm run dev` dans chacun) ;
+5. l'ouverture du navigateur une fois les deux serveurs prêts.
+
+| Service | Adresse |
+|---|---|
+| Application (frontend) | http://localhost:5173 |
+| API (backend) | http://localhost:3000 |
+| Vérification de l'API | http://localhost:3000/api/health |
+
+Pour tout arrêter : `Ctrl+C` dans chaque terminal, puis `docker compose down` à la racine du projet.
+
+---
+
 ## Ce dont tu as besoin avant de commencer
 
 | Logiciel | Windows | Linux (Ubuntu) |
@@ -181,6 +216,18 @@ docker exec -i veridian_db psql -U veridian_user -d veridian < Projet\Backend\da
 **Ubuntu**
 ```bash
 docker exec -i veridian_db psql -U veridian_user -d veridian < Projet/Backend/database/schema.sql
+```
+
+Puis crée la table de la mémoire vectorielle (même commande, avec le fichier de migration) :
+
+**Windows** (à lancer dans `cmd`, PowerShell ne gère pas `<`)
+```
+docker exec -i veridian_db psql -U veridian_user -d veridian < Projet\Backend\database\migrations\007_memory_chunks.sql
+```
+
+**Ubuntu**
+```bash
+docker exec -i veridian_db psql -U veridian_user -d veridian < Projet/Backend/database/migrations/007_memory_chunks.sql
 ```
 
 ---
