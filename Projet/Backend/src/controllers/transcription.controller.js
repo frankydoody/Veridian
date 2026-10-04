@@ -6,6 +6,7 @@ import {
 } from '../models/transcription.model.js';
 import { findMeetingById } from '../models/meeting.model.js';
 import { transcribeAudio } from '../services/whisper.service.js';
+import { indexTranscriptionSafely } from '../services/memory.service.js';
 
 export const uploadAndTranscribeHandler = async (req, res, next) => {
   try {
@@ -39,9 +40,13 @@ export const uploadAndTranscribeHandler = async (req, res, next) => {
 
     const transcription = await createTranscription(meetingId, text);
 
+    // Bloc 07 : la transcription entre dans la mémoire vectorielle
+    const memory = await indexTranscriptionSafely(meetingId, meeting.project_id, text);
+
     return res.status(201).json({
       message: 'Audio transcrit avec succès',
-      transcription
+      transcription,
+      memory
     });
 
   } catch (error) {
@@ -101,9 +106,16 @@ export const updateTranscriptionHandler = async (req, res, next) => {
       });
     }
 
+    // Bloc 07 : le texte a changé, la mémoire doit être ré-indexée
+    const meeting = await findMeetingById(transcription.meeting_id, req.user.id);
+    const memory = meeting
+      ? await indexTranscriptionSafely(meeting.id, meeting.project_id, transcription.raw_text)
+      : { indexed: false, stored: 0 };
+
     return res.status(200).json({
       message: 'Transcription mise à jour avec succès',
-      transcription
+      transcription,
+      memory
     });
 
   } catch (error) {

@@ -60,3 +60,33 @@ Authorization: Bearer {{token}}
 {
   "status": "archived"
 }
+
+### ─── Bloc 07 : mémoire vectorielle (RAG) ───
+
+### Ré-indexer la transcription d'une réunion
+POST {{baseUrl}}/memory/index/COLLE_MEETING_ID_ICI
+Authorization: Bearer {{token}}
+
+### Voir les chunks d'une réunion
+GET {{baseUrl}}/memory/chunks/COLLE_MEETING_ID_ICI
+Authorization: Bearer {{token}}
+
+### Poser une question sur tout un projet
+POST {{baseUrl}}/memory/chat
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "question": "Quelles décisions ont été prises ?",
+  "projectId": "COLLE_PROJECT_ID_ICI"
+}
+
+### Poser une question sur une seule réunion
+POST {{baseUrl}}/memory/chat
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "question": "Qui est responsable de quoi ?",
+  "meetingId": "COLLE_MEETING_ID_ICI"
+}
