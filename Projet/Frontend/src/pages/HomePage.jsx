@@ -6,7 +6,6 @@ function HomePage() {
   return (
     <>
       <h1>Bonjour {user.name}</h1>
-      <button onClick={logout}>Se déconnecter</button>
     </>
   );
 }

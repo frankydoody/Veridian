@@ -1,0 +1,32 @@
+{/* Logo Veridian */}
+<div style={{
+  width: '32px', height: '32px', borderRadius: '8px',
+  background: 'linear-gradient(135deg, #6366F1, #A855F7)',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  flexShrink: 0,
+}}>
+  <svg width="19" height="19" viewBox="0 0 32 32" fill="none">
+    <defs>
+      <linearGradient id="wave-grad" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%"   stopColor="#FF3CAC"/>
+        <stop offset="20%"  stopColor="#FF6B6B"/>
+        <stop offset="40%"  stopColor="#FFD93D"/>
+        <stop offset="60%"  stopColor="#6BCB77"/>
+        <stop offset="80%"  stopColor="#4D96FF"/>
+        <stop offset="100%" stopColor="#C77DFF"/>
+      </linearGradient>
+      <linearGradient id="dot-grad" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#38BDF8"/>
+        <stop offset="100%" stopColor="#C77DFF"/>
+      </linearGradient>
+    </defs>
+    <path d="M5 5 L16 23 L27 5" stroke="white" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M1 14 Q4 10 7 14 Q10 18 13 14 Q16 10 19 14 Q22 18 25 14 Q28 10 31 14"
+      stroke="url(#wave-grad)" strokeWidth="1.6" strokeLinecap="round" fill="none" opacity="0.9"/>
+    <circle cx="16" cy="23" r="2.8" fill="url(#dot-grad)"/>
+    <circle cx="16" cy="23" r="5" fill="url(#dot-grad)" opacity="0.18"/>
+    <line x1="16" y1="17" x2="16" y2="14.5" stroke="url(#dot-grad)" strokeWidth="1.3" strokeLinecap="round" opacity="0.7"/>
+    <line x1="19.5" y1="19" x2="21.2" y2="17.5" stroke="url(#dot-grad)" strokeWidth="1.3" strokeLinecap="round" opacity="0.7"/>
+    <line x1="12.5" y1="19" x2="10.8" y2="17.5" stroke="url(#dot-grad)" strokeWidth="1.3" strokeLinecap="round" opacity="0.7"/>
+  </svg>
+</div>
