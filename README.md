@@ -1,320 +1,356 @@
 # Veridian
 
-Application web de mémoire organisationnelle pour réunions d'équipe.
+Application web de mémoire organisationnelle alimentée par l'IA — INF1430, Francis Côté
 
 ---
 
-## Démarrage rapide
+## Stack technologique
 
-Une fois l'installation ci-dessous faite une première fois, un seul script démarre tout l'environnement : la base de données, le backend et le frontend.
-
-**Linux (Ubuntu)**
-```bash
-cd ~/dev/Veridian
-chmod +x start.sh   # une seule fois
-./start.sh
-```
-
-**Windows (PowerShell)** — Docker Desktop doit déjà être démarré
-```powershell
-cd C:\Dev\Veridian
-powershell -ExecutionPolicy Bypass -File .\start.ps1
-```
-
-Le script exécute, dans l'ordre :
-
-1. la vérification des prérequis (`docker`, `node`, `npm`, fichier `Projet/Backend/.env`) ;
-2. le démarrage de la base de données (`docker compose up -d`) et l'attente de l'état `healthy` ;
-3. l'installation des dépendances (`npm install`) si elles sont absentes ;
-4. l'ouverture de deux terminaux : **Veridian - Backend** et **Veridian - Frontend** (`npm run dev` dans chacun) ;
-5. l'ouverture du navigateur une fois les deux serveurs prêts.
-
-| Service | Adresse |
+| Couche | Technologie |
 |---|---|
-| Application (frontend) | http://localhost:5173 |
-| API (backend) | http://localhost:3000 |
-| Vérification de l'API | http://localhost:3000/api/health |
-
-Pour tout arrêter : `Ctrl+C` dans chaque terminal, puis `docker compose down` à la racine du projet.
+| Backend | Node.js 20 / Express 5 |
+| Base de données | PostgreSQL 16 + extension pgvector |
+| Conteneurisation | Docker Compose |
+| Auth | JWT + bcryptjs |
+| Transcription | Whisper (local, modèle *small*) |
+| LLM | Gemini 1.5 Flash (Google AI) |
+| Frontend | React 19 / Vite / Tailwind CSS |
+| Tests | Jest + dotenv-cli |
 
 ---
 
-## Ce dont tu as besoin avant de commencer
+## Structure du dépôt
 
-| Logiciel | Windows | Linux (Ubuntu) |
+```
+Veridian/
+├── start.ps1              # Démarrage automatisé Windows
+├── start.sh               # Démarrage automatisé Ubuntu
+├── docker-compose.yml     # PostgreSQL 16 + pgvector
+├── Projet/
+│   ├── Backend/
+│   │   ├── app.js         # Config Express
+│   │   ├── server.js      # Point d'entrée HTTP
+│   │   ├── package.json
+│   │   ├── .env           # Variables (non versionné)
+│   │   ├── database/
+│   │   │   ├── schema.sql         # 9 tables
+│   │   │   └── migrations/
+│   │   └── src/
+│   │       ├── config/    # db.js, gemini.js
+│   │       ├── controllers/
+│   │       ├── middlewares/
+│   │       ├── models/
+│   │       ├── routes/
+│   │       ├── services/  # whisper, ia, RAG
+│   │       └── utils/     # jwt, hash
+│   └── Frontend/
+│       ├── index.html
+│       ├── package.json
+│       └── src/
+│           ├── api/       # client.js
+│           ├── contexts/  # AuthContext
+│           ├── components/
+│           ├── pages/
+│           └── utils/
+└── Documentations/
+    ├── TN1_MiseEnPlace.tex
+    ├── TN2_RapportMiParcours.tex
+    └── references.bib
+```
+
+---
+
+## Prérequis
+
+| Logiciel | Windows | Ubuntu |
 |---|---|---|
-| Git | [Télécharger](https://git-scm.com/download/win) | `sudo apt install git` |
-| Node.js 20 | [Télécharger nvm-windows](https://github.com/coreybutler/nvm-windows/releases) | Via nvm (voir ci-dessous) |
-| Docker Desktop | [Télécharger](https://www.docker.com/products/docker-desktop/) | Via apt (voir ci-dessous) |
-| Python 3 | [Télécharger](https://www.python.org/downloads/) | `sudo apt install python3-pip` |
-| ffmpeg | [Télécharger](https://www.gyan.dev/ffmpeg/builds/) | `sudo apt install ffmpeg` |
-| VS Code | [Télécharger](https://code.visualstudio.com/) | [Télécharger](https://code.visualstudio.com/) |
+| Git | git-scm.com | `sudo apt install git` |
+| Node.js 20 | nvm-windows | Via nvm |
+| Docker Desktop | docker.com | Via apt |
+| Python 3 | python.org | `sudo apt install python3-pip` |
+| ffmpeg | gyan.dev | `sudo apt install ffmpeg` |
+| Whisper | `pip install openai-whisper` | `pip3 install openai-whisper --break-system-packages` |
 
----
+### Node.js 20 via nvm
 
-## Installation étape par étape
+**Windows** — installer nvm-setup.exe en administrateur :
 
-### 1. Git
-
-**Windows**
-1. Télécharge et installe depuis https://git-scm.com/download/win
-2. Accepte toutes les options par défaut
-3. Ouvre PowerShell et configure :
-```powershell
-git config --global user.name "Ton Nom"
-git config --global user.email "ton@email.com"
-```
-
-**Ubuntu**
-```bash
-sudo apt update && sudo apt install -y git
-git config --global user.name "Ton Nom"
-git config --global user.email "ton@email.com"
-```
-
----
-
-### 2. Node.js 20
-
-**Windows**
-1. Télécharge `nvm-setup.exe` depuis https://github.com/coreybutler/nvm-windows/releases
-2. Installe en administrateur
-3. Ouvre PowerShell en administrateur et tape :
 ```powershell
 nvm install 20
 nvm use 20
-node --version  # doit afficher v20.x.x
+node --version   # v20.x.x
 ```
 
-**Ubuntu**
+**Ubuntu :**
+
 ```bash
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 source ~/.bashrc
-nvm install 20
-nvm use 20
-nvm alias default 20
-node --version  # doit afficher v20.x.x
+nvm install 20 && nvm use 20 && nvm alias default 20
 ```
 
----
+### Docker — Ubuntu
 
-### 3. Docker
-
-**Windows**
-1. Télécharge depuis https://www.docker.com/products/docker-desktop/
-2. Installe et accepte l'activation de WSL 2 si demandé
-3. Redémarre l'ordinateur
-4. Lance Docker Desktop (icône dans la barre des tâches doit être verte)
-5. Vérifie :
-```powershell
-docker --version
-```
-
-**Ubuntu**
 ```bash
 sudo apt install -y ca-certificates curl gnupg
 sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
-  sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-echo "deb [arch=$(dpkg --print-architecture) \
-  signed-by=/etc/apt/keyrings/docker.gpg] \
-  https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-sudo usermod -aG docker $USER
-newgrp docker
-docker --version  # vérification
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update && sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+sudo usermod -aG docker $USER && newgrp docker
 ```
+
+### ffmpeg — Windows
+
+1. Télécharger `ffmpeg-release-essentials.zip` sur gyan.dev
+2. Extraire dans `C:\ffmpeg`
+3. Ajouter `C:\ffmpeg\bin` au PATH système
+
+### Clé API Gemini (gratuit)
+
+Aller sur aistudio.google.com/app/apikey → Create API Key → copier la clé
 
 ---
 
-### 4. Python + Whisper + ffmpeg
+## Installation et démarrage
 
-**Windows**
-1. Télécharge Python depuis https://www.python.org/downloads/
-   > ⚠️ Coche **"Add Python to PATH"** pendant l'installation
-2. Télécharge ffmpeg depuis https://www.gyan.dev/ffmpeg/builds/ (prendre `ffmpeg-release-essentials.zip`)
-3. Extrais le zip dans `C:\ffmpeg`
-4. Ajoute `C:\ffmpeg\bin` au PATH Windows :
-   - Cherche **"Variables d'environnement"** dans le menu Démarrer
-   - Clique **Variables d'environnement**
-   - Dans **Variables système**, sélectionne **Path** → **Modifier**
-   - Ajoute `C:\ffmpeg\bin`
-   - Clique OK partout et redémarre PowerShell
-5. Installe Whisper :
+### 1. Cloner le projet
+
+**Windows :**
+
 ```powershell
-pip install openai-whisper
-whisper --help  # vérification
-```
-
-**Ubuntu**
-```bash
-sudo apt install -y python3-pip ffmpeg
-pip3 install openai-whisper --break-system-packages
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-whisper --help  # vérification
-```
-
----
-
-### 5. Clé API Gemini (gratuit)
-
-1. Va sur https://aistudio.google.com/app/apikey
-2. Connecte-toi avec un compte Google
-3. Clique **Create API Key**
-4. Copie la clé — tu en auras besoin plus tard
-
----
-
-## Démarrer Veridian pour la première fois
-
-### Étape 1 — Cloner le projet
-
-**Windows (PowerShell)**
-```powershell
-cd C:\
-mkdir Dev
-cd Dev
+cd C:\Dev
 git clone https://github.com/frankydoody/Veridian.git
 cd Veridian
 ```
 
-**Ubuntu**
+**Ubuntu :**
+
 ```bash
-mkdir -p ~/dev
 cd ~/dev
 git clone https://github.com/frankydoody/Veridian.git
 cd Veridian
 ```
 
----
+### 2. Créer le fichier .env
 
-### Étape 2 — Démarrer la base de données
+Créer `Projet/Backend/.env` :
 
-```bash
-docker compose up -d
-```
-
-Attends 20 secondes puis vérifie :
-```bash
-docker compose ps
-# Tu dois voir "veridian_db" avec le statut "healthy"
-```
-
----
-
-### Étape 3 — Créer les tables de la base de données
-
-**Windows**
-```powershell
-docker exec -i veridian_db psql -U veridian_user -d veridian < Projet\Backend\database\schema.sql
-```
-
-**Ubuntu**
-```bash
-docker exec -i veridian_db psql -U veridian_user -d veridian < Projet/Backend/database/schema.sql
-```
-
-Puis crée la table de la mémoire vectorielle (même commande, avec le fichier de migration) :
-
-**Windows** (à lancer dans `cmd`, PowerShell ne gère pas `<`)
-```
-docker exec -i veridian_db psql -U veridian_user -d veridian < Projet\Backend\database\migrations\007_memory_chunks.sql
-```
-
-**Ubuntu**
-```bash
-docker exec -i veridian_db psql -U veridian_user -d veridian < Projet/Backend/database/migrations/007_memory_chunks.sql
-```
-
----
-
-### Étape 4 — Installer les dépendances
-
-**Windows**
-```powershell
-cd Projet\Backend
-npm install
-```
-
-**Ubuntu**
-```bash
-cd Projet/Backend
-npm install
-```
-
----
-
-### Étape 5 — Créer le fichier de configuration
-
-Crée un fichier nommé `.env` dans le dossier `Projet/Backend/` et copie ce contenu :
-
-```
+```env
 PORT=3000
-
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=veridian
 DB_USER=veridian_user
 DB_PASSWORD=veridian_pass
-
-JWT_SECRET=change_cette_valeur_par_nimporte_quelle_longue_phrase
+JWT_SECRET=remplacer_par_une_longue_phrase_secrete
 JWT_EXPIRES_IN=7d
-
 AI_PROVIDER=gemini
 AI_MODEL=gemini-1.5-flash
-GEMINI_API_KEY=colle_ta_cle_gemini_ici
-
+GEMINI_API_KEY=coller_la_cle_gemini_ici
 WHISPER_MODE=local
 WHISPER_MODEL=small
 WHISPER_LANGUAGE=fr
 ```
 
-> ⚠️ Remplace `colle_ta_cle_gemini_ici` par ta vraie clé Gemini
+### 3. Démarrage automatique (recommandé)
 
----
+**Windows** — Docker Desktop doit être démarré manuellement d'abord :
 
-### Étape 6 — Lancer l'application
+```powershell
+powershell -ExecutionPolicy Bypass -File .\start.ps1
+```
+
+**Ubuntu :**
 
 ```bash
-npm run dev
+chmod +x start.sh   # une seule fois
+./start.sh
 ```
 
-Tu dois voir :
-```
-✅ Connexion PostgreSQL établie
-🚀 Serveur Veridian démarré sur http://localhost:3000
+Le script exécute dans l'ordre :
+
+1. Vérification des prérequis (`docker`, `node`, `npm`, fichier `.env`)
+2. Démarrage de la DB et attente du statut `healthy`
+3. Installation des dépendances npm si absentes
+4. Ouverture des terminaux **Veridian - Backend** et **Veridian - Frontend**
+5. Ouverture du navigateur
+
+### Services disponibles
+
+| Service | Adresse |
+|---|---|
+| Frontend | http://localhost:5173 |
+| API | http://localhost:3000 |
+| Health check | http://localhost:3000/api/health |
+
+### Démarrage manuel
+
+```bash
+# Démarrer la DB
+docker compose up -d
+docker compose ps   # attendre: healthy
+
+# Appliquer le schéma (première fois)
+# Ubuntu
+docker exec -i veridian_db psql -U veridian_user -d veridian < Projet/Backend/database/schema.sql
+# Windows (cmd, PAS PowerShell)
+docker exec -i veridian_db psql -U veridian_user -d veridian < Projet\Backend\database\schema.sql
+
+# Backend
+cd Projet/Backend && npm install && npm run dev
+
+# Frontend (autre terminal)
+cd Projet/Frontend && npm install && npm run dev
 ```
 
-Ouvre ton navigateur et va à :
-```
-http://localhost:3000/api/health
-```
+> ⚠️ PowerShell ne supporte pas `<` pour `docker exec`. Utiliser `cmd` ou : `Get-Content schema.sql | docker exec -i veridian_db psql -U veridian_user -d veridian`
 
-Tu dois voir : `{"status":"ok"}`
+> ⚠️ Docker Desktop (Windows) ne démarre pas automatiquement au boot — le lancer manuellement avant `start.ps1`.
 
-**Félicitations — Veridian fonctionne !** 🎉
+### Arrêt
+
+```bash
+# Ctrl+C dans chaque terminal, puis :
+docker compose down
+```
 
 ---
 
-## En cas de problème
+## Plan de développement — 18 blocs
 
-**Docker ne démarre pas (Windows)**
-→ Ouvre Docker Desktop manuellement depuis le menu Démarrer et attends que l'icône soit verte
+Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
+
+### Backend
+
+| Bloc | Titre | Statut | Description |
+|---|---|---|---|
+| 01 | Infrastructure et Configuration | ✅ Done | Dépôt, Docker, schéma SQL, scripts de démarrage |
+| 02 | Authentification JWT | ✅ Done | Inscription, connexion, `authMiddleware`, token JWT |
+| 03 | Gestion des Projets CRUD | ✅ Done | Endpoints `/api/projects`, soft delete |
+| 04 | Gestion des Réunions CRUD | ✅ Done | Endpoints réunions, upload Multer, audio persisté |
+| 05 | Transcription Audio (Whisper) | ✅ Done | Pipeline Whisper local, transcription en base |
+| 06 | Extraction des décisions (Gemini) | ✅ Done | Appel Gemini 1.5 Flash, décisions extraites |
+| 07 | Mémoire vectorielle (RAG) | ✅ Done | Embeddings pgvector, recherche sémantique |
+| 08 | Détection contradictions & Alertes | Todo | Comparaison décisions, alertes persistées |
+| 09 | Chat mémoire & Export PDF | Todo | Interface chat RAG, export PDF par projet |
+
+### Frontend
+
+| Bloc | Titre | Statut | Description |
+|---|---|---|---|
+| 10 | Frontend Auth | ✅ Done | Pages connexion/inscription, token JWT côté client |
+| 11 | Frontend Dashboard | ✅ Done | Pages Projets, Réunions, Tâches, Mémoire (statique) |
+| 12 | Frontend API Connect | Todo | Connexion à l'API réelle, données dynamiques |
+| 13 | Frontend Formulaires | Todo | Formulaires création projet/réunion/tâche + validation |
+| 14 | Frontend Réunion Détaillée | Todo | Lecteur audio, transcription, décisions liées |
+| 15 | Frontend Décisions & Contradictions | Todo | Vue agrégée, alertes en temps réel |
+| 16 | Frontend Calendrier de projet | Todo | Vue calendrier mensuel, navigation |
+
+### Qualité et livraison
+
+| Bloc | Titre | Statut | Description |
+|---|---|---|---|
+| 17 | Tests d'intégration & Qualité | Todo | Suite Jest : auth, transcription, mémoire RAG |
+| 18 | Déploiement & Documentation finale | Todo | Guide déploiement, variables documentées, TN4 |
+
+---
+
+## Architecture backend
+
+### Schéma de base de données
+
+9 tables, 17 index. Préfixes : `core_` (partagé), `mtg_` (réunions).
+
+| Table | Rôle |
+|---|---|
+| `core_users` | Utilisateurs, auth JWT |
+| `core_projects` | Projets, soft delete (`is_active`) |
+| `core_project_members` | Membres par projet |
+| `mtg_meetings` | Réunions liées à un projet |
+| `mtg_participants` | Participants à une réunion |
+| `mtg_transcriptions` | Texte brut transcrit par Whisper |
+| `mtg_decisions` | Décisions extraites par Gemini |
+| `mtg_memory_chunks` | Vecteurs pgvector (mémoire RAG) |
+| `mtg_alerts` | Alertes de contradiction |
+
+### Règles architecturales
+
+- **Soft delete** — flag `is_active`, jamais de `DELETE` SQL applicatif
+- **Transactions dans le modèle** — `withTransaction` dans `models/` seulement
+- **Séparation des couches** — model : SQL ; controller : logique métier ; routes : HTTP
+- **IA agnostique** — `ia.service.js`, configurable via `AI_PROVIDER` + `AI_MODEL`
+- **dotenv v16 épinglé** — v17 casse la connexion PostgreSQL sur Windows
+
+### Fichiers clés
+
+| Fichier | Rôle |
+|---|---|
+| `src/config/db.js` | Pool de connexions PostgreSQL |
+| `src/config/gemini.js` | Configuration Gemini AI |
+| `src/services/whisper.service.js` | Pipeline de transcription audio |
+| `src/services/ia.service.js` | `extractDecisions`, `detectContradiction`, `chatWithMemory` |
+| `src/utils/jwt.utils.js` | Génération et vérification des tokens JWT |
+| `src/utils/hash.utils.js` | Hachage bcrypt |
+
+---
+
+## Workflow Git — règles sans exception
+
+1. Créer `bloc-XX` depuis `main` au démarrage du bloc
+2. Développer jusqu'à un état fonctionnel et testable
+3. Ouvrir une *pull request* vers `main`
+4. Fusionner par **merge commit uniquement** : `gh pr merge --merge` — jamais `--squash`, `--rebase`, ni `--delete-branch`
+5. La branche **n'est jamais supprimée** après fusion
+6. `main` reste déployable à tout moment
+
+### État des branches
+
+| Branches | Statut |
+|---|---|
+| `main` | Active — base de production |
+| `bloc-01` à `bloc-07`, `bloc-10`, `bloc-11` | Fusionnées |
+| `bloc-08`, `bloc-09`, `bloc-12` à `bloc-18` | À faire |
+
+---
+
+## Variables d'environnement
+
+| Variable | Défaut | Description |
+|---|---|---|
+| `PORT` | `3000` | Port Express |
+| `DB_HOST` | `localhost` | Hôte PostgreSQL |
+| `DB_PORT` | `5432` | Port PostgreSQL |
+| `DB_NAME` | `veridian` | Nom de la base |
+| `DB_USER` | `veridian_user` | Utilisateur PostgreSQL |
+| `DB_PASSWORD` | `veridian_pass` | Mot de passe PostgreSQL |
+| `JWT_SECRET` | — | Phrase secrète (obligatoire) |
+| `JWT_EXPIRES_IN` | `7d` | Durée de vie du token |
+| `AI_PROVIDER` | `gemini` | Fournisseur IA |
+| `AI_MODEL` | `gemini-1.5-flash` | Modèle IA |
+| `GEMINI_API_KEY` | — | Clé Google AI Studio (obligatoire) |
+| `WHISPER_MODE` | `local` | Mode Whisper |
+| `WHISPER_MODEL` | `small` | Modèle Whisper (`tiny`/`small`/`medium`) |
+| `WHISPER_LANGUAGE` | `fr` | Langue de transcription |
+
+---
+
+## Résolution de problèmes
+
+**Docker Desktop ne démarre pas (Windows)** → Lancer manuellement depuis le menu Démarrer, attendre l'icône verte
+
+**PowerShell : erreur `<` avec docker exec** → Utiliser `cmd` ou : `Get-Content schema.sql | docker exec -i veridian_db psql -U veridian_user -d veridian`
 
 **Erreur de connexion PostgreSQL**
+
 ```bash
-# Réinitialiser complètement la base de données
-docker compose down -v
-docker compose up -d
-# Attendre 20 secondes puis refaire l'étape 3
+docker compose down -v && docker compose up -d
+# Attendre 20s puis réappliquer le schéma
 ```
 
-**Port 3000 déjà utilisé**
-→ Change `PORT=3000` par `PORT=3001` dans le fichier `.env`
+**Port 3000 déjà utilisé** → `PORT=3001` dans `.env`
+
+**Whisper introuvable (Ubuntu)** → `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc`
 
 ---
 

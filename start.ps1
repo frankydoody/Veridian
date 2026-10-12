@@ -4,14 +4,13 @@
 # Usage :   powershell -ExecutionPolicy Bypass -File .\start.ps1
 #
 # Ce que fait le script, dans l'ordre :
-#   1. Verifie les prerequis (docker, node, npm, fichier .env)
-#   2. Demarre la base de donnees PostgreSQL (Docker) et attend qu'elle soit prete
-#   3. Installe les dependances npm si elles sont absentes
-#   4. Ouvre un terminal pour le backend et un terminal pour le frontend
-#   5. Attend que les deux serveurs repondent, puis ouvre le navigateur
-#
-# Note : les messages sont ecrits sans accents, parce que Windows PowerShell 5
-# lit mal les accents d'un fichier .ps1 enregistre en UTF-8 sans BOM.
+#   1. Verifie node et npm
+#   2. Demarre Docker Desktop si necessaire et attend qu il soit pret
+#   3. Demarre PostgreSQL via docker compose
+#   4. Installe les dependances npm si absentes (premier clone)
+#   5. Lance la migration de la BD si elle est vide (premier clone)
+#   6. Ouvre backend et frontend dans deux fenetres separees
+#   7. Attend les serveurs et ouvre le navigateur
 # =============================================================================
 
 $Root        = $PSScriptRoot
@@ -21,131 +20,222 @@ $DbContainer = 'veridian_db'
 $ApiUrl      = 'http://localhost:3000/api/health'
 $AppUrl      = 'http://localhost:5173'
 
-function Info($Message) { Write-Host "[Veridian] $Message" -ForegroundColor Cyan }
-function Ok($Message)   { Write-Host "[Veridian] $Message" -ForegroundColor Green }
-function Warn($Message) { Write-Host "[Veridian] $Message" -ForegroundColor Yellow }
-function Fail($Message) { Write-Host "[Veridian] $Message" -ForegroundColor Red; exit 1 }
+# Chemins courants de Docker Desktop sur Windows
+$DockerPaths = @(
+  "$env:ProgramFiles\Docker\Docker\Docker Desktop.exe",
+  "$env:LOCALAPPDATA\Docker\Docker Desktop.exe"
+)
 
-# Retourne $true si l'URL repond
-function Test-Url($Url) {
+function Info($msg) { Write-Host "[Veridian] $msg" -ForegroundColor Cyan }
+function Ok($msg)   { Write-Host "[Veridian] $msg" -ForegroundColor Green }
+function Warn($msg) { Write-Host "[Veridian] $msg" -ForegroundColor Yellow }
+function Fail($msg) { Write-Host "[Veridian] ERREUR : $msg" -ForegroundColor Red; exit 1 }
+
+function Test-Url($url) {
   try {
-    Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 2 | Out-Null
+    Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 2 | Out-Null
     return $true
-  } catch {
-    return $false
-  }
+  } catch { return $false }
 }
 
-# Retourne $true des que l'URL repond (essais espaces d'une seconde)
-function Wait-ForUrl($Url, $Tries) {
-  for ($i = 0; $i -lt $Tries; $i++) {
-    if (Test-Url $Url) { return $true }
+function Wait-ForUrl($url, $tries) {
+  for ($i = 0; $i -lt $tries; $i++) {
+    if (Test-Url $url) { return $true }
     Start-Sleep -Seconds 1
   }
   return $false
 }
 
-# Ouvre une nouvelle fenetre PowerShell, s'y place dans un dossier et lance une commande.
-# La commande est encodee en Base64 pour eviter les problemes de guillemets et d'espaces.
-function Open-Terminal($Title, $Dir, $Command) {
-  $inner   = "`$Host.UI.RawUI.WindowTitle = '$Title'; Set-Location -LiteralPath '$Dir'; $Command"
+function Open-Terminal($title, $dir, $command) {
+  $inner   = "`$Host.UI.RawUI.WindowTitle = '$title'; Set-Location -LiteralPath '$dir'; $command"
   $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($inner))
   Start-Process powershell -ArgumentList '-NoExit', '-EncodedCommand', $encoded
 }
 
-# --- 1. Prerequis -------------------------------------------------------------
+# =============================================================================
+# 1. Prerequis de base
+# =============================================================================
 
 Info 'Verification des prerequis...'
 
-foreach ($cmd in 'docker', 'node', 'npm') {
+foreach ($cmd in 'node', 'npm') {
   if (-not (Get-Command $cmd -ErrorAction SilentlyContinue)) {
-    Fail "Commande introuvable : $cmd"
+    Fail "$cmd est introuvable. Installe Node.js depuis https://nodejs.org"
   }
 }
 
-docker info 2>$null | Out-Null
-if ($LASTEXITCODE -ne 0) {
-  Fail 'Docker ne repond pas. Demarre Docker Desktop, attends qu il soit pret, puis relance le script.'
+$nodeVersion = (node --version) -replace 'v', ''
+$nodeMajor   = [int]($nodeVersion.Split('.')[0])
+if ($nodeMajor -lt 18) {
+  Fail "Node.js $nodeVersion detecte. Veridian requiert Node.js 18 ou plus."
 }
+Ok "Node.js v$nodeVersion"
 
 if (-not (Test-Path (Join-Path $Backend '.env'))) {
-  Fail "Fichier manquant : $Backend\.env"
+  Warn "Fichier $Backend\.env manquant."
+  Warn "Copie $Backend\.env.example vers $Backend\.env et remplis les valeurs."
+  Fail "Fichier .env absent — impossible de demarrer."
 }
 
 if (-not (Get-Command whisper -ErrorAction SilentlyContinue)) {
-  Warn 'Commande "whisper" introuvable : la transcription audio ne fonctionnera pas.'
+  Warn '"whisper" introuvable : la transcription audio ne fonctionnera pas.'
+  Warn 'Pour installer : pip install openai-whisper'
 }
 
-# --- 2. Base de donnees -------------------------------------------------------
+# =============================================================================
+# 2. Docker Desktop
+# =============================================================================
+
+Info 'Verification de Docker...'
+
+# Teste si Docker repond deja
+docker info 2>$null | Out-Null
+if ($LASTEXITCODE -ne 0) {
+  Info 'Docker ne repond pas. Tentative de demarrage de Docker Desktop...'
+
+  $dockerExe = $DockerPaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+  if (-not $dockerExe) {
+    Fail "Docker Desktop est introuvable. Installe-le depuis https://www.docker.com/products/docker-desktop"
+  }
+
+  Start-Process $dockerExe
+  Info 'Docker Desktop demarre. Attente (peut prendre 30-60 secondes)...'
+
+  $dockerReady = $false
+  for ($i = 0; $i -lt 60; $i++) {
+    Start-Sleep -Seconds 2
+    docker info 2>$null | Out-Null
+    if ($LASTEXITCODE -eq 0) { $dockerReady = $true; break }
+    if ($i % 5 -eq 0) { Info "  ...attente de Docker ($($i*2)s)" }
+  }
+
+  if (-not $dockerReady) {
+    Fail "Docker Desktop ne repond toujours pas apres 120s. Lance-le manuellement et relance le script."
+  }
+}
+
+Ok 'Docker pret.'
+
+# =============================================================================
+# 3. Base de donnees PostgreSQL
+# =============================================================================
 
 Info 'Demarrage de la base de donnees...'
 Push-Location $Root
 docker compose up -d
-$composeExit = $LASTEXITCODE
+$exitCode = $LASTEXITCODE
 Pop-Location
-if ($composeExit -ne 0) { Fail 'Echec de "docker compose up -d".' }
 
-Info 'Attente de la base de donnees...'
-$status = 'absent'
+if ($exitCode -ne 0) { Fail 'Echec de "docker compose up -d". Voir les logs ci-dessus.' }
+
+Info 'Attente que PostgreSQL soit pret...'
+$dbStatus = 'absent'
 for ($i = 0; $i -lt 30; $i++) {
-  $status = docker inspect -f '{{.State.Health.Status}}' $DbContainer 2>$null
-  if ($status -eq 'healthy') { break }
+  $dbStatus = docker inspect -f '{{.State.Health.Status}}' $DbContainer 2>$null
+  if ($dbStatus -eq 'healthy') { break }
   Start-Sleep -Seconds 2
 }
 
-if ($status -ne 'healthy') {
-  Fail "La base de donnees n'est pas prete (etat : $status). Voir : docker compose logs postgres"
+if ($dbStatus -ne 'healthy') {
+  Fail "PostgreSQL pas pret (etat : $dbStatus). Voir les logs : docker compose logs postgres"
 }
 Ok 'Base de donnees prete.'
 
-# --- 3. Dependances npm -------------------------------------------------------
+# =============================================================================
+# 4. Dependances npm (premier clone ou apres git pull)
+# =============================================================================
 
 if (-not (Test-Path (Join-Path $Backend 'node_modules'))) {
-  Info 'Installation des dependances du backend...'
+  Info 'Installation des dependances backend (premier demarrage)...'
   Push-Location $Backend
   npm install
+  if ($LASTEXITCODE -ne 0) { Fail 'npm install a echoue dans Backend.' }
   Pop-Location
+  Ok 'Dependances backend installees.'
 }
 
 if (-not (Test-Path (Join-Path $Frontend 'node_modules'))) {
-  Info 'Installation des dependances du frontend...'
+  Info 'Installation des dependances frontend (premier demarrage)...'
   Push-Location $Frontend
   npm install
+  if ($LASTEXITCODE -ne 0) { Fail 'npm install a echoue dans Frontend.' }
   Pop-Location
+  Ok 'Dependances frontend installees.'
 }
 
-# --- 4. Terminaux backend et frontend -----------------------------------------
+# =============================================================================
+# 5. Migration de la base de donnees (premier clone seulement)
+# =============================================================================
+
+# Verifie si la table "users" existe — si non, c'est un premier clone
+$tableExists = docker exec $DbContainer psql -U veridian_user -d veridian -tAc `
+  "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='users');" 2>$null
+
+if ($tableExists -eq 'f' -or $tableExists -eq '') {
+  Info 'Base de donnees vide detectee. Application des migrations...'
+
+  $MigrationsDir = Join-Path $Backend 'database\migrations'
+  if (Test-Path $MigrationsDir) {
+    $sqlFiles = Get-ChildItem -Path $MigrationsDir -Filter '*.sql' | Sort-Object Name
+    foreach ($file in $sqlFiles) {
+      Info "  Migration : $($file.Name)"
+      Get-Content $file.FullName -Raw | docker exec -i $DbContainer psql -U veridian_user -d veridian
+    }
+    Ok 'Migrations appliquees.'
+  } else {
+    Warn "Dossier migrations introuvable : $MigrationsDir"
+    Warn 'Applique tes migrations manuellement si necessaire.'
+  }
+} else {
+  Ok 'Base de donnees deja initialisee.'
+}
+
+# =============================================================================
+# 6. Backend et Frontend
+# =============================================================================
 
 if (Test-Url $ApiUrl) {
-  Warn 'Le backend tourne deja : aucune nouvelle fenetre ouverte.'
+  Warn 'Backend deja demarre : aucune nouvelle fenetre ouverte.'
 } else {
   Info 'Ouverture du terminal Backend...'
   Open-Terminal 'Veridian - Backend' $Backend 'npm run dev'
 }
 
 if (Test-Url $AppUrl) {
-  Warn 'Le frontend tourne deja : aucune nouvelle fenetre ouverte.'
+  Warn 'Frontend deja demarre : aucune nouvelle fenetre ouverte.'
 } else {
   Info 'Ouverture du terminal Frontend...'
   Open-Terminal 'Veridian - Frontend' $Frontend 'npm run dev'
 }
 
-# --- 5. Verification finale ---------------------------------------------------
+# =============================================================================
+# 7. Attente et ouverture du navigateur
+# =============================================================================
 
 Info 'Attente des serveurs...'
 
 if (Wait-ForUrl $ApiUrl 30) {
   Ok 'Backend pret  : http://localhost:3000'
 } else {
-  Warn 'Le backend ne repond pas : regarde la fenetre "Veridian - Backend".'
+  Warn 'Le backend ne repond pas encore. Regarde la fenetre "Veridian - Backend".'
 }
 
 if (Wait-ForUrl $AppUrl 30) {
   Ok "Frontend pret : $AppUrl"
   Start-Process $AppUrl
 } else {
-  Warn 'Le frontend ne repond pas sur le port 5173 : regarde l adresse affichee dans la fenetre "Veridian - Frontend".'
+  Warn 'Le frontend ne repond pas sur le port 5173. Regarde la fenetre "Veridian - Frontend".'
 }
 
 Write-Host ''
-Info 'Pour tout arreter : Ctrl+C dans chaque fenetre, puis "docker compose down" a la racine.'
+Ok '============================================================'
+Ok '  Veridian est pret !'
+Ok '  Frontend : http://localhost:5173'
+Ok '  Backend  : http://localhost:3000'
+Ok '  BD       : localhost:5432 (via Docker)'
+Ok '============================================================'
+Write-Host ''
+Info 'Pour tout arreter : Ctrl+C dans chaque fenetre, puis :'
+Info '  docker compose down    (arrete PostgreSQL)'
+Info '  docker compose down -v (arrete + supprime les donnees)'

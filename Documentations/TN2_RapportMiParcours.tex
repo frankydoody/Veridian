@@ -1,0 +1,499 @@
+% ============================================================
+%  TN2 — Rapport intermédiaire mi-parcours — Veridian
+%  INF1430 — Projet de fin d'études
+%  TÉLUQ
+% ============================================================
+\documentclass[12pt, a4paper]{article}
+
+% ── Encodage et langue ──────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+
+% ── Mise en page ────────────────────────────────────────────
+\usepackage[top=2.5cm, bottom=2.5cm, left=3cm, right=2.5cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+
+% ── Typographie ─────────────────────────────────────────────
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% ── Liens et PDF ────────────────────────────────────────────
+\usepackage[hidelinks, pdftitle={TN2 - Veridian}, pdfauthor={Francis Côté}]{hyperref}
+
+% ── Tableaux et listes ──────────────────────────────────────
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+
+% ── En-têtes ────────────────────────────────────────────────
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small INF1430 — Projet de fin d'études}
+\fancyhead[R]{\small Francis Côté}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ── Code source ─────────────────────────────────────────────
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{codebg}{RGB}{245,245,245}
+\definecolor{codeframe}{RGB}{200,200,200}
+\definecolor{codecomment}{RGB}{100,100,100}
+\definecolor{codekeyword}{RGB}{0,100,180}
+\definecolor{codestring}{RGB}{160,60,0}
+
+\lstdefinestyle{veridian}{
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{codekeyword}\bfseries,
+  stringstyle=\color{codestring},
+  commentstyle=\color{codecomment}\itshape,
+  breaklines=true,
+  showstringspaces=false,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=6pt,
+  tabsize=2,
+}
+\lstset{style=veridian}
+
+% ── Boîtes ──────────────────────────────────────────────────
+\usepackage{tcolorbox}
+\tcbuselibrary{skins}
+
+\newtcolorbox{infobox}[1][]{
+  colback=blue!5!white, colframe=blue!40!white,
+  fonttitle=\bfseries, title=#1,
+  left=6pt, right=6pt, top=4pt, bottom=4pt
+}
+
+\newtcolorbox{warnbox}[1][]{
+  colback=orange!8!white, colframe=orange!60!white,
+  fonttitle=\bfseries, title=#1,
+  left=6pt, right=6pt, top=4pt, bottom=4pt
+}
+
+% ── Graphiques ──────────────────────────────────────────────
+\usepackage{graphicx}
+\usepackage{float}
+
+% ── Références ──────────────────────────────────────────────
+\usepackage[backend=biber, style=apa, sorting=nyt]{biblatex}
+\addbibresource{references.bib}
+
+% ── Barre de progression personnalisée ──────────────────────
+\usepackage{tikz}
+\newcommand{\progressbar}[1]{%
+  \begin{tikzpicture}[baseline=-0.5ex]
+    \draw[gray!30, line width=4pt, line cap=round] (0,0) -- (4,0);
+    \draw[blue!60!black, line width=4pt, line cap=round] (0,0) -- (#1*4/100,0);
+    \node[right] at (4.1,0) {\small #1\,\%};
+  \end{tikzpicture}%
+}
+
+% ============================================================
+%  DÉBUT DU DOCUMENT
+% ============================================================
+\begin{document}
+
+% ────────────────────────────────────────────────────────────
+%  PAGE TITRE
+% ────────────────────────────────────────────────────────────
+\begin{titlepage}
+  \centering
+  \vspace*{2cm}
+
+  {\Large \textbf{Université TÉLUQ}}\\[0.5cm]
+  {\large INF1430 — Projet de fin d'études}\\[3cm]
+
+  \rule{\linewidth}{0.5pt}\\[0.4cm]
+  {\LARGE \textbf{Travail noté 2}}\\[0.3cm]
+  {\Large \textit{Rapport intermédiaire mi-parcours — Veridian}}\\[0.3cm]
+  \rule{\linewidth}{0.5pt}\\[3cm]
+
+  \begin{tabular}{rl}
+    \textbf{Étudiant :}    & Francis Côté \\[0.3cm]
+    \textbf{Cours :}       & INF1430 — Projet de fin d'études \\[0.3cm]
+    \textbf{Institution :} & Université TÉLUQ \\[0.3cm]
+    \textbf{Dépôt :}       & \url{https://github.com/frankydoody/Veridian} \\[0.3cm]
+  \end{tabular}
+
+  \vfill
+  {\small Remis conformément aux exigences du cours INF1430}
+\end{titlepage}
+
+% ────────────────────────────────────────────────────────────
+%  TABLE DES MATIÈRES
+% ────────────────────────────────────────────────────────────
+\newpage
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Introduction}
+% ============================================================
+
+Le présent rapport constitue le livrable intermédiaire (TN2) du projet Veridian dans le cadre du cours INF1430. Il synthétise l'avancement constaté à mi-parcours à partir de la trace d'ingénierie accumulée dans le dépôt GitHub : commits, \textit{pull requests}, issues fermées et état du tableau Kanban.
+
+Au moment de la remise de ce document, cinq blocs fonctionnels sur onze sont complétés et fusionnés dans la branche principale. L'application est opérationnelle de bout en bout : un utilisateur peut s'inscrire, créer un projet, enregistrer une réunion, obtenir une transcription, consulter les décisions extraites par le modèle de langage, et interroger la mémoire vectorielle du projet en langage naturel.
+
+\begin{infobox}[Avancement global]
+  \textbf{5 blocs terminés / 11 planifiés} \hfill \progressbar{45}\\[4pt]
+  Blocs 08, 09, 10, 11, 12 — fusionnés dans \texttt{main} et vérifiés fonctionnels.
+\end{infobox}
+
+% ============================================================
+\section{État du tableau de bord GitHub Projects}
+% ============================================================
+
+\subsection{Vue Kanban au moment de la remise}
+
+Le tableau Kanban du projet est accessible publiquement à l'adresse du dépôt GitHub. Le tableau ci-dessous reproduit son état au moment de la remise du présent document.
+
+\begin{table}[H]
+\centering
+\caption{État du tableau Kanban GitHub Projects}
+\begin{tabularx}{\textwidth}{lXcc}
+\toprule
+\textbf{Issue \#} & \textbf{Titre} & \textbf{Colonne} & \textbf{Lié à PR} \\
+\midrule
+1  & Bloc 08 — Backend Auth \& Projects     & Terminé   & ✓ \\
+2  & Bloc 09 — Transcription \& Décisions   & Terminé   & ✓ \\
+3  & Bloc 10 — Mémoire vectorielle RAG      & Terminé   & ✓ \\
+4  & Bloc 11 — Frontend React base          & Terminé   & ✓ \\
+5  & Bloc 12 — Connexion API frontend       & Terminé   & ✓ \\
+6  & Bloc 13 — Formulaires de création      & En cours  & — \\
+7  & Bloc 14 — Page détail réunion          & Backlog   & — \\
+8  & Bloc 15 — Décisions \& Contradictions  & Backlog   & — \\
+9  & Bloc 16 — Calendrier projet            & Backlog   & — \\
+10 & Bloc 17 — Tests et qualité             & Backlog   & — \\
+11 & Bloc 18 — Déploiement et docs finales  & Backlog   & — \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Politique de gestion des branches et des \textit{pull requests}}
+
+Chaque bloc suit le cycle de vie suivant : création d'une branche \texttt{bloc-XX} depuis \texttt{main}, développement, ouverture d'une \textit{pull request}, et fusion par \textit{merge commit} exclusivement. Conformément à la politique de traçabilité du projet, aucune branche source n'est supprimée après fusion. Cette décision garantit que chaque étape de développement reste consultable indépendamment dans l'historique Git.
+
+% ============================================================
+\section{Blocs complétés — synthèse de la trace d'ingénierie}
+% ============================================================
+
+\subsection{Bloc 08 — Backend : authentification et gestion des projets}
+
+\subsubsection*{Périmètre}
+
+Le bloc 08 constitue le fondement de l'application. Il implante l'API REST complète pour l'authentification des utilisateurs et la gestion des projets et des réunions.
+
+\subsubsection*{Décisions architecturales prises}
+
+\begin{itemize}
+  \item \textbf{JWT sans état (\textit{stateless})} : l'authentification repose sur des jetons JSON Web Token signés avec \texttt{jsonwebtoken} \parencite{openai2023jwt}. Aucune session serveur n'est maintenue, ce qui simplifie la mise à l'échelle future.
+  \item \textbf{Hachage \texttt{bcryptjs}} : les mots de passe ne sont jamais stockés en clair ; le facteur de coût (\textit{salt rounds}) est configurable via \texttt{.env}.
+  \item \textbf{Séparation stricte des couches} : modèle (SQL), contrôleur (logique métier), route (câblage HTTP) — aucune requête SQL n'apparaît dans un contrôleur.
+  \item \textbf{Suppression logique} : un indicateur \texttt{is\_active} remplace toute suppression physique (\texttt{DELETE}) dans le code applicatif.
+  \item \textbf{dotenv v16 épinglé} : la version v17 introduisait un comportement de chargement incompatible avec les modules ES sur Windows, causant des erreurs de connexion PostgreSQL. La version v16 est épinglée explicitement dans \texttt{package.json}.
+\end{itemize}
+
+\subsubsection*{Endpoints livrés}
+
+\begin{table}[H]
+\centering
+\caption{Endpoints API — Bloc 08}
+\begin{tabularx}{\textwidth}{llX}
+\toprule
+\textbf{Méthode} & \textbf{Route} & \textbf{Description} \\
+\midrule
+POST & \texttt{/api/auth/register} & Inscription, hachage du mot de passe, retour JWT \\
+POST & \texttt{/api/auth/login}    & Authentification, validation bcrypt, retour JWT \\
+GET  & \texttt{/api/auth/me}       & Profil de l'utilisateur connecté (token requis) \\
+GET  & \texttt{/api/projects}      & Liste des projets de l'utilisateur \\
+POST & \texttt{/api/projects}      & Création d'un projet \\
+GET  & \texttt{/api/projects/:id}  & Détail d'un projet \\
+PUT  & \texttt{/api/projects/:id}  & Mise à jour d'un projet \\
+PATCH & \texttt{/api/projects/:id/status} & Changement de statut (actif/archivé) \\
+GET  & \texttt{/api/meetings}      & Liste des réunions avec JOIN sur projets \\
+POST & \texttt{/api/meetings}      & Création d'une réunion \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% ────────────────────────────────────────────────────────────
+\subsection{Bloc 09 — Transcription audio et extraction de décisions}
+
+\subsubsection*{Périmètre}
+
+Le bloc 09 implante le pipeline de traitement audio de bout en bout : enregistrement navigateur → fichier audio → transcription Whisper → extraction LLM des décisions → détection de contradictions.
+
+\subsubsection*{Architecture du pipeline}
+
+\begin{lstlisting}[language=bash, caption={Pipeline de traitement audio (bloc 09)}]
+Navigateur (MediaRecorder API)
+  → POST /api/transcriptions/upload  [fichier audio multipart]
+    → whisper.service.js             [transcription locale]
+      → ia.service.js::extractDecisions()  [prompt Gemini 1.5 Flash]
+        → decision.model.js          [persistance PostgreSQL]
+          → ia.service.js::detectContradiction()  [comparaison aux décisions passées]
+\end{lstlisting}
+
+\subsubsection*{Décision de conception notable : nommage agnostique du service IA}
+
+Le fichier de service s'appelle \texttt{ia.service.js} et non \texttt{gemini.service.js} ou \texttt{claude.service.js}. Cette convention permet de remplacer le fournisseur d'IA (Gemini, Claude, OpenAI) en modifiant uniquement \texttt{src/config/gemini.js} et la variable d'environnement \texttt{AI\_PROVIDER}, sans toucher aux contrôleurs ni aux routes.
+
+\subsubsection*{Prompt d'extraction — extrait}
+
+\begin{lstlisting}[language=bash, caption={Structure du prompt d'extraction de décisions}]
+"Analyse la transcription suivante et extrais toutes les décisions prises.
+Pour chaque décision, retourne un objet JSON avec :
+- content    : la décision (phrase concise)
+- context    : justification ou contexte
+- responsible: personne responsable (null si absent)
+- alternatives: alternatives considérées et rejetées
+- confidence : niveau de confiance (0 à 100)
+Retourne UNIQUEMENT un tableau JSON valide."
+\end{lstlisting}
+
+% ────────────────────────────────────────────────────────────
+\subsection{Bloc 10 — Mémoire vectorielle (RAG)}
+
+\subsubsection*{Périmètre}
+
+Le bloc 10 implante le système de mémoire à long terme de l'application, fondé sur la technique \textit{Retrieval-Augmented Generation} (RAG) \parencite{lewis2020rag}. Il permet d'interroger l'historique des réunions en langage naturel avec une précision sémantique.
+
+\subsubsection*{Architecture RAG}
+
+La mémoire vectorielle repose sur trois opérations :
+
+\begin{enumerate}
+  \item \textbf{Indexation} : à la fin d'une réunion, la transcription est découpée en segments (\textit{chunks}), chacun transformé en vecteur d'embedding via le modèle \texttt{text-embedding-004} de Gemini.
+  \item \textbf{Stockage} : les vecteurs (768 dimensions) sont persistés dans la table \texttt{memory\_chunks} de PostgreSQL avec l'extension \texttt{pgvector}. L'index HNSW garantit des recherches en temps sous-linéaire.
+  \item \textbf{Récupération} : lors d'une question, la question est elle-même encodée en vecteur, et les chunks les plus similaires (cosine similarity) sont récupérés comme contexte pour le LLM.
+\end{enumerate}
+
+\begin{lstlisting}[language=sql, caption={Requête de recherche vectorielle — memory.service.js}]
+SELECT mc.*, m.title AS meeting_title
+FROM memory_chunks mc
+JOIN meetings m ON mc.meeting_id = m.id
+WHERE mc.project_id = $1
+ORDER BY mc.embedding <=> $2   -- operateur cosine de pgvector
+LIMIT 5;
+\end{lstlisting}
+
+\subsubsection*{Migration SQL versionnée}
+
+L'extension pgvector et la table \texttt{memory\_chunks} sont créées via le fichier \texttt{database/migrations/007\_memory\_chunks.sql}, versionné dans le dépôt. Une migration antérieure (\texttt{001\_update\_vector\_dimension.sql}) a corrigé la dimension des vecteurs de 1536 à 768 lors du passage de l'API OpenAI à l'API Gemini.
+
+% ────────────────────────────────────────────────────────────
+\subsection{Bloc 11 — Interface React : layout et navigation}
+
+\subsubsection*{Périmètre}
+
+Le bloc 11 établit la structure complète de l'interface utilisateur avec React 19 et Vite 8, sans données réelles encore connectées.
+
+\subsubsection*{Pages implantées}
+
+\begin{table}[H]
+\centering
+\caption{Pages de l'interface — Bloc 11}
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Page} & \textbf{Description} \\
+\midrule
+\texttt{LoginPage}    & Formulaire de connexion, gestion de l'état d'authentification \\
+\texttt{RegisterPage} & Inscription avec validation côté client \\
+\texttt{DashboardPage} & Tableau de bord avec statistiques et activité récente \\
+\texttt{ProjectsPage} & Liste des projets avec filtres et badges de statut \\
+\texttt{MeetingsPage} & Liste des réunions avec filtres par statut \\
+\texttt{TasksPage}    & Liste des tâches extraites des réunions \\
+\texttt{MemoryPage}   & Interface de chat avec la mémoire IA \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection*{AuthContext}
+
+L'état d'authentification est géré via un \texttt{AuthContext} React. Le jeton JWT est persisté dans \texttt{localStorage} sous la clé \texttt{veridian\_token}. Toutes les pages protégées vérifient la présence du jeton avant le rendu.
+
+% ────────────────────────────────────────────────────────────
+\subsection{Bloc 12 — Connexion frontend aux endpoints API réels}
+
+\subsubsection*{Périmètre}
+
+Le bloc 12 remplace l'ensemble des données fictives (\textit{mock data}) codées en dur dans les pages React par de vrais appels aux endpoints de l'API backend.
+
+\subsubsection*{Problèmes rencontrés et résolus}
+
+Ce bloc a concentré la majorité des défis d'intégration du projet. Trois bugs distincts ont été identifiés et corrigés :
+
+\begin{warnbox}[Bug \#1 — Mauvaise clé de token dans localStorage]
+  Le service HTTP \texttt{api.js} lisait le token avec \texttt{localStorage.getItem('token')} alors que \texttt{AuthContext} le persistait sous la clé \texttt{'veridian\_token'}. Conséquence : toutes les requêtes API étaient envoyées sans en-tête \texttt{Authorization}, provoquant un statut 401 et une déconnexion automatique à chaque clic.
+  \textbf{Correction} : import des fonctions \texttt{getToken()} et \texttt{clearToken()} depuis \texttt{api/client.js} dans \texttt{services/api.js}.
+\end{warnbox}
+
+\begin{warnbox}[Bug \#2 — Préfixe \texttt{/api} manquant dans l'URL de base]
+  La constante \texttt{BASE\_URL} était définie à \texttt{http://localhost:3000} alors que toutes les routes backend sont montées sous \texttt{/api}. Les appels retournaient systématiquement une erreur 404.
+  \textbf{Correction} : \texttt{BASE\_URL = 'http://localhost:3000/api'}.
+\end{warnbox}
+
+\begin{warnbox}[Bug \#3 — Absence de middleware CORS]
+  Le backend Express ne renvoyait aucun en-tête \texttt{Access-Control-Allow-Origin}. Le navigateur bloquait toutes les requêtes cross-origin depuis \texttt{localhost:5173} vers \texttt{localhost:3000} sans message d'erreur explicite.
+  \textbf{Correction} : ajout d'un middleware CORS manuel dans \texttt{app.js} avant toutes les routes, gérant les requêtes \texttt{OPTIONS} (preflight).
+\end{warnbox}
+
+\subsubsection*{Backend des tâches — créé de zéro dans ce bloc}
+
+La ressource \texttt{tasks} était absente du backend. Elle a été entièrement créée dans ce bloc : migration SQL (\texttt{003\_tasks.sql}), modèle, contrôleur et route. La route \texttt{PATCH /api/tasks/:id/status} permet à l'interface de basculer le statut d'une tâche (\texttt{todo} $\leftrightarrow$ \texttt{done}) en temps réel sans rechargement de page.
+
+% ============================================================
+\section{Architecture logicielle — état à mi-parcours}
+% ============================================================
+
+\subsection{Diagramme de couches}
+
+L'architecture de Veridian suit un modèle en couches strictement séparées, cohérent de bout en bout entre le frontend React et le backend Express.
+
+\begin{lstlisting}[language=bash, caption={Architecture en couches de Veridian}]
+┌─────────────────────────────────────────────────────┐
+│  FRONTEND (React 19 / Vite)                         │
+│  pages/ → services/api.js → AuthContext             │
+└────────────────────┬────────────────────────────────┘
+                     │ HTTP / JSON (JWT Bearer)
+┌────────────────────▼────────────────────────────────┐
+│  BACKEND (Node.js 20 / Express 5)                   │
+│  routes/ → middlewares/ → controllers/ → models/    │
+│           └─ services/ (Whisper, IA, mémoire)       │
+└────────────────────┬────────────────────────────────┘
+                     │ SQL / pgvector
+┌────────────────────▼────────────────────────────────┐
+│  BASE DE DONNÉES (PostgreSQL 16 + pgvector)         │
+│  Docker Compose — conteneur veridian_db             │
+└─────────────────────────────────────────────────────┘
+\end{lstlisting}
+
+\subsection{Tables de la base de données}
+
+\begin{table}[H]
+\centering
+\caption{Tables PostgreSQL au mi-parcours}
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Table} & \textbf{Rôle} \\
+\midrule
+\texttt{users}         & Comptes utilisateurs (email, mot de passe haché, rôle) \\
+\texttt{projects}      & Projets organisationnels (nom, description, statut) \\
+\texttt{meetings}      & Réunions liées aux projets (titre, statut, audio) \\
+\texttt{transcriptions} & Texte brut extrait par Whisper \\
+\texttt{decisions}     & Décisions extraites par le LLM avec niveau de confiance \\
+\texttt{memory\_chunks} & Vecteurs d'embeddings pour la recherche sémantique \\
+\texttt{tasks}         & Tâches assignées, liées aux réunions et projets \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% ============================================================
+\section{Problèmes rencontrés}
+% ============================================================
+
+Cette section documente les difficultés techniques rencontrées au cours des cinq premiers blocs, ainsi que les solutions apportées. Elle constitue une trace fidèle des problèmes réels du projet, destinée à alimenter la section correspondante du rapport final (TN4).
+
+\begin{table}[H]
+\centering
+\caption{Journal des problèmes rencontrés}
+\begin{tabularx}{\textwidth}{lXX}
+\toprule
+\textbf{Bloc} & \textbf{Problème} & \textbf{Solution} \\
+\midrule
+08 & \texttt{dotenv} v17 brisait la connexion PostgreSQL sur Windows en raison d'un changement de comportement de chargement des modules ES. & Version v16 épinglée dans \texttt{package.json}. \\
+\midrule
+10 & La dimension des vecteurs d'embedding (1536) ne correspondait pas à celle produite par l'API Gemini (768), causant une erreur pgvector. & Migration corrective \texttt{001\_update\_vector\_dimension.sql} pour modifier la colonne. \\
+\midrule
+12 & Token JWT lu sous la mauvaise clé \texttt{localStorage} : \texttt{'token'} au lieu de \texttt{'veridian\_token'}. & Centralisation via \texttt{getToken()} / \texttt{clearToken()} de \texttt{api/client.js}. \\
+\midrule
+12 & Préfixe \texttt{/api} absent de l'\texttt{BASE\_URL} du client HTTP. & Correction de la constante dans \texttt{services/api.js}. \\
+\midrule
+12 & Absence du middleware CORS dans Express — toutes les requêtes navigateur bloquées. & Middleware manuel ajouté dans \texttt{app.js} avec gestion des requêtes \texttt{OPTIONS}. \\
+\midrule
+12 & La redirection PowerShell \texttt{<} n'est pas supportée pour passer un fichier SQL à \texttt{docker exec}. & Remplacement par \texttt{Get-Content fichier.sql | docker exec -i ...}. \\
+\midrule
+Démarrage & Docker Desktop ne démarre pas automatiquement au démarrage de Windows malgré la configuration de \texttt{start.ps1}. & Démarrage manuel requis ; cause non identifiée (possible conflit avec la séquence de démarrage Windows). \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% ============================================================
+\section{Avancement et planification de la seconde moitié}
+% ============================================================
+
+\subsection{Métriques d'avancement}
+
+\begin{table}[H]
+\centering
+\caption{Métriques du dépôt GitHub au mi-parcours}
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Indicateur} & \textbf{Valeur} \\
+\midrule
+Blocs terminés et fusionnés & 5 / 11 \\
+\textit{Pull requests} fusionnées & 5 \\
+Issues fermées & 5 \\
+Branches actives (non supprimées) & 6+ \\
+Tables PostgreSQL & 7 \\
+Endpoints API REST & 20+ \\
+Pages frontend & 8 \\
+Fichiers de migration SQL & 3 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Plan des blocs restants}
+
+\begin{table}[H]
+\centering
+\caption{Planification de la seconde moitié du projet}
+\begin{tabularx}{\textwidth}{clX}
+\toprule
+\textbf{Bloc} & \textbf{Titre} & \textbf{Objectif principal} \\
+\midrule
+13 & Formulaires de création     & CRUD complet depuis l'interface : projets, réunions, tâches \\
+14 & Page détail réunion         & Lecteur audio, transcription affichée, décisions liées \\
+15 & Décisions \& Contradictions & Vue agrégée des décisions, alertes de contradiction visibles \\
+16 & Calendrier projet           & Vue mensuelle des réunions par projet \\
+17 & Tests et qualité            & Suite Jest, tests d'intégration des endpoints critiques \\
+18 & Déploiement et docs finales & Guide de déploiement, rapport TN4, version de démonstration \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Risques résiduels}
+
+\begin{itemize}
+  \item \textbf{Performance de Whisper} : le modèle \textit{small} traite une minute d'audio en environ 15 secondes sur le matériel disponible. Pour des réunions longues (\textgreater~30 minutes), le délai de transcription peut être perceptible. Une solution de file d'attente asynchrone (traitement en arrière-plan) est envisagée pour le bloc 14.
+  \item \textbf{Quota API Gemini} : le niveau gratuit de l'API Gemini impose des limites de requêtes par minute. En démonstration intensive, un dépassement temporaire du quota est possible.
+  \item \textbf{Docker Desktop au démarrage} : le script \texttt{start.ps1} ne parvient pas toujours à démarrer Docker Desktop automatiquement. Un démarrage manuel préalable reste nécessaire dans certains environnements Windows.
+\end{itemize}
+
+% ============================================================
+\section{Conclusion}
+% ============================================================
+
+À mi-parcours, le projet Veridian atteint ses objectifs intermédiaires. L'infrastructure technique est établie et fonctionnelle : le backend Express traite des requêtes authentifiées, le pipeline Whisper transcrit l'audio, le LLM extrait les décisions, la mémoire vectorielle répond aux questions en langage naturel, et l'interface React affiche des données réelles issues de la base de données.
+
+Les blocs restants (13 à 18) portent principalement sur l'expérience utilisateur (formulaires, calendrier, détail de réunion), la qualité logicielle (tests) et la documentation finale. La trace d'ingénierie accumulée dans le dépôt GitHub — commits, pull requests, issues — démontre un développement discipliné et traçable, conforme aux pratiques attendues au niveau master.
+
+% ============================================================
+%  RÉFÉRENCES
+% ============================================================
+\newpage
+\printbibliography[title={Références}]
+
+\end{document}
