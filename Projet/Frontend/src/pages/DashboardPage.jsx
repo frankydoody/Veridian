@@ -1,14 +1,9 @@
 // src/pages/DashboardPage.jsx
-// Page d'accueil après connexion — affiche les statistiques clés de l'organisation
-
+import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { api } from '../services/api'
 
-// ─── Composant StatCard ───────────────────────────────────────────────────────
-// Une carte qui affiche une statistique avec un titre, une valeur et une couleur
-// Props :
-//   label  → le texte descriptif (ex: "Réunions ce mois")
-//   value  → la valeur à afficher (ex: "12")
-//   color  → la couleur de l'accent (variable CSS)
+// ─── StatCard ─────────────────────────────────────────────────────────────────
 function StatCard({ label, value, color }) {
   return (
     <div style={{
@@ -20,28 +15,22 @@ function StatCard({ label, value, color }) {
       flexDirection: 'column',
       gap: '0.5rem',
     }}>
-      {/* Valeur en gros — l'information principale */}
       <span style={{
         fontSize: '2rem',
         fontWeight: '700',
-        color: color || 'var(--color-text)',
+        color: color || 'var(--color-text-1)',
         lineHeight: 1,
       }}>
         {value}
       </span>
-      {/* Label descriptif en dessous */}
-      <span style={{
-        fontSize: '13px',
-        color: 'var(--color-text-muted)',
-      }}>
+      <span style={{ fontSize: '13px', color: 'var(--color-text-2)' }}>
         {label}
       </span>
     </div>
   )
 }
 
-// ─── Composant RecentItem ─────────────────────────────────────────────────────
-// Une ligne dans la liste d'activité récente
+// ─── RecentItem ───────────────────────────────────────────────────────────────
 function RecentItem({ title, subtitle, dot }) {
   return (
     <div style={{
@@ -51,7 +40,6 @@ function RecentItem({ title, subtitle, dot }) {
       padding: '0.75rem 0',
       borderBottom: '1px solid var(--color-border)',
     }}>
-      {/* Point de couleur qui identifie le type d'événement */}
       <div style={{
         width: '8px', height: '8px',
         borderRadius: '50%',
@@ -59,10 +47,10 @@ function RecentItem({ title, subtitle, dot }) {
         flexShrink: 0,
       }} />
       <div>
-        <div style={{ fontSize: '13px', fontWeight: '500', color: 'var(--color-text)' }}>
+        <div style={{ fontSize: '13px', fontWeight: '500', color: 'var(--color-text-1)' }}>
           {title}
         </div>
-        <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+        <div style={{ fontSize: '12px', color: 'var(--color-text-2)' }}>
           {subtitle}
         </div>
       </div>
@@ -70,41 +58,87 @@ function RecentItem({ title, subtitle, dot }) {
   )
 }
 
+function formatRelative(dateStr) {
+  if (!dateStr) return ''
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 60) return `il y a ${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `il y a ${hours}h`
+  const days = Math.floor(hours / 24)
+  return `il y a ${days} jour${days > 1 ? 's' : ''}`
+}
+
+const STATUS_DOT = {
+  completed:   '#6BCB77',
+  in_progress: 'var(--color-ai)',
+  planned:     '#4D96FF',
+}
+
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function DashboardPage() {
-  // On récupère l'utilisateur connecté depuis le contexte global d'auth
   const { user } = useAuth()
+  const [projects, setProjects]   = useState([])
+  const [meetings, setMeetings]   = useState([])
+  const [loading, setLoading]     = useState(true)
 
-  // Données fictives pour l'instant — seront remplacées par de vrais appels API
+  useEffect(() => {
+    async function fetchAll() {
+      try {
+        // Deux appels en parallèle
+        const [projData, meetData] = await Promise.all([
+          api.get('/projects'),
+          api.get('/meetings'),
+        ])
+        setProjects(projData.projects ?? [])
+        setMeetings(meetData.meetings ?? [])
+      } catch (err) {
+        console.error('Dashboard fetch error:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchAll()
+  }, [])
+
+  // Stats calculées depuis les vraies données
+  const now = new Date()
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+
+  const meetingsThisMonth = meetings.filter(
+    m => new Date(m.created_at) >= startOfMonth
+  ).length
+
+  const activeProjects = projects.filter(p => p.status === 'active').length
+
   const stats = [
-    { label: 'Réunions ce mois', value: '8',  color: 'var(--color-ai)' },
-    { label: 'Décisions prises', value: '34', color: '#6BCB77' },
-    { label: 'Tâches en cours',  value: '12', color: '#FFD93D' },
-    { label: 'Projets actifs',   value: '3',  color: '#4D96FF' },
+    { label: 'Réunions ce mois', value: loading ? '…' : meetingsThisMonth, color: 'var(--color-ai)' },
+    { label: 'Réunions totales', value: loading ? '…' : meetings.length,   color: '#6BCB77' },
+    { label: 'Projets actifs',   value: loading ? '…' : activeProjects,    color: '#4D96FF' },
+    { label: 'Projets totaux',   value: loading ? '…' : projects.length,   color: '#FFD93D' },
   ]
 
-  const recent = [
-    { title: 'Réunion Sprint 4 — terminée',        subtitle: 'Projet Alpha · il y a 2h',   dot: 'var(--color-ai)' },
-    { title: 'Décision : migrer vers PostgreSQL',  subtitle: 'Projet Alpha · hier',         dot: '#6BCB77' },
-    { title: 'Tâche assignée à Marie : wireframes',subtitle: 'Projet Beta · hier',          dot: '#FFD93D' },
-    { title: 'Contradiction détectée',             subtitle: 'Projet Alpha · il y a 3 jours',dot: '#FF6B6B' },
-    { title: 'Réunion Kick-off Beta',              subtitle: 'Projet Beta · il y a 5 jours',dot: 'var(--color-ai)' },
-  ]
+  // Activité récente = 5 dernières réunions
+  const recent = meetings.slice(0, 5).map(m => ({
+    title: m.title,
+    subtitle: `${m.project_name ?? 'Projet'} · ${formatRelative(m.created_at)}`,
+    dot: STATUS_DOT[m.status] ?? 'var(--color-ai)',
+  }))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
 
-      {/* En-tête de page */}
+      {/* En-tête */}
       <div>
-        <h1 style={{ fontSize: '1.375rem', fontWeight: '600', color: 'var(--color-text)' }}>
+        <h1 style={{ fontSize: '1.375rem', fontWeight: '600', color: 'var(--color-text-1)' }}>
           Bonjour, {user?.name?.split(' ')[0] || 'Francis'} 👋
         </h1>
-        <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+        <p style={{ fontSize: '13px', color: 'var(--color-text-2)', marginTop: '0.25rem' }}>
           Voici un résumé de l'activité de ton organisation.
         </p>
       </div>
 
-      {/* Grille de statistiques — 4 colonnes sur grand écran, 2 sur mobile */}
+      {/* Grille stats */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
@@ -122,14 +156,25 @@ export default function DashboardPage() {
         borderRadius: 'var(--radius-lg)',
         padding: '1.5rem',
       }}>
-        <h2 style={{ fontSize: '14px', fontWeight: '600', color: 'var(--color-text)', marginBottom: '0.25rem' }}>
+        <h2 style={{ fontSize: '14px', fontWeight: '600', color: 'var(--color-text-1)', marginBottom: '0.25rem' }}>
           Activité récente
         </h2>
-        <div>
-          {recent.map((r) => (
-            <RecentItem key={r.title} {...r} />
-          ))}
-        </div>
+
+        {loading && (
+          <p style={{ color: 'var(--color-text-2)', fontSize: '13px', marginTop: '1rem' }}>
+            Chargement…
+          </p>
+        )}
+
+        {!loading && recent.length === 0 && (
+          <p style={{ color: 'var(--color-text-2)', fontSize: '13px', marginTop: '1rem' }}>
+            Aucune activité récente.
+          </p>
+        )}
+
+        {!loading && recent.map((r) => (
+          <RecentItem key={r.title} {...r} />
+        ))}
       </div>
 
     </div>

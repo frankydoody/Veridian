@@ -28,6 +28,25 @@ export const createMeetingWithHost = async (projectId, title, description, userI
   });
 };
 
+// Récupère toutes les réunions de tous les projets auxquels l'utilisateur appartient
+export const findAllMeetings = async (userId) => {
+  const result = await query(
+    `SELECT m.id, m.project_id, m.title, m.description,
+            m.status, m.is_active, m.audio_path,
+            m.started_at, m.ended_at, m.created_at,
+            p.name AS project_name
+     FROM meetings m
+     INNER JOIN project_members pm ON m.project_id = pm.project_id
+     INNER JOIN projects p ON m.project_id = p.id
+     WHERE pm.user_id = $1
+     AND pm.is_active = true
+     AND m.is_active = true
+     ORDER BY m.created_at DESC`,
+    [userId]
+  );
+  return result.rows;
+};
+
 export const findMeetingsByProject = async (projectId, userId) => {
   const result = await query(
     `SELECT m.id, m.project_id, m.title, m.description,
