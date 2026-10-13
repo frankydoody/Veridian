@@ -114,6 +114,7 @@
 % ── Graphiques et figures ────────────────────────────────────
 \usepackage{graphicx}
 \usepackage{float}
+\usepackage[export]{adjustbox}
 \usepackage[labelfont=bf, font=small]{caption}
 
 % ── Diagrammes UML (TikZ + pgf-umlsd) ────────────────────────
@@ -124,12 +125,12 @@
 % Style boîte de classe UML (2 compartiments : nom, attributs)
 \tikzstyle{umlclass}=[draw=blue!40!black, fill=blue!3, rectangle split,
   rectangle split parts=2, rectangle split part align=left,
-  text width=4.4cm, font=\footnotesize, rounded corners=1pt, anchor=north,
+  text width=5.3cm, font=\footnotesize, rounded corners=1pt, anchor=north,
   rectangle split part fill={blue!12,white}, drop shadow]
 
 % Style composant UML
 \tikzstyle{component}=[draw, rectangle, minimum width=3.4cm, minimum height=1.3cm,
-  font=\footnotesize, fill=orange!6, rounded corners=1pt, drop shadow, align=center]
+  font=\footnotesize, fill=orange!6, rounded corners=1pt, drop shadow, align=center, inner xsep=0.5cm]
 
 % Style dispositif (diagramme de déploiement)
 \tikzstyle{device}=[draw, rectangle, minimum width=3.6cm, minimum height=1.9cm,
@@ -144,6 +145,8 @@
 % Acteur UML (bonhomme-bâton) dessiné par chemins, sans tikzpicture imbriqué
 \newcommand{\umlactor}[3]{
   \coordinate (#1) at #2;
+  \coordinate (#1r) at ($(#1)+(0.36,0.9)$);
+  \coordinate (#1l) at ($(#1)+(-0.36,0.9)$);
   \draw[line width=0.6pt] (#1) ++(0,1.55) circle (2.8mm);
   \draw[line width=0.6pt] (#1)++(0,1.27) -- ++(0,-0.78);
   \draw[line width=0.6pt] (#1)++(-0.32,0.98) -- ++(0.64,0);
@@ -357,60 +360,79 @@ Une cinquième étape, la \textbf{vérification} (détection automatique de cont
 \label{sec:uml}
 % ============================================================
 
-Cette section présente la modélisation UML du système telle qu'elle reflète le code réellement en place dans le dépôt à mi-parcours — classes, routes, modèles de données et services — plutôt qu'une modélisation prospective. Neuf diagrammes sont fournis, couvrant les vues fonctionnelle, structurelle et comportementale du système, conformément aux pratiques de modélisation orientée objet \parencite{fowler2018refactoring}.
+Cette section présente la modélisation UML du système telle qu'elle reflète le code réellement en place dans le dépôt à mi-parcours — classes, routes, modèles de données et services — plutôt qu'une modélisation prospective. Dix diagrammes sont fournis, couvrant les vues fonctionnelle, structurelle et comportementale du système, conformément aux pratiques de modélisation orientée objet \parencite{fowler2018refactoring}.
 
-\subsection{Diagramme de cas d'utilisation}
+\subsection{Diagrammes de cas d'utilisation}
 
-Le diagramme de cas d'utilisation (figure \ref{fig:usecase}) identifie deux acteurs — l'\textit{Utilisateur}, qui interagit avec l'application via le frontend React, et le \textit{Système IA}, un acteur externe composite représentant Whisper (transcription locale) et Gemini (extraction, détection, génération, \textit{embeddings}) — ainsi que les cas d'utilisation exposés par le système. Les cas d'utilisation encore au statut \textit{Todo} (détection de contradictions, export PDF, calendrier) sont représentés en trait pointillé pour les distinguer des fonctionnalités opérationnelles.
+Les cas d'utilisation sont répartis sur deux diagrammes complémentaires afin de conserver une lecture claire. La figure \ref{fig:usecase-gestion} présente les fonctionnalités directement manipulées par l'\textit{Utilisateur} via le frontend React ; la figure \ref{fig:usecase-pipeline} présente le pipeline de traitement d'une réunion, où intervient le \textit{Système IA}, acteur externe composite représentant Whisper (transcription locale) et Gemini (extraction, détection, génération, \textit{embeddings}). Les cas d'utilisation encore au statut \textit{Todo} (export PDF, calendrier, détection de contradictions, alertes) sont représentés en trait pointillé pour les distinguer des fonctionnalités opérationnelles.
 
 \begin{figure}[p]
 \centering
-\resizebox{\textwidth}{!}{%
+\begin{adjustbox}{max width=\textwidth, max height=0.76\textheight}
 \begin{tikzpicture}[>=Stealth, line width=0.6pt,
-  uc/.style={draw, ellipse, minimum width=2.9cm, minimum height=1.3cm, text width=2.1cm, align=center, font=\tiny},
+  uc/.style={draw, ellipse, minimum width=3.3cm, minimum height=1.35cm, text width=2.7cm, align=center, font=\scriptsize},
   ucd/.style={uc, dashed}]
 
-\umlactor{actu}{(-4.6,-5.1)}{Utilisateur}
-\umlactor{actia}{(16.6,-5.1)}{Système IA\\(Whisper / Gemini)}
+\node[draw, rounded corners, minimum width=5.6cm, minimum height=16.8cm] at (0,-6.7) (boundary) {};
+\node[anchor=north, yshift=-0.12cm, font=\footnotesize\bfseries] at (boundary.north) {Veridian — gestion};
 
-\node[draw, rounded corners, minimum width=19cm, minimum height=13.6cm] at (6,-5.1) (boundary) {};
-\node[anchor=north, yshift=-0.12cm, font=\footnotesize\bfseries] at (boundary.north) {Veridian};
+\node[uc]  at (0,0)   (uc1)  {S'authentifier};
+\node[uc]  at (0,-2)  (uc2)  {Gérer les projets};
+\node[uc]  at (0,-4)  (uc3)  {Gérer les réunions};
+\node[uc]  at (0,-6)  (uc9)  {Gérer les tâches};
+\node[uc]  at (0,-8)  (uc8)  {Interroger la mémoire};
+\node[ucd] at (0,-10) (uc11) {Exporter en PDF};
+\node[ucd] at (0,-12) (uc12) {Voir le calendrier};
+\node[ucd] at (0,-14) (uc13) {Recevoir des alertes};
 
-\node[uc] at (0,0)  (uc1) {S'authentifier};
-\node[uc] at (6,0) (uc2) {Gérer les projets};
-\node[uc] at (12,0) (uc3) {Gérer les réunions};
+\umlactor{actu}{(-5.4,-7.9)}{Utilisateur}
+\umlactor{actia}{(5.9,-8.9)}{Système IA\\(Gemini)}
 
-\node[uc] at (0,-2.7)  (uc4) {Enregistrer / téléverser l'audio};
-\node[uc] at (6,-2.7) (uc5) {Transcrire l'audio};
-\node[uc] at (12,-2.7) (uc6) {Extraire les décisions};
+\foreach \u in {uc1,uc2,uc3,uc9,uc8,uc11,uc12,uc13} { \draw (actur) -- (\u.west); }
+\draw (actial) -- (uc8.east);
 
-\node[uc] at (0,-5.4)  (uc7) {Indexer la mémoire (RAG)};
-\node[uc] at (6,-5.4) (uc8) {Interroger la mémoire};
-\node[uc] at (12,-5.4) (uc9) {Gérer les tâches};
+\end{tikzpicture}
+\end{adjustbox}
+\caption{Diagramme de cas d'utilisation (1/2) — fonctionnalités de gestion et d'interrogation (en pointillé : cas d'utilisation planifiés, non encore implantés)}
+\label{fig:usecase-gestion}
+\end{figure}
 
-\node[ucd] at (0,-8.1)   (uc10) {Détecter les contradictions};
-\node[ucd] at (6,-8.1) (uc11) {Exporter en PDF};
-\node[ucd] at (12,-8.1) (uc12) {Voir le calendrier};
+\begin{figure}[p]
+\centering
+\begin{adjustbox}{max width=\textwidth, max height=0.76\textheight}
+\begin{tikzpicture}[>=Stealth, line width=0.6pt,
+  uc/.style={draw, ellipse, minimum width=3.3cm, minimum height=1.35cm, text width=2.7cm, align=center, font=\scriptsize},
+  ucd/.style={uc, dashed}]
 
-\node[uc] at (-5,-10.8)  (uc13) {Recevoir des alertes};
+\node[draw, rounded corners, minimum width=11.4cm, minimum height=16cm] at (3.1,-6.3) (boundary) {};
+\node[anchor=north, yshift=-0.12cm, font=\footnotesize\bfseries] at (boundary.north) {Veridian — pipeline d'une réunion};
 
-\draw (actu) -- (uc1); \draw (actu) -- (uc2); \draw (actu) -- (uc3);
-\draw (actu) -- (uc4); \draw (actu) -- (uc9); \draw (actu) -- (uc8);
-\draw (actu) -- (uc11); \draw (actu) -- (uc12); \draw (actu) -- (uc13);
+\node[uc]  at (0,0)     (uc4)  {Enregistrer / téléverser l'audio};
+\node[uc]  at (0,-2.7)  (uc5)  {Transcrire l'audio};
+\node[uc]  at (0,-5.4)  (uc6)  {Extraire les décisions};
+\node[uc]  at (0,-8.1)  (uc7)  {Indexer la\\mémoire (RAG)};
+\node[ucd] at (6.4,-10.8) (uc10) {Détecter les contradictions};
+\node[ucd] at (6.4,-13.5) (uc13) {Recevoir des alertes};
 
-\draw (actia) -- (uc5); \draw (actia) -- (uc6); \draw (actia) -- (uc7);
-\draw (actia) -- (uc8); \draw (actia) -- (uc10);
+\umlactor{actu}{(-5.2,-0.9)}{Utilisateur}
+\umlactor{actia}{(10.4,-9.9)}{Système IA\\(Whisper / Gemini)}
 
-\draw[dashed, -{Stealth[open]}] (uc4) -- node[above, sloped, font=\tiny]{\guillemotleft include\guillemotright} (uc5);
-\draw[dashed, -{Stealth[open]}] (uc5) -- node[above, sloped, font=\tiny]{\guillemotleft include\guillemotright} (uc6);
-\draw[dashed, -{Stealth[open]}] (uc6) -- node[above, sloped, font=\tiny]{\guillemotleft include\guillemotright} (uc7);
-\draw[dashed, -{Stealth[open]}] (uc6) -- node[below, sloped, font=\tiny]{\guillemotleft include\guillemotright} (uc10);
-\draw[dashed, -{Stealth[open]}] (uc10) -- node[below, sloped, font=\tiny]{\guillemotleft include\guillemotright} (uc13);
+\draw (actur) -- (uc4.west);
+\draw (actial) -- (uc5.east);
+\draw (actial) -- (uc6.east);
+\draw (actial) -- (uc7.east);
+\draw (actial) -- (uc10.east);
 
-\end{tikzpicture}%
-}
-\caption{Diagramme de cas d'utilisation — acteurs Utilisateur et Système IA (en pointillé : cas d'utilisation planifiés, non encore implantés)}
-\label{fig:usecase}
+\draw[dashed, -{Stealth[open]}] (uc4) -- node[left, font=\scriptsize]{\guillemotleft include\guillemotright} (uc5);
+\draw[dashed, -{Stealth[open]}] (uc5) -- node[left, font=\scriptsize]{\guillemotleft include\guillemotright} (uc6);
+\draw[dashed, -{Stealth[open]}] (uc6) -- node[left, font=\scriptsize]{\guillemotleft include\guillemotright} (uc7);
+\draw[dashed, -{Stealth[open]}] (uc6) -- node[above, sloped, pos=0.3, font=\scriptsize]{\guillemotleft include\guillemotright} (uc10);
+\draw[dashed, -{Stealth[open]}] (uc10) -- node[left, font=\scriptsize]{\guillemotleft include\guillemotright} (uc13);
+
+\end{tikzpicture}
+\end{adjustbox}
+\caption{Diagramme de cas d'utilisation (2/2) — pipeline de traitement d'une réunion et acteur Système IA (en pointillé : cas d'utilisation planifiés ; l'association de « Recevoir des alertes » avec l'Utilisateur figure sur le diagramme 1/2)}
+\label{fig:usecase-pipeline}
 \end{figure}
 
 \subsection{Diagramme de classes}
@@ -419,7 +441,7 @@ Le diagramme de classes (figure \ref{fig:class}) représente le modèle de domai
 
 \begin{figure}[p]
 \centering
-\resizebox{\textwidth}{!}{%
+\begin{adjustbox}{max width=\textwidth, max height=0.8\textheight}
 \begin{tikzpicture}[>=Stealth, line width=0.6pt]
 
 \node[umlclass] (user) at (0,0) {\textbf{User}
@@ -431,7 +453,7 @@ Le diagramme de classes (figure \ref{fig:class}) représente le modèle de domai
   + role : admin\,|\,member\\
   + isActive : bool};
 
-\node[umlclass] (project) at (6,0) {\textbf{Project}
+\node[umlclass] (project) at (7.7,0) {\textbf{Project}
   \nodepart{second}
   + id : UUID\\
   + name : string\\
@@ -440,32 +462,14 @@ Le diagramme de classes (figure \ref{fig:class}) représente le modèle de domai
   + status : active\,|\,archived\,|\,inactive\\
   + isActive : bool};
 
-\node[umlclass] (member) at (12,0) {\textbf{ProjectMember}
+\node[umlclass] (member) at (15.4,0) {\textbf{ProjectMember}
   \nodepart{second}
   + userId : UUID\\
   + projectId : UUID\\
   + role : owner\,|\,member\\
   + isActive : bool};
 
-\node[umlclass] (transcription) at (0,-5.2) {\textbf{Transcription}
-  \nodepart{second}
-  + id : UUID\\
-  + meetingId : UUID (unique)\\
-  + rawText : text\\
-  + language : string\\
-  + isEdited : bool};
-
-\node[umlclass] (meeting) at (6,-5.2) {\textbf{Meeting}
-  \nodepart{second}
-  + id : UUID\\
-  + projectId : UUID\\
-  + title : string\\
-  + status : planned\,|\,active\,|\,\\
-  \hspace{0.9em}processing\,|\,done\,|\,cancelled\\
-  + audioPath : string\\
-  + isActive : bool};
-
-\node[umlclass] (participant) at (12,-5.2) {\textbf{Participant}
+\node[umlclass] (participant) at (0,-5.0) {\textbf{Participant}
   \nodepart{second}
   + id : UUID\\
   + meetingId : UUID\\
@@ -473,18 +477,36 @@ Le diagramme de classes (figure \ref{fig:class}) représente le modèle de domai
   + displayName : string\\
   + role : host\,|\,attendee};
 
-\node[umlclass] (task) at (-3.2,-10.8) {\textbf{Task}
+\node[umlclass] (meeting) at (7.7,-5.0) {\textbf{Meeting}
   \nodepart{second}
   + id : UUID\\
+  + projectId : UUID\\
   + title : string\\
-  + assignee : string\\
-  + priority : haute\,|\,moyenne\,|\,basse\\
-  + status : todo\,|\,in\_progress\,|\,done\\
-  + meetingId : UUID (opt.)\\
-  + projectId : UUID (opt.)\\
-  + userId : UUID};
+  + status : planned\,|\,active\,|\,processing\,|\,\\
+  \hspace{0.9em}done\,|\,cancelled\\
+  + audioPath : string\\
+  + isActive : bool};
 
-\node[umlclass] (decision) at (3.2,-10.8) {\textbf{Decision}
+\node[umlclass] (transcription) at (15.4,-5.0) {\textbf{Transcription}
+  \nodepart{second}
+  + id : UUID\\
+  + meetingId : UUID (unique)\\
+  + rawText : text\\
+  + language : string\\
+  + isEdited : bool};
+
+\node[umlclass] (chunk) at (0,-10.8) {\textbf{MemoryChunk}
+  \nodepart{second}
+  + id : UUID\\
+  + meetingId : UUID\\
+  + projectId : UUID\\
+  + chunkText : text\\
+  + chunkType : transcription\,|\,\\
+  \hspace{0.9em}decision\,|\,summary\\
+  + embedding : vector(768)\\
+  + metadata : jsonb};
+
+\node[umlclass] (decision) at (7.7,-10.8) {\textbf{Decision}
   \nodepart{second}
   + id : UUID\\
   + meetingId : UUID\\
@@ -497,18 +519,18 @@ Le diagramme de classes (figure \ref{fig:class}) représente le modèle de domai
   + status : draft\,|\,confirmed\,|\,\\
   \hspace{0.9em}contradicted\,|\,inactive};
 
-\node[umlclass] (chunk) at (9.6,-10.8) {\textbf{MemoryChunk}
+\node[umlclass] (task) at (15.4,-10.8) {\textbf{Task}
   \nodepart{second}
   + id : UUID\\
-  + meetingId : UUID\\
-  + projectId : UUID\\
-  + chunkText : text\\
-  + chunkType : transcription\,|\,\\
-  \hspace{0.9em}decision\,|\,summary\\
-  + embedding : vector(768)\\
-  + metadata : jsonb};
+  + title : string\\
+  + assignee : string\\
+  + priority : haute\,|\,moyenne\,|\,basse\\
+  + status : todo\,|\,in\_progress\,|\,done\\
+  + meetingId : UUID (opt.)\\
+  + projectId : UUID (opt.)\\
+  + userId : UUID};
 
-\node[umlclass] (alert) at (16,-10.8) {\textbf{Alert}
+\node[umlclass] (alert) at (7.7,-17.2) {\textbf{Alert}
   \nodepart{second}
   + id : UUID\\
   + newDecisionId : UUID\\
@@ -516,20 +538,52 @@ Le diagramme de classes (figure \ref{fig:class}) représente le modèle de domai
   + explanation : text\\
   + severity : low\,|\,medium\,|\,high};
 
-% Associations
-\draw (user) -- node[above, font=\scriptsize]{1} node[below, font=\scriptsize]{0..*} (member);
-\draw (project) -- node[above, font=\scriptsize]{1} node[below, font=\scriptsize]{0..*} (member);
-\draw (user) |- node[above, pos=0.95, font=\scriptsize]{1} (project.north west) node[below, pos=0.95, font=\scriptsize]{owner} ;
-\draw (project) -- node[left, font=\scriptsize]{1} node[right, font=\scriptsize]{0..*} (meeting);
-\draw (meeting) -- node[above, font=\scriptsize]{1} node[below, font=\scriptsize]{0..*} (participant);
-\draw (meeting) -- node[left, font=\scriptsize]{1} node[right, font=\scriptsize]{0..1} (transcription);
-\draw (meeting) |- (decision.north);
-\draw (meeting) |- (chunk.north);
-\draw (decision) -- node[above, font=\scriptsize]{0..*} node[below, font=\scriptsize]{0..*} (alert);
-\draw (meeting) |- (task.north);
-\draw (project) |- (task.north east);
+% Associations : toutes routées dans les canaux entre les classes, jamais au-dessus d'une classe
+\tikzset{mult/.style={font=\scriptsize, inner sep=1pt}}
+% User -- Project (propriétaire) : arc bas au-dessus de la rangée
+\draw ($(user.north)+(0.9,0)$) -- ++(0,0.9) -| ($(project.north)+(-0.9,0)$);
+\node[mult] at ($(user.north)+(1.15,0.28)$) {1};
+\node[mult] at ($(project.north)+(-1.15,0.28)$) {0..*};
+\node[mult, fill=white] at ($(user.north)+(3.8,0.9)$) {owner};
+% User -- ProjectMember : arc haut
+\draw ($(user.north)+(-0.9,0)$) -- ++(0,1.9) -| ($(member.north)+(0,0)$);
+\node[mult] at ($(user.north)+(-1.15,0.28)$) {1};
+\node[mult] at ($(member.north)+(0.3,0.28)$) {0..*};
+% Project -- ProjectMember
+\draw ($(project.north east)+(0,-1.1)$) -- ($(member.north west)+(0,-1.1)$);
+\node[mult] at ($(project.north east)+(0.35,-0.85)$) {1};
+\node[mult] at ($(member.north west)+(-0.45,-0.85)$) {0..*};
+% Project -- Meeting
+\draw (project.south) -- (meeting.north);
+\node[mult] at ($(project.south)+(0.3,-0.3)$) {1};
+\node[mult] at ($(meeting.north)+(0.45,0.3)$) {0..*};
+% Meeting -- Participant
+\draw ($(participant.north east)+(0,-1.1)$) -- ($(meeting.north west)+(0,-1.1)$);
+\node[mult] at ($(participant.north east)+(0.45,-0.85)$) {0..*};
+\node[mult] at ($(meeting.north west)+(-0.3,-0.85)$) {1};
+% Meeting -- Transcription
+\draw ($(meeting.north east)+(0,-1.1)$) -- ($(transcription.north west)+(0,-1.1)$);
+\node[mult] at ($(meeting.north east)+(0.3,-0.85)$) {1};
+\node[mult] at ($(transcription.north west)+(-0.4,-0.85)$) {0..1};
+% Meeting -- Decision
+\draw (meeting.south) -- (decision.north);
+\node[mult] at ($(meeting.south)+(0.3,-0.3)$) {1};
+\node[mult] at ($(decision.north)+(0.45,0.3)$) {0..*};
+% Meeting -- MemoryChunk (canal horizontal sous la rangée 2)
+\draw ($(meeting.south)+(-1.7,0)$) -- ++(0,-0.9) -| (chunk.north);
+\node[mult] at ($(meeting.south)+(-1.95,-0.3)$) {1};
+\node[mult] at ($(chunk.north)+(0.45,0.3)$) {0..*};
+% Meeting -- Task
+\draw ($(meeting.south)+(1.7,0)$) -- ++(0,-0.9) -| (task.north);
+\node[mult] at ($(meeting.south)+(1.95,-0.3)$) {1};
+\node[mult] at ($(task.north)+(0.45,0.3)$) {0..*};
+% Decision -- Alert
+\draw (decision.south) -- (alert.north);
+\node[mult] at ($(decision.south)+(0.45,-0.3)$) {0..*};
+\node[mult] at ($(alert.north)+(0.45,0.3)$) {0..*};
 
-\end{tikzpicture}}
+\end{tikzpicture}
+\end{adjustbox}
 \caption{Diagramme de classes — modèle de domaine persistant (dérivé du schéma PostgreSQL réel)}
 \label{fig:class}
 \end{figure}
@@ -585,26 +639,26 @@ La figure \ref{fig:seq-auth} détaille l'inscription d'un nouvel utilisateur, te
 
 \begin{figure}[p]
 \centering
-\resizebox{\textwidth}{!}{%
+\begin{adjustbox}{max width=\textwidth}
 \begin{sequencediagram}
 \newthread{client}{:Client React}
-\newinst[1.6]{ctrl}{AuthController}
-\newinst[1.6]{hash}{hash.utils}
-\newinst[1.6]{model}{UserModel}
-\newinst[1.6]{jwt}{jwt.utils}
+\newinst[2.6]{ctrl}{AuthController}
+\newinst[2.6]{model}{UserModel}
+\newinst[2.0]{hash}{hash.utils}
+\newinst[2.0]{jwt}{jwt.utils}
 
 \begin{call}{client}{POST /api/auth/register}{ctrl}{201 \{token, user\}}
   \begin{call}{ctrl}{findUserByEmail(email)}{model}{undefined}
   \end{call}
   \begin{call}{ctrl}{hashPassword(password)}{hash}{hash bcrypt}
   \end{call}
-  \begin{call}{ctrl}{createUser(name, email, hash)}{model}{newUser}
+  \begin{call}{ctrl}{createUser(...)}{model}{newUser}
   \end{call}
-  \begin{call}{ctrl}{generateToken(\{id, role\})}{jwt}{token JWT}
+  \begin{call}{ctrl}{generateToken(payload)}{jwt}{token JWT}
   \end{call}
 \end{call}
-\end{sequencediagram}%
-}
+\end{sequencediagram}
+\end{adjustbox}
 \caption{Diagramme de séquence — inscription d'un utilisateur}
 \label{fig:seq-auth}
 \end{figure}
@@ -616,34 +670,34 @@ La figure \ref{fig:seq-pipeline} détaille le pipeline central de l'application,
 
 \begin{figure}[p]
 \centering
-\resizebox{\textwidth}{!}{%
+\begin{adjustbox}{max width=\textwidth}
 \begin{sequencediagram}
 \newthread{client}{:Client React}
-\newinst[1.4]{tctrl}{TranscriptionController}
-\newinst[1.4]{whisper}{WhisperService}
-\newinst[1.4]{mem}{MemoryService}
-\newinst[1.4]{gemini}{config/gemini.js}
-\newinst[1.4]{db}{PostgreSQL + pgvector}
+\newinst[2.5]{tctrl}{TranscriptionController}
+\newinst[2.1]{whisper}{WhisperService}
+\newinst[2.1]{db}{PostgreSQL}
+\newinst[2.4]{mem}{MemoryService}
+\newinst[2.5]{gemini}{config/gemini.js}
 
-\begin{call}{client}{POST /transcriptions/upload (audio)}{tctrl}{201 \{transcription, memory\}}
+\begin{call}{client}{POST /upload (audio)}{tctrl}{201 \{transcription\}}
   \begin{call}{tctrl}{transcribeAudio(path)}{whisper}{texte brut}
   \end{call}
-  \begin{call}{tctrl}{createTranscription(meetingId, texte)}{db}{transcription}
+  \begin{call}{tctrl}{createTranscription(...)}{db}{transcription}
   \end{call}
-  \begin{call}{tctrl}{indexTranscriptionSafely(...)}{mem}{\{indexed, stored\}}
+  \begin{call}{tctrl}{indexTranscriptionSafely(...)}{mem}{\{indexed\}}
     \begin{call}{mem}{splitIntoChunks(texte)}{mem}{chunks[]}
     \end{call}
-    \begin{call}{mem}{embedText(chunk, RETRIEVAL\_DOCUMENT)}{gemini}{vecteur[768]}
+    \begin{call}{mem}{embedText(chunk)}{gemini}{vecteur[768]}
     \end{call}
     \begin{call}{mem}{replaceMemoryChunks(...)}{db}{chunks créés}
     \end{call}
   \end{call}
 \end{call}
 
-\begin{call}{client}{POST /decisions/extract/:meetingId}{tctrl}{201 \{decisions, memory\}}
+\begin{call}{client}{POST /extract/:meetingId}{tctrl}{201 \{decisions\}}
 \end{call}
-
-\end{sequencediagram}}
+\end{sequencediagram}
+\end{adjustbox}
 \caption{Diagramme de séquence — transcription audio, indexation et point d'entrée de l'extraction}
 \label{fig:seq-pipeline}
 \end{figure}
@@ -655,30 +709,31 @@ La figure \ref{fig:seq-rag} détaille le second axe du pipeline RAG : la \textit
 
 \begin{figure}[p]
 \centering
-\resizebox{\textwidth}{!}{%
+\begin{adjustbox}{max width=\textwidth}
 \begin{sequencediagram}
 \newthread{client}{:Client React}
-\newinst[1.4]{mctrl}{MemoryController}
-\newinst[1.4]{msvc}{MemoryService}
-\newinst[1.4]{gemini}{config/gemini.js}
-\newinst[1.4]{db}{mtg\_memory\_chunks}
-\newinst[1.4]{iasvc}{ia.service.js}
+\newinst[2.4]{mctrl}{MemoryController}
+\newinst[2.4]{db}{mtg\_memory\_chunks}
+\newinst[2.6]{msvc}{MemoryService}
+\newinst[2.4]{gemini}{config/gemini.js}
+\newinst[3.2]{iasvc}{ia.service.js}
 
-\begin{call}{client}{POST /memory/chat \{question, projectId\}}{mctrl}{200 \{answer, sources\}}
-  \begin{call}{mctrl}{findProjectById(id, userId)}{db}{project ou null}
+\begin{call}{client}{POST /memory/chat}{mctrl}{200 \{answer, sources\}}
+  \begin{call}{mctrl}{findProjectById(id)}{db}{projet}
   \end{call}
-  \begin{call}{mctrl}{retrieveChunks(question, scope)}{msvc}{chunks triés}
-    \begin{call}{msvc}{embedText(question, RETRIEVAL\_QUERY)}{gemini}{vecteur requête}
+  \begin{call}{mctrl}{retrieveChunks(question)}{msvc}{chunks triés}
+    \begin{call}{msvc}{embedText(question)}{gemini}{vecteur requête}
     \end{call}
-    \begin{call}{msvc}{searchSimilarChunks(vecteur, scope)}{db}{ORDER BY embedding \texttt{<=>} \$1}
+    \begin{call}{msvc}{searchSimilarChunks(vecteur)}{db}{top-k chunks}
     \end{call}
   \end{call}
-  \begin{call}{mctrl}{chatWithMemory(question, chunks)}{iasvc}{réponse textuelle}
+  \begin{call}{mctrl}{chatWithMemory(question, chunks)}{iasvc}{réponse}
     \begin{call}{iasvc}{generateWithFallback(prompt)}{gemini}{texte généré}
     \end{call}
   \end{call}
 \end{call}
-\end{sequencediagram}}
+\end{sequencediagram}
+\end{adjustbox}
 \caption{Diagramme de séquence — interrogation de la mémoire vectorielle (RAG complet)}
 \label{fig:seq-rag}
 \end{figure}
@@ -716,6 +771,7 @@ La figure \ref{fig:component} représente la décomposition logicielle en compos
 
 \begin{figure}[p]
 \centering
+\begin{adjustbox}{max width=\textwidth}
 \begin{tikzpicture}[>=Stealth, node distance=1.9cm]
 
 \node[component, fill=purple!6] (frontend) {Frontend React\\(pages / AuthContext)};
@@ -727,10 +783,10 @@ La figure \ref{fig:component} représente la décomposition logicielle en compos
 \node[component, below=1.6cm of routes] (controllers) {Contrôleurs};
 \componentports{controllers}
 
-\node[component, below left=1.6cm and -0.2cm of controllers] (models) {Modèles\\(requêtes SQL)};
+\node[component, below left=1.6cm and 0.4cm of controllers] (models) {Modèles\\(requêtes SQL)};
 \componentports{models}
 
-\node[component, below right=1.6cm and -0.2cm of controllers] (services) {Services\\(Whisper / IA / Mémoire)};
+\node[component, below right=1.6cm and 0.4cm of controllers] (services) {Services\\(Whisper / IA / Mémoire)};
 \componentports{services}
 
 \node[device, below=1.7cm of models] (pg) {PostgreSQL 16\\+ pgvector};
@@ -744,9 +800,10 @@ La figure \ref{fig:component} représente la décomposition logicielle en compos
 \draw[->] (models) -- node[left, font=\scriptsize]{SQL / pgvector} (pg);
 \draw[->] (services) -- node[right, font=\scriptsize]{spawn()} (whisper);
 \draw[->] (services) -- node[right, font=\scriptsize]{HTTPS} (gemini);
-\draw[->] (services.south) .. controls +(0,-1.2) and +(2,1.2) .. (pg.east);
+\draw[->] (services.west) -- node[above, font=\scriptsize]{appelle} (models.east);
 
 \end{tikzpicture}
+\end{adjustbox}
 \caption{Diagramme de composants — décomposition logicielle frontend / backend / services externes}
 \label{fig:component}
 \end{figure}
@@ -760,13 +817,13 @@ La figure \ref{fig:deployment} présente la topologie d'exécution actuelle : un
 \resizebox{\textwidth}{!}{%
 \begin{tikzpicture}[>=Stealth, node distance=2.2cm]
 
-\node[device, minimum height=7.6cm, minimum width=9.6cm] (host) at (0,-0.4) {};
+\node[device, minimum height=7.6cm, minimum width=11.2cm] (host) at (0,-0.4) {};
 \node[anchor=north, yshift=-0.22cm, font=\footnotesize\bfseries] at (host.north) {Poste de développement};
 
-\node[device, fill=blue!5] at (-2.5,1.5) (frontend) {Serveur Vite\\:5173};
-\node[device, fill=orange!6] at (2.5,1.5) (backend) {Serveur Express\\:3000};
-\node[device, minimum height=2.8cm, fill=green!6] at (-2.5,-2.1) (docker) {Conteneur Docker\\\texttt{veridian\_db}\\PostgreSQL 16 + pgvector\\:5432};
-\node[device, fill=yellow!10] at (2.5,-2.1) (whisper) {Processus Python\\Whisper (CPU, modèle \textit{small})};
+\node[device, fill=blue!5] at (-3.3,1.5) (frontend) {Serveur Vite\\:5173};
+\node[device, fill=orange!6] at (3.3,1.5) (backend) {Serveur Express\\:3000};
+\node[device, minimum height=2.8cm, fill=green!6] at (-3.3,-2.1) (docker) {Conteneur Docker\\\texttt{veridian\_db}\\PostgreSQL 16 + pgvector\\:5432};
+\node[device, fill=yellow!10] at (3.3,-2.1) (whisper) {Processus Python\\Whisper (CPU, modèle \textit{small})};
 
 \node[device, right=5.2cm of host, fill=red!5] (gemini) {API Gemini\\(Google AI)};
 
