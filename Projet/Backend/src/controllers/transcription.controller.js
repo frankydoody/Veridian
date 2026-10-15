@@ -2,6 +2,7 @@ import fs from 'fs';
 import {
   createTranscription,
   findTranscriptionByMeeting,
+  findTranscriptionById,
   updateTranscriptionText,
 } from '../models/transcription.model.js';
 import { findMeetingById } from '../models/meeting.model.js';
@@ -98,19 +99,31 @@ export const updateTranscriptionHandler = async (req, res, next) => {
       });
     }
 
-    const transcription = await updateTranscriptionText(id, rawText.trim());
+    // 1. La transcription existe-t-elle ?
+    const existing = await findTranscriptionById(id);
 
-    if (!transcription) {
+    // 2. L'utilisateur est-il membre du projet de sa réunion ? (AVANT toute modification)
+    //    Même message pour « inexistante » et « non autorisée » : on ne révèle pas
+    //    l'existence d'une transcription à quelqu'un qui n'y a pas accès.
+    const meeting = existing
+      ? await findMeetingById(existing.meeting_id, req.user.id)
+      : null;
+
+    if (!existing || !meeting) {
       return res.status(404).json({
-        message: 'Transcription introuvable'
+        message: 'Transcription introuvable ou accès non autorisé'
       });
     }
 
+    // 3. Seulement maintenant, on modifie
+    const transcription = await updateTranscriptionText(id, rawText.trim());
+
     // Bloc 07 : le texte a changé, la mémoire doit être ré-indexée
-    const meeting = await findMeetingById(transcription.meeting_id, req.user.id);
-    const memory = meeting
-      ? await indexTranscriptionSafely(meeting.id, meeting.project_id, transcription.raw_text)
-      : { indexed: false, stored: 0 };
+    const memory = await indexTranscriptionSafely(
+      meeting.id,
+      meeting.project_id,
+      transcription.raw_text
+    );
 
     return res.status(200).json({
       message: 'Transcription mise à jour avec succès',

@@ -6,6 +6,8 @@ import {
   updateTaskStatus,
   deleteTask,
 } from '../models/task.model.js';
+import { findProjectById } from '../models/project.model.js';
+import { findMeetingById } from '../models/meeting.model.js';
 
 // GET /api/tasks — liste toutes les tâches de l'utilisateur connecté
 export async function getAllTasksHandler(req, res, next) {
@@ -20,7 +22,21 @@ export async function getAllTasksHandler(req, res, next) {
 // POST /api/tasks — crée une tâche
 export async function createTaskHandler(req, res, next) {
   try {
-    const task = await createTask({ ...req.body, user_id: req.user.id });
+    const { title, meeting_id, project_id } = req.body ?? {};
+
+    if (!title || typeof title !== 'string' || title.trim() === '') {
+      return res.status(400).json({ message: 'Le titre de la tâche est obligatoire' });
+    }
+
+    // Une tâche ne peut être rattachée qu'à un projet / une réunion dont l'utilisateur est membre
+    if (project_id && !(await findProjectById(project_id, req.user.id))) {
+      return res.status(404).json({ message: 'Projet introuvable ou accès non autorisé' });
+    }
+    if (meeting_id && !(await findMeetingById(meeting_id, req.user.id))) {
+      return res.status(404).json({ message: 'Réunion introuvable ou accès non autorisé' });
+    }
+
+    const task = await createTask({ ...req.body, title: title.trim(), user_id: req.user.id });
     res.status(201).json({ task });
   } catch (err) {
     next(err);
