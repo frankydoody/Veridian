@@ -4,6 +4,7 @@ import {
   findDecisionsByProject,
 } from '../models/decision.model.js';
 import { findMeetingById } from '../models/meeting.model.js';
+import { findProjectById } from '../models/project.model.js';
 import { findTranscriptionByMeeting } from '../models/transcription.model.js';
 import { extractDecisions } from '../services/ia.service.js';
 import { indexDecisionsSafely } from '../services/memory.service.js';
@@ -79,6 +80,13 @@ export const getDecisionsByMeetingHandler = async (req, res, next) => {
 export const getDecisionsByProjectHandler = async (req, res, next) => {
   try {
     const { projectId } = req.params;
+
+    const project = await findProjectById(projectId, req.user.id);
+    if (!project) {
+      return res.status(404).json({
+        message: 'Projet introuvable ou accès non autorisé'
+      });
+    }
 
     const decisions = await findDecisionsByProject(projectId);
 

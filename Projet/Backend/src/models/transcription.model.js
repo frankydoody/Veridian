@@ -38,6 +38,17 @@ export const findTranscriptionByMeeting = async (meetingId) => {
   return result.rows[0];
 };
 
+export const findTranscriptionById = async (id) => {
+  const result = await query(
+    `SELECT id, meeting_id, raw_text, language, is_edited, created_at, updated_at
+     FROM transcriptions
+     WHERE id = $1
+     AND is_active = true`,
+    [id]
+  );
+  return result.rows[0];
+};
+
 export const updateTranscriptionText = async (id, rawText) => {
   const result = await query(
     `UPDATE transcriptions

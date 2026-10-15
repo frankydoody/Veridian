@@ -3,6 +3,7 @@ import {
   findMeetingsByProject,
   findMeetingById,
   updateMeetingStatus,
+  findAllMeetings,  
 } from '../models/meeting.model.js';
 import { findProjectById } from '../models/project.model.js';
 
@@ -42,6 +43,20 @@ export const createMeetingHandler = async (req, res, next) => {
   }
 };
 
+export const getAllMeetingsHandler = async (req, res, next) => {
+  try {
+    const meetings = await findAllMeetings(req.user.id);
+
+    return res.status(200).json({
+      message: 'Réunions récupérées avec succès',
+      count: meetings.length,
+      meetings,
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const getMeetingsByProjectHandler = async (req, res, next) => {
   try {

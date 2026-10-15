@@ -8,6 +8,7 @@
 #   1. Vérifie les prérequis (docker, node, npm, curl, fichier .env)
 #   2. Démarre la base de données PostgreSQL (Docker) et attend qu'elle soit prête
 #   3. Installe les dépendances npm si elles sont absentes
+#   3b. Crée le schéma puis applique les migrations si la base est vide
 #   4. Ouvre un terminal pour le backend et un terminal pour le frontend
 #   5. Attend que les deux serveurs répondent, puis ouvre le navigateur
 # =============================================================================
@@ -99,6 +100,36 @@ fi
 if [ ! -d "$FRONTEND/node_modules" ]; then
   info "Installation des dépendances du frontend..."
   (cd "$FRONTEND" && npm install)
+fi
+
+# ─── 3b. Initialisation de la base (premier clone seulement) ─────────────────
+
+# Applique un fichier SQL dans le conteneur ; la première erreur arrête le script.
+apply_sql() {
+  docker exec -i "$DB_CONTAINER" psql -v ON_ERROR_STOP=1 -q -U veridian_user -d veridian < "$1" \
+    || fail "Échec de l'application de $(basename "$1") (voir l'erreur SQL ci-dessus)."
+}
+
+table_exists="$(docker exec "$DB_CONTAINER" psql -U veridian_user -d veridian -tAc \
+  "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='users');" 2>/dev/null || echo "")"
+
+if [ "$table_exists" != "t" ]; then
+  info "Base de données vide détectée. Création du schéma..."
+
+  # Ordre obligatoire : le schéma de base, puis les migrations
+  # (les migrations modifient ou référencent les tables du schéma).
+  [ -f "$BACKEND/database/schema.sql" ] || fail "Fichier manquant : $BACKEND/database/schema.sql"
+  info "  Schéma : schema.sql"
+  apply_sql "$BACKEND/database/schema.sql"
+
+  for f in "$BACKEND"/database/migrations/*.sql; do
+    [ -e "$f" ] || continue
+    info "  Migration : $(basename "$f")"
+    apply_sql "$f"
+  done
+  ok "Schéma et migrations appliqués."
+else
+  ok "Base de données déjà initialisée."
 fi
 
 # ─── 4. Terminaux backend et frontend ────────────────────────────────────────

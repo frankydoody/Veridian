@@ -1,0 +1,507 @@
+% ============================================================
+%  TN1 — Mise en place du projet Veridian
+%  INF1430 — Projet de fin d'études
+%  TÉLUQ
+%
+%  Ce document décrit l'état initial, réel et fonctionnel
+%  de l'infrastructure du projet au jour 1, avant tout
+%  développement applicatif.
+% ============================================================
+\documentclass[12pt, a4paper]{article}
+
+% ── Encodage et langue ──────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+
+% ── Mise en page ────────────────────────────────────────────
+\usepackage[top=2.5cm, bottom=2.5cm, left=3cm, right=2.5cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+
+% ── Typographie ─────────────────────────────────────────────
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% ── Liens et PDF ────────────────────────────────────────────
+\usepackage[hidelinks, pdftitle={TN1 - Veridian}, pdfauthor={Francis Côté}]{hyperref}
+
+% ── Tableaux et listes ──────────────────────────────────────
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{longtable}
+\usepackage{array}
+
+% ── En-têtes et pieds de page ───────────────────────────────
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small INF1430 — Projet de fin d'études}
+\fancyhead[R]{\small Francis Côté}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ── Code source ─────────────────────────────────────────────
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{codebg}{RGB}{245,245,245}
+\definecolor{codeframe}{RGB}{200,200,200}
+\definecolor{codecomment}{RGB}{100,100,100}
+\definecolor{codekeyword}{RGB}{0,100,180}
+\definecolor{codestring}{RGB}{160,60,0}
+
+% Style de listing uniforme — footnotesize pour éviter le débordement
+% des lignes longues (commentaires inclus) dans la largeur de page.
+\lstdefinestyle{veridian}{
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{codekeyword}\bfseries,
+  stringstyle=\color{codestring},
+  commentstyle=\color{codecomment}\itshape,
+  breaklines=true,
+  showstringspaces=false,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=6pt,
+  tabsize=2,
+}
+\lstset{style=veridian}
+
+% ── Graphiques ──────────────────────────────────────────────
+\usepackage{graphicx}
+\usepackage{float}
+
+% ── Références bibliographiques ─────────────────────────────
+\usepackage[backend=biber, style=apa, sorting=nyt]{biblatex}
+\addbibresource{references.bib}
+
+% ── Largeurs de colonnes pour les longtables ────────────────
+% Calculées pour une zone de texte de ~15.5cm (A4, marges 3+2.5cm).
+% col1 = numéro bloc, col2 = titre, col3 = description/critères.
+\newlength{\colbloc}   \setlength{\colbloc}{1.0cm}
+\newlength{\coltitre}  \setlength{\coltitre}{4.8cm}
+\newlength{\coldesc}   \setlength{\coldesc}{9.2cm}  % 15.5 - 1.0 - 4.8 - 0.5 (tabcol)
+
+% ============================================================
+%  DÉBUT DU DOCUMENT
+% ============================================================
+\begin{document}
+
+% ────────────────────────────────────────────────────────────
+%  PAGE TITRE
+% ────────────────────────────────────────────────────────────
+\begin{titlepage}
+  \centering
+  \vspace*{2cm}
+
+  {\Large \textbf{Université TÉLUQ}}\\[0.5cm]
+  {\large INF1430 — Projet de fin d'études}\\[3cm]
+
+  \rule{\linewidth}{0.5pt}\\[0.4cm]
+  {\LARGE \textbf{Travail noté 1}}\\[0.3cm]
+  {\Large \textit{Mise en place du projet Veridian}}\\[0.3cm]
+  \rule{\linewidth}{0.5pt}\\[3cm]
+
+  \begin{tabular}{rl}
+    \textbf{Étudiant :}    & Francis Côté \\[0.3cm]
+    \textbf{Cours :}       & INF1430 — Projet de fin d'études \\[0.3cm]
+    \textbf{Institution :} & Université TÉLUQ \\[0.3cm]
+  \end{tabular}
+
+  \vfill
+  {\small Remis conformément aux exigences du cours INF1430}
+\end{titlepage}
+
+% ────────────────────────────────────────────────────────────
+%  TABLE DES MATIÈRES
+% ────────────────────────────────────────────────────────────
+\newpage
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Dépôt Git}
+% ============================================================
+
+% Le dépôt est la première infrastructure mise en place.
+% Il centralise le code, les migrations SQL, la documentation
+% et l'historique de toutes les décisions techniques du projet.
+Le dépôt public du projet est hébergé sur GitHub à l'adresse
+\url{https://github.com/frankydoody/Veridian}. Il est créé
+dès le premier jour du projet et constitue la source de vérité
+unique pour l'ensemble du code source, des migrations de base
+de données, de la documentation académique et de l'historique
+des décisions techniques.
+
+% ── 1.1 Structure des répertoires ───────────────────────────
+\subsection{Structure des répertoires}
+
+% La structure est définie au jour 1 et figée avant tout
+% développement. Elle impose la séparation des responsabilités
+% entre le backend, le frontend et la documentation.
+La structure du dépôt est établie avant tout développement
+applicatif. Elle impose une séparation stricte entre le serveur
+Express, l'interface React et la documentation académique,
+et restera stable pour toute la durée du projet.
+
+\begin{lstlisting}[language=bash, caption={Arborescence planifiée du dépôt Veridian}]
+Veridian/
+├── start.ps1              # Demarrage automatise (Windows)
+├── docker-compose.yml     # PostgreSQL + pgvector
+├── Projet/
+│   ├── Backend/           # API Node.js / Express 5
+│   │   ├── app.js         # Config Express
+│   │   ├── server.js      # Point d'entree HTTP
+│   │   ├── package.json   # Dependances Node.js
+│   │   ├── database/
+│   │   │   └── migrations/  # SQL versiones
+│   │   └── src/
+│   │       ├── config/      # Connexion DB et IA
+│   │       ├── controllers/ # Logique metier
+│   │       ├── middlewares/ # Auth JWT, erreurs
+│   │       ├── models/      # Requetes SQL
+│   │       ├── routes/      # Cablage HTTP
+│   │       ├── services/    # Whisper, Gemini, RAG
+│   │       └── utils/       # Utilitaires communs
+│   └── Frontend/          # React 19 / Vite
+│       ├── index.html     # Point d'entree HTML
+│       ├── package.json   # Dependances React
+│       └── src/
+│           ├── api/       # Client HTTP
+│           ├── contexts/  # AuthContext
+│           ├── components/# Composants reutilisables
+│           ├── pages/     # Une page par route
+│           └── utils/     # Fonctions partagees
+└── Documentations/        # Rapports TN1 a TN4
+
+\end{lstlisting}
+
+% ── 1.2 Stratégie de branches ───────────────────────────────
+\subsection{Stratégie de branches}
+
+% La stratégie de branches est définie dès le départ et
+% s'applique sans exception à chaque bloc fonctionnel.
+% Les branches ne sont jamais supprimées : règle de
+% traçabilité académique, pas une option.
+La gestion du code source repose sur un modèle de branches
+thématiques (\textit{feature branch workflow}). Chaque bloc
+fonctionnel possède sa propre branche nommée \texttt{bloc-XX}.
+Les règles suivantes s'appliquent sans exception :
+
+\begin{enumerate}
+  \item La branche est créée depuis \texttt{main} au démarrage du bloc.
+  \item Le développement progresse jusqu'à un état fonctionnel et testable.
+  \item Une \textit{pull request} est ouverte vers \texttt{main}.
+  \item La fusion s'effectue exclusivement par \textit{merge commit}
+        (\texttt{gh pr merge --merge}), sans \textit{squash} ni
+        \textit{rebase}, afin de préserver l'intégralité de l'historique.
+  \item La branche source \textbf{n'est jamais supprimée} après la fusion,
+        conformément à la politique de traçabilité du projet.
+  \item \texttt{main} demeure en état déployable à tout moment.
+\end{enumerate}
+
+% Tableau des branches — tabularx avec largeurs contrôlées
+% pour éviter tout débordement sur la marge droite.
+\begin{table}[H]
+  \centering
+  \caption{Branches planifiées pour le projet Veridian}
+  \begin{tabularx}{\textwidth}{>{\ttfamily}l l X}
+    \toprule
+    \textbf{Branche}  & \textbf{Statut}  & \textbf{Contenu prévu} \\
+    \midrule
+    main      & Active (base) & Code de production intégré — toujours en état déployable \\
+    bloc-01   & Planifiée     & Infrastructure et configuration initiale du projet \\
+    bloc-02   & Planifiée     & Authentification JWT : inscription, connexion, middleware \\
+    bloc-03   & Planifiée     & Gestion des projets CRUD \\
+    bloc-04   & Planifiée     & Gestion des réunions CRUD \\
+    bloc-05   & Planifiée     & Transcription audio avec Whisper (modèle local) \\
+    bloc-06   & Planifiée     & Extraction des décisions via Gemini 1.5 Flash \\
+    bloc-07   & Planifiée     & Mémoire vectorielle RAG avec pgvector \\
+    bloc-08   & Planifiée     & Détection de contradictions et alertes \\
+    bloc-09   & Planifiée     & Chat mémoire et export PDF \\
+    bloc-10   & Planifiée     & Frontend Auth (React / Vite) \\
+    bloc-11   & Planifiée     & Frontend Dashboard (Projets, Réunions, Tâches, Mémoire) \\
+    bloc-12   & Planifiée     & Frontend connexion à l'API réelle \\
+    bloc-13   & Planifiée     & Frontend Formulaires (Projet, Réunion, Tâche) \\
+    bloc-14   & Planifiée     & Frontend Réunion Détaillée (audio, transcription, décisions) \\
+    bloc-15   & Planifiée     & Frontend Décisions et Contradictions \\
+    bloc-16   & Planifiée     & Frontend Calendrier de projet \\
+    bloc-17   & Planifiée     & Tests d'intégration et qualité (Jest) \\
+    bloc-18   & Planifiée     & Déploiement et documentation finale (TN4) \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+% ============================================================
+\section{Board GitHub Projects}
+% ============================================================
+
+Un tableau de suivi est configuré dans l'onglet \textit{Projects}
+du dépôt dès le démarrage du projet. Il centralise le suivi
+de tous les blocs de développement et lie chaque carte à
+l'issue GitHub et à la \textit{pull request} correspondantes.
+
+% ── 2.1 Configuration de la vue ─────────────────────────────
+\subsection{Configuration de la vue}
+
+Le tableau utilise une vue \textit{Table} avec les champs suivants :
+
+\begin{table}[H]
+  \centering
+  \caption{Champs de la vue Table — GitHub Projects}
+  \begin{tabularx}{\textwidth}{lX}
+    \toprule
+    \textbf{Champ}                  & \textbf{Rôle} \\
+    \midrule
+    \textit{Title}                  & Titre du bloc et numéro d'issue associée \\
+    \textit{Assignees}              & Responsable du bloc (frankydoody) \\
+    \textit{Status}                 & État courant : \textit{Todo} ou \textit{Done} \\
+    \textit{Linked pull requests}   & PR fusionnée liée automatiquement à l'issue \\
+    \textit{Sub-issues progress}    & Progression des sous-tâches si applicables \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+% ── 2.2 État initial du tableau ─────────────────────────────
+\subsection{État initial du tableau}
+
+Au démarrage du projet, les dix-huit issues (blocs 01 à 18) sont
+toutes en statut \textit{Todo}. Le statut passe automatiquement
+à \textit{Done} lors de la fusion de la \textit{pull request}
+associée dans \texttt{main}.
+% ============================================================
+\section{Backlog initial d'issues}
+% ============================================================
+
+% Toutes les issues sont créées au jour 1 via la CLI GitHub
+% avant tout développement. Chaque issue décrit un bloc de
+% travail autonome avec ses critères de complétion explicites.
+Toutes les issues sont créées dès le premier jour via l'interface
+en ligne de commande GitHub (\texttt{gh issue create}), avant
+tout développement applicatif. Chaque issue représente un bloc
+de travail autonome et livrable, portant un titre, une
+description et des critères de complétion explicites.
+
+% longtable avec largeurs p{} explicites : col1=numéro (1cm),
+% col2=titre (4.8cm), col3=critères (reste ~9.2cm).
+% Cela garantit que les trois colonnes tiennent dans la page.
+\begin{longtable}{>{\centering}p{\colbloc} p{\coltitre} p{\coldesc}}
+  \caption{Backlog initial — issues GitHub (état au jour 1)} \label{tab:backlog}\\
+  \toprule
+  \textbf{Bloc} & \textbf{Titre} & \textbf{Critères de complétion} \\
+  \midrule
+  \endfirsthead
+  \multicolumn{3}{l}{\small\itshape Suite du tableau \ref{tab:backlog}…}\\[2pt]
+  \toprule
+  \textbf{Bloc} & \textbf{Titre} & \textbf{Critères de complétion} \\
+  \midrule
+  \endhead
+  \midrule
+  \multicolumn{3}{r}{\small\itshape Suite à la page suivante…}\\
+  \endfoot
+  \bottomrule
+  \endlastfoot
+  % ── Blocs infrastructure et backend ────────────────────────
+  01 & Infrastructure et Configuration  & Dépôt créé, Docker opérationnel, migrations appliquées, \texttt{start.ps1} fonctionnel \\[3pt]
+  02 & Authentification JWT             & Inscription, connexion, \texttt{authMiddleware}, token JWT retourné et validé \\[3pt]
+  03 & Gestion des Projets CRUD         & Endpoints GET / POST / PUT / DELETE \texttt{/api/projects}, soft delete \\[3pt]
+  04 & Gestion des Réunions CRUD        & Endpoints réunions, upload Multer, fichier audio persisté sur disque \\[3pt]
+  05 & Transcription Audio (Whisper)    & Pipeline Whisper local (modèle \textit{small}), transcription persistée en base \\[3pt]
+  06 & Extraction des décisions (Gemini)& Appel Gemini 1.5 Flash, décisions extraites et liées à la réunion \\[3pt]
+  07 & Mémoire vectorielle (RAG)        & Embeddings générés, indexés dans pgvector, recherche sémantique opérationnelle \\[3pt]
+  08 & Détection contradictions \& Alertes & Comparaison des décisions, alertes de contradiction affichées \\[3pt]
+  09 & Chat mémoire \& Export PDF       & Interface de chat sur la mémoire RAG, export PDF des décisions \\[3pt]
+  % ── Blocs frontend ─────────────────────────────────────────
+  10 & Frontend Auth (React/Vite)       & Pages connexion et inscription, gestion du token JWT côté client \\[3pt]
+  11 & Frontend Dashboard               & Pages Projets, Réunions, Tâches, Mémoire avec données statiques \\[3pt]
+  12 & Frontend API Connect             & Toutes les pages connectées à l'API réelle, données dynamiques \\[3pt]
+  13 & Frontend Formulaires             & Formulaires de création projet, réunion, tâche avec validation côté client \\[3pt]
+  14 & Frontend Réunion Détaillée       & Lecteur audio intégré, transcription complète, décisions liées \\[3pt]
+  15 & Frontend Décisions \& Contradictions & Vue agrégée des décisions, alertes en temps réel \\[3pt]
+  16 & Frontend Calendrier de projet    & Vue calendrier mensuel, navigation entre les mois \\[3pt]
+  % ── Blocs qualité et livraison ─────────────────────────────
+  17 & Tests d'intégration \& Qualité   & Suite Jest sur les routes critiques : auth, transcription, mémoire RAG \\[3pt]
+  18 & Déploiement \& Documentation     & Guide de déploiement, variables documentées, rapport TN4 \\
+\end{longtable}
+
+% ============================================================
+\section{Plan de projet}
+% ============================================================
+
+% Ce plan décrit l'infrastructure initiale réelle et fonctionnelle
+% mise en place au jour 1. Chaque élément est constatable
+% directement dans le dépôt GitHub.
+Le plan de projet est documenté dans \texttt{README.md} à la
+racine du dépôt, complété par le présent document. Il décrit
+l'infrastructure initiale réelle et fonctionnelle mise en
+place dès le premier jour — chaque élément est constatable
+directement dans le dépôt GitHub.
+
+% ── 4.1 Découpage en blocs fonctionnels ─────────────────────
+\subsection{Découpage en blocs fonctionnels}
+
+% Les blocs sont séquentiels et dépendants : un bloc ne
+% démarre qu'une fois le précédent fusionné dans main.
+Le projet est structuré en dix-huit blocs fonctionnels séquentiels,
+numérotés de 01 à 18. Chaque bloc produit un incrément livrable,
+testé et intégré dans \texttt{main} avant que le suivant ne
+commence. Ce séquençage garantit que l'application reste
+déployable et démontrable à chaque étape du développement.
+
+% Même logique de colonnes p{} que pour le backlog :
+% col1=numéro, col2=nom court, col3=livrable attendu.
+\begin{longtable}{>{\centering}p{\colbloc} p{\coltitre} p{\coldesc}}
+  \caption{Plan de développement — blocs et livrables attendus} \label{tab:plan}\\
+  \toprule
+  \textbf{Bloc} & \textbf{Nom} & \textbf{Livrable attendu} \\
+  \midrule
+  \endfirsthead
+  \multicolumn{3}{l}{\small\itshape Suite du tableau \ref{tab:plan}…}\\[2pt]
+  \toprule
+  \textbf{Bloc} & \textbf{Nom} & \textbf{Livrable attendu} \\
+  \midrule
+  \endhead
+  \midrule
+  \multicolumn{3}{r}{\small\itshape Suite à la page suivante…}\\
+  \endfoot
+  \bottomrule
+  \endlastfoot
+  % ── Blocs infrastructure et backend ────────────────────────
+  01 & Infrastructure et Config   & Dépôt opérationnel, Docker configuré, migrations prêtes, \texttt{start.ps1} fonctionnel \\[3pt]
+  02 & Authentification JWT        & API auth complète : inscription, connexion, middleware de protection des routes \\[3pt]
+  03 & Projets CRUD                & Gestion complète des projets : création, lecture, mise à jour, suppression logique \\[3pt]
+  04 & Réunions CRUD               & Création de réunions, upload et persistance du fichier audio via Multer \\[3pt]
+  05 & Transcription Whisper       & Pipeline local Whisper (modèle \textit{small}) : transcription audio persistée en base \\[3pt]
+  06 & Décisions Gemini            & Extraction automatique des décisions via Gemini 1.5 Flash, liées à chaque réunion \\[3pt]
+  07 & Mémoire RAG                 & Embeddings vectoriels dans pgvector, recherche sémantique sur la mémoire de réunion \\[3pt]
+  08 & Contradictions \& Alertes   & Détection automatique des contradictions entre décisions, alertes persistées \\[3pt]
+  09 & Chat mémoire \& PDF         & Interface de chat sur la mémoire RAG, export PDF des décisions par projet \\[3pt]
+  % ── Blocs frontend ─────────────────────────────────────────
+  10 & Frontend Auth               & Pages connexion / inscription React, gestion du token JWT en contexte global \\[3pt]
+  11 & Frontend Dashboard          & Toutes les pages avec données statiques (Projets, Réunions, Tâches, Mémoire) \\[3pt]
+  12 & Frontend API Connect        & Pages connectées à l'API réelle : toutes les données dynamiques affichées \\[3pt]
+  13 & Frontend Formulaires        & Formulaires de création et d'édition avec validation côté client \\[3pt]
+  14 & Frontend Réunion Détaillée  & Lecteur audio intégré, transcription complète, décisions liées \\[3pt]
+  15 & Frontend Décisions          & Vue agrégée des décisions par projet, alertes de contradiction en temps réel \\[3pt]
+  16 & Frontend Calendrier         & Vue calendrier mensuel des réunions par projet, navigation entre les mois \\[3pt]
+  % ── Blocs qualité et livraison ─────────────────────────────
+  17 & Tests \& Qualité            & Suite Jest couvrant les routes critiques : auth, transcription, mémoire RAG \\[3pt]
+  18 & Déploiement \& Docs         & Guide de déploiement, variables documentées, rapport final TN4 \\
+\end{longtable}
+
+% ── 4.2 Infrastructure initiale mise en place ───────────────
+\subsection{Infrastructure initiale mise en place}
+
+% Cette sous-section décrit ce qui est en place dès le jour 1,
+% avant tout développement des blocs 01 à 18.
+L'infrastructure suivante est mise en place dès le premier jour,
+avant tout développement applicatif. Elle constitue le socle
+technique sur lequel repose l'ensemble des blocs de développement.
+
+\begin{itemize}
+  % ── Dépôt et versionnement ──────────────────────────────────
+  \item \textbf{Dépôt Git} : dépôt public sur GitHub, structure
+        de répertoires établie, fichier \texttt{.gitignore} configuré,
+        \texttt{README.md} documentant le projet et la procédure
+        de démarrage.
+
+  % ── Environnement conteneurisé ─────────────────────────────
+  \item \textbf{Base de données} : fichier \texttt{docker-compose.yml}
+        configuré avec l'image \texttt{pgvector/pgvector:pg16},
+        incluant un \textit{healthcheck} et la persistance des données.
+        Les fichiers de migration SQL (\texttt{001\_schema.sql},
+        \texttt{002\_memory.sql}, \texttt{003\_tasks.sql}) sont
+        versionnés dans le dépôt, prêts à être appliqués au
+        premier démarrage.
+
+  % ── Script de démarrage ─────────────────────────────────────
+  \item \textbf{Script de démarrage} : \texttt{start.ps1} automatise
+        la séquence complète sur Windows — vérification de Docker,
+        démarrage du conteneur, application des migrations, installation
+        des dépendances npm, ouverture des terminaux backend et frontend,
+        puis lancement du navigateur. Le projet est opérationnel
+        après un simple \texttt{git clone}.
+
+  % ── Squelette backend ───────────────────────────────────────
+  \item \textbf{Squelette backend} : structure de dossiers
+        \texttt{src/} créée (config, controllers, middlewares,
+        models, routes, services, utils), fichiers \texttt{app.js}
+        et \texttt{server.js} initialisés, \texttt{package.json}
+        avec toutes les dépendances définies.
+
+  % ── Squelette frontend ──────────────────────────────────────
+  \item \textbf{Squelette frontend} : projet Vite initialisé,
+        React Router configuré, Tailwind CSS installé, client
+        HTTP centralisé (\texttt{client.js}) et \texttt{AuthContext}
+        en place.
+
+  % ── Gestion de projet ───────────────────────────────────────
+  \item \textbf{Gestion de projet} : 18 issues créées dans GitHub
+        Projects, tableau Kanban configuré avec quatre colonnes,
+        toutes les issues dans la colonne \textit{Backlog}.
+\end{itemize}
+
+% ── 4.3 Environnement d'exécution ───────────────────────────
+\subsection{Environnement d'exécution}
+
+% L'environnement est conteneurisé pour la base de données
+% afin de garantir la reproductibilité sur tout poste
+% disposant de Docker, indépendamment de l'OS.
+L'environnement de développement est conteneurisé pour la
+base de données, ce qui garantit la reproductibilité sur
+n'importe quelle machine disposant de Docker.
+
+\begin{lstlisting}[language=bash, caption={Fichier docker-compose.yml — configuration initiale}]
+services:
+  postgres:
+    image: pgvector/pgvector:pg16   # PostgreSQL 16 + extension vectorielle
+    container_name: veridian_db
+    environment:
+      POSTGRES_USER: veridian_user
+      POSTGRES_PASSWORD: veridian_pass
+      POSTGRES_DB: veridian
+    ports:
+      - "5432:5432"
+    healthcheck:                    # Le backend attend que la DB soit prête
+      test: ["CMD-SHELL", "pg_isready -U veridian_user -d veridian"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+\end{lstlisting}
+
+L'image \texttt{pgvector/pgvector:pg16} est sélectionnée
+spécifiquement pour son support natif de l'extension
+\texttt{pgvector}, nécessaire au stockage des vecteurs
+d'embeddings utilisés par le système de mémoire RAG.
+
+% ── 4.4 Critères de complétion d'un bloc ────────────────────
+\subsection{Critères de complétion d'un bloc}
+
+% Ces quatre critères s'appliquent uniformément à chaque bloc.
+% Un bloc n'est déclaré terminé que lorsque les quatre
+% conditions sont simultanément satisfaites.
+Un bloc est considéré \textbf{terminé} lorsque les quatre
+critères suivants sont simultanément satisfaits :
+
+\begin{enumerate}
+  \item Le code est fusionné dans \texttt{main} via une
+        \textit{pull request} approuvée (\texttt{merge commit}).
+  \item L'application reste fonctionnelle et déployable
+        après la fusion.
+  \item L'issue GitHub correspondante est fermée et liée
+        à la \textit{pull request}.
+  \item La fonctionnalité est testable manuellement via
+        l'interface ou directement via les endpoints de l'API.
+\end{enumerate}
+
+% ============================================================
+%  RÉFÉRENCES
+% ============================================================
+\newpage
+\printbibliography[title={Références}]
+
+\end{document}

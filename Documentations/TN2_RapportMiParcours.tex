@@ -1,0 +1,1190 @@
+% ============================================================
+%  TN2 — Rapport intermédiaire mi-parcours — Veridian
+%  INF1430 — Projet de fin d'études — TÉLUQ
+% ============================================================
+\documentclass[12pt, a4paper]{article}
+
+% ── Encodage et langue ──────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\shorthandoff{:;!?} % évite le conflit entre la ponctuation active de babel-french et la syntaxe TikZ (le ';' qui termine un \draw)
+
+% ── Mise en page ────────────────────────────────────────────
+\usepackage[top=2.5cm, bottom=2.5cm, left=3cm, right=2.5cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+
+% ── Typographie ─────────────────────────────────────────────
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% ── Liens et PDF ────────────────────────────────────────────
+\usepackage[hidelinks, pdftitle={TN2 - Veridian}, pdfauthor={Francis Côté}]{hyperref}
+
+% ── Tableaux et listes ──────────────────────────────────────
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{multirow}
+
+% ── En-têtes ────────────────────────────────────────────────
+\usepackage{fancyhdr}
+\setlength{\headheight}{14pt}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small INF1430 — Projet de fin d'études}
+\fancyhead[R]{\small Francis Côté}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ── Code source ─────────────────────────────────────────────
+\usepackage{listings}
+\usepackage{xcolor}
+
+\definecolor{codebg}{RGB}{245,245,245}
+\definecolor{codeframe}{RGB}{200,200,200}
+\definecolor{codecomment}{RGB}{100,100,100}
+\definecolor{codekeyword}{RGB}{0,100,180}
+\definecolor{codestring}{RGB}{160,60,0}
+
+\lstdefinestyle{veridian}{
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{codekeyword}\bfseries,
+  stringstyle=\color{codestring},
+  commentstyle=\color{codecomment}\itshape,
+  breaklines=true,
+  showstringspaces=false,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=6pt,
+  tabsize=2,
+}
+\lstset{style=veridian}
+
+% Cette distribution TeX Live ne fournit pas de langage "JavaScript" intégré
+% pour listings (seul "Java" existe par défaut) : on le définit explicitement
+% pour une coloration syntaxique correcte des extraits de code Node.js/ES6.
+\lstdefinelanguage{JavaScript}{
+  keywords={typeof, new, true, false, catch, function, return, null, undefined,
+    switch, var, let, const, if, in, while, do, else, case, break, async, await,
+    try, throw, class, extends, export, import, default, this, of, static,
+    continue, delete, instanceof, void, yield},
+  keywordstyle=\color{codekeyword}\bfseries,
+  ndkeywords={describe, test, expect, it, beforeEach, afterEach, require, module,
+    exports, console, process, toEqual, toBe, toThrow, toBeDefined, toBeNull,
+    toHaveLength, toContain, toBeGreaterThan, toBeLessThan, toBeCloseTo},
+  ndkeywordstyle=\color{codekeyword!70!black},
+  identifierstyle=\color{black},
+  sensitive=true,
+  comment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  string=[b]',
+  morestring=[b]",
+  morestring=[b]`,
+}
+
+% ── Boîtes ──────────────────────────────────────────────────
+\usepackage{tcolorbox}
+\tcbuselibrary{skins}
+
+\newtcolorbox{infobox}[1][]{
+  colback=blue!5!white, colframe=blue!40!white,
+  fonttitle=\bfseries, title=#1,
+  left=6pt, right=6pt, top=4pt, bottom=4pt
+}
+
+\newtcolorbox{warnbox}[1][]{
+  colback=orange!8!white, colframe=orange!60!white,
+  fonttitle=\bfseries, title=#1,
+  left=6pt, right=6pt, top=4pt, bottom=4pt
+}
+
+\newtcolorbox{okbox}[1][]{
+  colback=green!6!white, colframe=green!45!black,
+  fonttitle=\bfseries, title=#1,
+  left=6pt, right=6pt, top=4pt, bottom=4pt
+}
+
+% ── Graphiques et figures ────────────────────────────────────
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[export]{adjustbox}
+\usepackage[labelfont=bf, font=small]{caption}
+
+% ── Diagrammes UML (TikZ + pgf-umlsd) ────────────────────────
+\usepackage{tikz}
+\usetikzlibrary{shapes.multipart, arrows.meta, positioning, calc, shapes.geometric, fit, backgrounds}
+\usepackage{pgf-umlsd}
+
+% Style boîte de classe UML (2 compartiments : nom, attributs)
+\tikzstyle{umlclass}=[draw=blue!40!black, fill=blue!3, rectangle split,
+  rectangle split parts=2, rectangle split part align=left,
+  text width=5.3cm, font=\footnotesize, rounded corners=1pt, anchor=north,
+  rectangle split part fill={blue!12,white}, drop shadow]
+
+% Style composant UML
+\tikzstyle{component}=[draw, rectangle, minimum width=3.4cm, minimum height=1.3cm,
+  font=\footnotesize, fill=orange!6, rounded corners=1pt, drop shadow, align=center, inner xsep=0.5cm]
+
+% Style dispositif (diagramme de déploiement)
+\tikzstyle{device}=[draw, rectangle, minimum width=3.6cm, minimum height=1.9cm,
+  font=\footnotesize, fill=green!5, rounded corners=1pt, drop shadow, align=center]
+
+% Petit connecteur de port UML (notch) pour composants
+\newcommand{\componentports}[1]{
+  \node[draw, fill=white, minimum width=0.35cm, minimum height=0.16cm, anchor=center] at ($(#1.west)+(0,0.3)$) {};
+  \node[draw, fill=white, minimum width=0.35cm, minimum height=0.16cm, anchor=center] at ($(#1.west)+(0,-0.3)$) {};
+}
+
+% Acteur UML (bonhomme-bâton) dessiné par chemins, sans tikzpicture imbriqué
+\newcommand{\umlactor}[3]{
+  \coordinate (#1) at #2;
+  \coordinate (#1r) at ($(#1)+(0.36,0.9)$);
+  \coordinate (#1l) at ($(#1)+(-0.36,0.9)$);
+  \draw[line width=0.6pt] (#1) ++(0,1.55) circle (2.8mm);
+  \draw[line width=0.6pt] (#1)++(0,1.27) -- ++(0,-0.78);
+  \draw[line width=0.6pt] (#1)++(-0.32,0.98) -- ++(0.64,0);
+  \draw[line width=0.6pt] (#1)++(0,0.49) -- ++(-0.3,-0.56);
+  \draw[line width=0.6pt] (#1)++(0,0.49) -- ++(0.3,-0.56);
+  \node[font=\footnotesize, below=0.18cm of #1, align=center] (#1lbl) {#3};
+}
+
+% ── Références bibliographiques ─────────────────────────────
+\usepackage[backend=biber, style=apa, sorting=nyt]{biblatex}
+\addbibresource{references.bib}
+
+% ── Barre de progression ─────────────────────────────────────
+\newcommand{\progressbar}[1]{%
+  \begin{tikzpicture}[baseline=-0.5ex]
+    \draw[gray!30, line width=4pt, line cap=round] (0,0) -- (4,0);
+    \draw[blue!60!black, line width=4pt, line cap=round] (0,0) -- (#1*4/100,0);
+    \node[right] at (4.1,0) {\small #1\,\%};
+  \end{tikzpicture}%
+}
+
+% ── Encadrement des captures d'écran (fond sombre de l'UI) ──
+\newcommand{\screenshot}[3]{
+  \begin{figure}[H]
+    \centering
+    \fbox{\includegraphics[width=#2\textwidth]{Captures/#1}}
+    \caption{#3}
+  \end{figure}
+}
+
+% ============================================================
+\begin{document}
+
+% ────────────────────────────────────────────────────────────
+%  PAGE TITRE
+% ────────────────────────────────────────────────────────────
+\begin{titlepage}
+  \centering
+  \vspace*{2cm}
+
+  {\Large \textbf{Université TÉLUQ}}\\[0.5cm]
+  {\large INF1430 — Projet de fin d'études}\\[3cm]
+
+  \rule{\linewidth}{0.5pt}\\[0.4cm]
+  {\LARGE \textbf{Travail noté 2}}\\[0.3cm]
+  {\Large \textit{Rapport intermédiaire mi-parcours — Veridian}}\\[0.3cm]
+  \rule{\linewidth}{0.5pt}\\[3cm]
+
+  \begin{tabular}{rl}
+    \textbf{Étudiant :}    & Francis Côté \\[0.3cm]
+    \textbf{Cours :}       & INF1430 — Projet de fin d'études \\[0.3cm]
+    \textbf{Institution :} & Université TÉLUQ \\[0.3cm]
+    \textbf{Dépôt :}       & \url{https://github.com/frankydoody/Veridian} \\[0.3cm]
+  \end{tabular}
+
+  \vfill
+  {\small Remis conformément aux exigences du cours INF1430}
+\end{titlepage}
+
+\newpage
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{Introduction}
+% ============================================================
+
+Le présent rapport constitue le livrable intermédiaire (TN2) du projet Veridian dans le cadre du cours INF1430. Il synthétise l'avancement constaté à mi-parcours à partir de la trace d'ingénierie accumulée dans le dépôt GitHub — commits, \textit{pull requests}, branches et historique de fusion — et présente la modélisation UML, l'architecture logicielle, les choix technologiques et le prototype fonctionnel de l'application.
+
+Veridian est une application web de mémoire organisationnelle alimentée par l'intelligence artificielle. Elle enregistre les réunions d'équipe, en transcrit automatiquement le contenu audio, en extrait les décisions prises à l'aide d'un grand modèle de langage, indexe ces décisions et transcriptions dans une mémoire vectorielle interrogeable en langage naturel, et doit éventuellement détecter les contradictions entre décisions successives d'un même projet.
+
+Au moment de la rédaction de ce document, le backend applicatif est fonctionnel de bout en bout : un utilisateur peut s'inscrire, créer un projet, planifier une réunion, téléverser un enregistrement audio, obtenir sa transcription, déclencher l'extraction des décisions qui en découlent, et interroger la mémoire du projet par une question en langage naturel. Le frontend React affiche désormais des données réelles provenant de l'API plutôt que des données statiques, ce travail de connexion étant la dernière étape active avant la fusion du bloc courant.
+
+\begin{infobox}[Avancement global constaté]
+  \textbf{9 blocs fusionnés dans \texttt{main} sur 18 planifiés, 1 bloc en fin de développement actif} \hfill \progressbar{50}\\[4pt]
+  Blocs 01 à 07, 10 et 11 — fusionnés et vérifiés fonctionnels. Bloc 12 — développement terminé sur sa branche dédiée, fusion imminente. Bloc 09 — fonctionnalité de chat opérationnelle, export PDF non débuté. Bloc 08 — fonction de détection de contradiction écrite mais non encore reliée à l'API.
+\end{infobox}
+
+Ce rapport couvre, dans l'ordre : l'état du tableau de suivi GitHub Projects, un aperçu du prototype fonctionnel illustré de captures d'écran réelles, une description de la solution, la modélisation UML complète du système (cas d'utilisation, classes, séquence, état, activité, composants, déploiement), l'architecture logicielle et la justification des choix de frameworks, la stratégie et des exemples de tests unitaires, une synthèse technique bloc par bloc, le journal des problèmes rencontrés, les métriques d'avancement et la planification de la seconde moitié du projet.
+
+% ============================================================
+\section{État du tableau de bord GitHub Projects}
+% ============================================================
+
+\subsection{Vue Table au moment de la remise}
+
+Conformément à la configuration établie dans le rapport TN1, le tableau de suivi utilise une vue \textit{Table} à cinq champs (\textit{Title}, \textit{Assignees}, \textit{Status}, \textit{Linked pull requests}, \textit{Sub-issues progress}) et ne distingue que deux statuts : \textit{Todo} et \textit{Done}. Il n'existe pas de statut intermédiaire « en cours » sur le tableau lui-même — un bloc dont le développement est avancé mais dont la \textit{pull request} n'est pas encore fusionnée demeure donc affiché \textit{Todo}. Le tableau \ref{tab:board} reproduit fidèlement cet état, y compris cette nuance pour le bloc 12.
+
+\begin{table}[H]
+\centering
+\caption{État du tableau GitHub Projects (vue Table) au moment de la remise}
+\label{tab:board}
+\begin{tabularx}{\textwidth}{clXc}
+\toprule
+\textbf{Bloc} & \textbf{Titre} & \textbf{Status} & \textbf{PR liée} \\
+\midrule
+01 & Infrastructure et Configuration        & Done & — (commit direct) \\
+02 & Authentification JWT                   & Done & — (commit direct) \\
+03 & Gestion des Projets CRUD                & Done & — (commit direct) \\
+04 & Gestion des Réunions CRUD                & Done & — (commit direct) \\
+05 & Transcription Audio (Whisper)            & Done & \#12 \\
+06 & Extraction des décisions (Gemini)        & Done & fusionné avec le bloc 07 \\
+07 & Mémoire vectorielle (RAG)                 & Done & — (commit direct) \\
+08 & Détection contradictions \& Alertes      & Todo & — \\
+09 & Chat mémoire \& Export PDF                & Todo\textsuperscript{*} & — \\
+10 & Frontend Auth                             & Done & \#19 \\
+11 & Frontend Dashboard                        & Done & \#24 \\
+12 & Frontend API Connect                      & Todo\textsuperscript{**} & en préparation \\
+13 & Frontend Formulaires                      & Todo & — \\
+14 & Frontend Réunion Détaillée                & Todo & — \\
+15 & Frontend Décisions \& Contradictions      & Todo & — \\
+16 & Frontend Calendrier de projet              & Todo & — \\
+17 & Tests d'intégration \& Qualité             & Todo & — \\
+18 & Déploiement \& Documentation finale        & Todo & — \\
+\bottomrule
+\end{tabularx}
+\vspace{4pt}
+{\footnotesize \textsuperscript{*}~Le sous-volet « chat mémoire » est fonctionnel (endpoint \texttt{POST /api/memory/chat}) ; l'export PDF n'est pas débuté. \quad \textsuperscript{**}~Développement terminé sur la branche \texttt{bloc-12} ; statut \textit{Todo} jusqu'à la fusion de la \textit{pull request}.}
+\end{table}
+
+\subsection{Politique de gestion des branches et des \textit{pull requests}}
+
+Chaque bloc suit le cycle de vie suivant : création d'une branche depuis \texttt{main}, développement, ouverture d'une \textit{pull request}, et fusion par \textit{merge commit} exclusivement (\texttt{gh pr merge --merge}). Conformément à la politique de traçabilité du projet \parencite{atlassian2024git}, aucune branche source n'est supprimée après fusion — chaque étape de développement reste consultable indépendamment dans l'historique Git. Cette discipline explique la présence, dans le dépôt, de branches distantes antérieures telles que \texttt{branch/bloc-05-transcription} ou \texttt{branch/bloc-10-frontend-auth}, conservées malgré leur fusion.
+
+Deux particularités de l'historique réel méritent d'être consignées par souci d'exactitude :
+
+\begin{itemize}
+  \item Le contenu initialement développé sur la branche \texttt{branch/bloc-06-decisions} a été recréé directement sur la branche du bloc 07 (commit \texttt{cf1e255}) puis fusionné dans \texttt{main} avec celle-ci (commit de fusion \texttt{83bac52}). Les deux fonctionnalités — extraction des décisions et mémoire vectorielle — sont donc arrivées dans \texttt{main} au sein du même \textit{merge commit}, bien qu'elles correspondent à deux blocs distincts du plan de développement.
+  \item Le bloc 10 (frontend auth) a été intégré à \texttt{main} une première fois par fusion directe (commit \texttt{7172a11}), puis consolidé par la \textit{pull request} \#19 (commit de fusion \texttt{d64a023}). Les deux écritures reflètent une itération du flux de travail Git en début de phase frontend plutôt qu'une anomalie de contenu.
+\end{itemize}
+
+% ============================================================
+\section{Prototype fonctionnel}
+\label{sec:prototype-note}
+% ============================================================
+
+Cette section présente l'état visuel réel de l'application au moment de la rédaction, sous la forme de captures d'écran prises directement sur l'interface en exécution locale (\texttt{localhost:5173}), après la connexion du frontend aux endpoints réels de l'API (bloc 12). Les écrans sont volontairement présentés sur un compte fraîchement créé, sans données de démonstration : les états vides (« Aucune réunion trouvée », compteurs à zéro) confirment que les pages interrogent bel et bien l'API plutôt que d'afficher des données statiques codées en dur, ce qui constitue la preuve visuelle la plus directe de l'achèvement du bloc 12.
+
+\subsection{Authentification}
+
+La page de connexion (figure \ref{fig:login}) présente le formulaire d'authentification : champ courriel, champ mot de passe, et lien vers la création de compte. L'authentification repose sur l'endpoint \texttt{POST /api/auth/login}, qui retourne un jeton JWT persisté côté client. Le menu utilisateur (figure \ref{fig:menu}), accessible depuis l'en-tête de toutes les pages protégées, affiche le nom et le courriel de la session active ainsi que l'option de déconnexion.
+
+\begin{figure}[H]
+  \centering
+  \fbox{\includegraphics[width=0.72\textwidth]{Captures/capture-01-connexion.png}}
+  \caption{Page de connexion — formulaire d'authentification}
+  \label{fig:login}
+\end{figure}
+
+\begin{figure}[H]
+  \centering
+  \fbox{\includegraphics[width=0.22\textwidth]{Captures/capture-07-menu.png}}
+  \caption{Menu utilisateur — session active et déconnexion}
+  \label{fig:menu}
+\end{figure}
+
+\subsection{Tableau de bord}
+
+Le tableau de bord (figure \ref{fig:dashboard}) constitue la page d'accueil après authentification. Il affiche quatre indicateurs agrégés (réunions du mois, réunions totales, projets actifs, projets totaux) ainsi qu'un flux d'activité récente. Les quatre compteurs à zéro et le message « Aucune activité récente » confirment qu'il s'agit de données réelles issues de la base, et non d'un gabarit statique — un compte neuf affiche naturellement des statistiques nulles.
+
+\screenshot{capture-02-dashboard.png}{0.95}{Tableau de bord — indicateurs agrégés et activité récente}
+\label{fig:dashboard}
+
+\subsection{Réunions et projets}
+
+La page Réunions (figure \ref{fig:meetings}) et la page Projets (figure \ref{fig:projects}) partagent la même structure : un système de filtres par statut (respectivement \textit{Toutes / En cours / Planifiées / Terminées} et \textit{Tous / Actifs / Archivés / Inactifs}, reflétant les valeurs \texttt{CHECK} des colonnes \texttt{status} en base), un bouton d'action principal pour la création, et une liste vide confirmant l'absence de données de démonstration.
+
+\screenshot{capture-03-reunions.png}{0.95}{Page Réunions — filtres par statut et liste vide (API réelle)}
+\label{fig:meetings}
+
+\screenshot{capture-04-projets.png}{0.95}{Page Projets — filtres par statut et liste vide (API réelle)}
+\label{fig:projects}
+
+\subsection{Tâches}
+
+La page Tâches (figure \ref{fig:tasks}) présente un tableau à quatre colonnes (Tâche, Assigné, Projet, Priorité) et précise explicitement, dans son sous-titre, que les tâches sont \og{}extraites automatiquement des réunions\fg{} — anticipant l'intégration future de l'extraction automatique par l'IA, alors que la création manuelle (\texttt{POST /api/tasks}) est déjà opérationnelle.
+
+\screenshot{capture-05-taches.png}{0.95}{Page Tâches — tableau et création manuelle}
+\label{fig:tasks}
+
+\subsection{Mémoire IA}
+
+La page Mémoire IA (figure \ref{fig:memory}) est l'interface de chat sur la mémoire vectorielle du projet. Un sélecteur de projet détermine la portée de la recherche sémantique, et un champ de saisie en bas d'écran permet de poser une question en langage naturel (exemple affiché : \textit{« Quelles décisions ont été prises lors du Sprint 4 ? »}). Cette page consomme l'endpoint \texttt{POST /api/memory/chat}, qui orchestre la recherche vectorielle (\textit{retrieval}) puis la génération de réponse par le LLM (\textit{generation}) — le cœur de l'architecture RAG décrite à la section \ref{sec:rag-seq}.
+
+\screenshot{capture-06-memoire.png}{0.95}{Mémoire IA — interface de chat RAG sur l'historique du projet}
+\label{fig:memory}
+
+% ============================================================
+\section{Description de la solution}
+% ============================================================
+
+\subsection{Problématique et proposition de valeur}
+
+Dans une petite organisation, les décisions prises en réunion se dispersent entre notes personnelles, messageries et mémoire individuelle. Il devient difficile, après plusieurs semaines, de retrouver \emph{qui} a décidé \emph{quoi}, \emph{pourquoi}, et si une décision plus récente n'en contredit pas une plus ancienne restée active dans les esprits de certains membres de l'équipe. Veridian répond à ce problème en transformant chaque réunion enregistrée en mémoire organisationnelle structurée, interrogeable et éventuellement auto-vérifiée.
+
+\subsection{Vue fonctionnelle d'ensemble}
+
+Le parcours utilisateur central de l'application se décompose en quatre étapes fonctionnelles, détaillées dans les diagrammes UML de la section \ref{sec:uml} :
+
+\begin{enumerate}
+  \item \textbf{Capturer} — un utilisateur crée un projet, planifie une réunion, puis enregistre ou téléverse l'audio de celle-ci.
+  \item \textbf{Comprendre} — le serveur transcrit l'audio (Whisper local) puis en extrait les décisions prises (Gemini), chacune assortie d'un contexte, d'un responsable optionnel, des alternatives écartées et d'un niveau de confiance.
+  \item \textbf{Mémoriser} — la transcription et les décisions sont découpées en segments (\textit{chunks}), vectorisées (\textit{embeddings}), et indexées dans PostgreSQL via l'extension \texttt{pgvector}.
+  \item \textbf{Interroger} — un membre de l'équipe pose une question en langage naturel ; le système retrouve les segments les plus pertinents par similarité cosinus et les fournit comme contexte à un LLM pour produire une réponse sourcée.
+\end{enumerate}
+
+Une cinquième étape, la \textbf{vérification} (détection automatique de contradictions entre une nouvelle décision et les décisions passées d'un même projet), est conçue — la fonction \texttt{detectContradiction()} existe dans \texttt{ia.service.js} — mais n'est pas encore reliée à un endpoint ni déclenchée automatiquement ; elle correspond au bloc 08, encore au statut \textit{Todo}.
+
+% ============================================================
+\section{Modélisation UML}
+\label{sec:uml}
+% ============================================================
+
+Cette section présente la modélisation UML du système telle qu'elle reflète le code réellement en place dans le dépôt à mi-parcours — classes, routes, modèles de données et services — plutôt qu'une modélisation prospective. Dix diagrammes sont fournis, couvrant les vues fonctionnelle, structurelle et comportementale du système, conformément aux pratiques de modélisation orientée objet \parencite{fowler2018refactoring}.
+
+\subsection{Diagrammes de cas d'utilisation}
+
+Les cas d'utilisation sont répartis sur deux diagrammes complémentaires afin de conserver une lecture claire. La figure \ref{fig:usecase-gestion} présente les fonctionnalités directement manipulées par l'\textit{Utilisateur} via le frontend React ; la figure \ref{fig:usecase-pipeline} présente le pipeline de traitement d'une réunion, où intervient le \textit{Système IA}, acteur externe composite représentant Whisper (transcription locale) et Gemini (extraction, détection, génération, \textit{embeddings}). Les cas d'utilisation encore au statut \textit{Todo} (export PDF, calendrier, détection de contradictions, alertes) sont représentés en trait pointillé pour les distinguer des fonctionnalités opérationnelles.
+
+\begin{figure}[p]
+\centering
+\begin{adjustbox}{max width=\textwidth, max height=0.76\textheight}
+\begin{tikzpicture}[>=Stealth, line width=0.6pt,
+  uc/.style={draw, ellipse, minimum width=3.3cm, minimum height=1.35cm, text width=2.7cm, align=center, font=\scriptsize},
+  ucd/.style={uc, dashed}]
+
+\node[draw, rounded corners, minimum width=5.6cm, minimum height=16.8cm] at (0,-6.7) (boundary) {};
+\node[anchor=north, yshift=-0.12cm, font=\footnotesize\bfseries] at (boundary.north) {Veridian — gestion};
+
+\node[uc]  at (0,0)   (uc1)  {S'authentifier};
+\node[uc]  at (0,-2)  (uc2)  {Gérer les projets};
+\node[uc]  at (0,-4)  (uc3)  {Gérer les réunions};
+\node[uc]  at (0,-6)  (uc9)  {Gérer les tâches};
+\node[uc]  at (0,-8)  (uc8)  {Interroger la mémoire};
+\node[ucd] at (0,-10) (uc11) {Exporter en PDF};
+\node[ucd] at (0,-12) (uc12) {Voir le calendrier};
+\node[ucd] at (0,-14) (uc13) {Recevoir des alertes};
+
+\umlactor{actu}{(-5.4,-7.9)}{Utilisateur}
+\umlactor{actia}{(5.9,-8.9)}{Système IA\\(Gemini)}
+
+\foreach \u in {uc1,uc2,uc3,uc9,uc8,uc11,uc12,uc13} { \draw (actur) -- (\u.west); }
+\draw (actial) -- (uc8.east);
+
+\end{tikzpicture}
+\end{adjustbox}
+\caption{Diagramme de cas d'utilisation (1/2) — fonctionnalités de gestion et d'interrogation (en pointillé : cas d'utilisation planifiés, non encore implantés)}
+\label{fig:usecase-gestion}
+\end{figure}
+
+\begin{figure}[p]
+\centering
+\begin{adjustbox}{max width=\textwidth, max height=0.76\textheight}
+\begin{tikzpicture}[>=Stealth, line width=0.6pt,
+  uc/.style={draw, ellipse, minimum width=3.3cm, minimum height=1.35cm, text width=2.7cm, align=center, font=\scriptsize},
+  ucd/.style={uc, dashed}]
+
+\node[draw, rounded corners, minimum width=11.4cm, minimum height=16cm] at (3.1,-6.3) (boundary) {};
+\node[anchor=north, yshift=-0.12cm, font=\footnotesize\bfseries] at (boundary.north) {Veridian — pipeline d'une réunion};
+
+\node[uc]  at (0,0)     (uc4)  {Enregistrer / téléverser l'audio};
+\node[uc]  at (0,-2.7)  (uc5)  {Transcrire l'audio};
+\node[uc]  at (0,-5.4)  (uc6)  {Extraire les décisions};
+\node[uc]  at (0,-8.1)  (uc7)  {Indexer la\\mémoire (RAG)};
+\node[ucd] at (6.4,-10.8) (uc10) {Détecter les contradictions};
+\node[ucd] at (6.4,-13.5) (uc13) {Recevoir des alertes};
+
+\umlactor{actu}{(-5.2,-0.9)}{Utilisateur}
+\umlactor{actia}{(10.4,-9.9)}{Système IA\\(Whisper / Gemini)}
+
+\draw (actur) -- (uc4.west);
+\draw (actial) -- (uc5.east);
+\draw (actial) -- (uc6.east);
+\draw (actial) -- (uc7.east);
+\draw (actial) -- (uc10.east);
+
+\draw[dashed, -{Stealth[open]}] (uc4) -- node[left, font=\scriptsize]{\guillemotleft include\guillemotright} (uc5);
+\draw[dashed, -{Stealth[open]}] (uc5) -- node[left, font=\scriptsize]{\guillemotleft include\guillemotright} (uc6);
+\draw[dashed, -{Stealth[open]}] (uc6) -- node[left, font=\scriptsize]{\guillemotleft include\guillemotright} (uc7);
+\draw[dashed, -{Stealth[open]}] (uc6) -- node[above, sloped, pos=0.3, font=\scriptsize]{\guillemotleft include\guillemotright} (uc10);
+\draw[dashed, -{Stealth[open]}] (uc10) -- node[left, font=\scriptsize]{\guillemotleft include\guillemotright} (uc13);
+
+\end{tikzpicture}
+\end{adjustbox}
+\caption{Diagramme de cas d'utilisation (2/2) — pipeline de traitement d'une réunion et acteur Système IA (en pointillé : cas d'utilisation planifiés ; l'association de « Recevoir des alertes » avec l'Utilisateur figure sur le diagramme 1/2)}
+\label{fig:usecase-pipeline}
+\end{figure}
+
+\subsection{Diagramme de classes}
+
+Le diagramme de classes (figure \ref{fig:class}) représente le modèle de domaine persistant de Veridian, directement dérivé du schéma relationnel réel (\texttt{schema.sql} et migrations). Chaque classe correspond à une table PostgreSQL ; les attributs affichés reprennent les colonnes effectivement déclarées. Les associations portent les cardinalités réelles imposées par les clés étrangères (\texttt{REFERENCES ... ON DELETE RESTRICT}, suppression logique systématique via \texttt{is\_active}).
+
+\begin{figure}[p]
+\centering
+\begin{adjustbox}{max width=\textwidth, max height=0.8\textheight}
+\begin{tikzpicture}[>=Stealth, line width=0.6pt]
+
+\node[umlclass] (user) at (0,0) {\textbf{User}
+  \nodepart{second}
+  + id : UUID\\
+  + name : string\\
+  + email : string (unique)\\
+  + passwordHash : string\\
+  + role : admin\,|\,member\\
+  + isActive : bool};
+
+\node[umlclass] (project) at (7.7,0) {\textbf{Project}
+  \nodepart{second}
+  + id : UUID\\
+  + name : string\\
+  + description : text\\
+  + ownerId : UUID\\
+  + status : active\,|\,archived\,|\,inactive\\
+  + isActive : bool};
+
+\node[umlclass] (member) at (15.4,0) {\textbf{ProjectMember}
+  \nodepart{second}
+  + userId : UUID\\
+  + projectId : UUID\\
+  + role : owner\,|\,member\\
+  + isActive : bool};
+
+\node[umlclass] (participant) at (0,-5.0) {\textbf{Participant}
+  \nodepart{second}
+  + id : UUID\\
+  + meetingId : UUID\\
+  + userId : UUID (optionnel)\\
+  + displayName : string\\
+  + role : host\,|\,attendee};
+
+\node[umlclass] (meeting) at (7.7,-5.0) {\textbf{Meeting}
+  \nodepart{second}
+  + id : UUID\\
+  + projectId : UUID\\
+  + title : string\\
+  + status : planned\,|\,active\,|\,processing\,|\,\\
+  \hspace{0.9em}done\,|\,cancelled\\
+  + audioPath : string\\
+  + isActive : bool};
+
+\node[umlclass] (transcription) at (15.4,-5.0) {\textbf{Transcription}
+  \nodepart{second}
+  + id : UUID\\
+  + meetingId : UUID (unique)\\
+  + rawText : text\\
+  + language : string\\
+  + isEdited : bool};
+
+\node[umlclass] (chunk) at (0,-10.8) {\textbf{MemoryChunk}
+  \nodepart{second}
+  + id : UUID\\
+  + meetingId : UUID\\
+  + projectId : UUID\\
+  + chunkText : text\\
+  + chunkType : transcription\,|\,\\
+  \hspace{0.9em}decision\,|\,summary\\
+  + embedding : vector(768)\\
+  + metadata : jsonb};
+
+\node[umlclass] (decision) at (7.7,-10.8) {\textbf{Decision}
+  \nodepart{second}
+  + id : UUID\\
+  + meetingId : UUID\\
+  + projectId : UUID\\
+  + content : text\\
+  + context : text\\
+  + responsible : string\\
+  + alternatives : text[]\\
+  + confidence : int (0-100)\\
+  + status : draft\,|\,confirmed\,|\,\\
+  \hspace{0.9em}contradicted\,|\,inactive};
+
+\node[umlclass] (task) at (15.4,-10.8) {\textbf{Task}
+  \nodepart{second}
+  + id : UUID\\
+  + title : string\\
+  + assignee : string\\
+  + priority : haute\,|\,moyenne\,|\,basse\\
+  + status : todo\,|\,in\_progress\,|\,done\\
+  + meetingId : UUID (opt.)\\
+  + projectId : UUID (opt.)\\
+  + userId : UUID};
+
+\node[umlclass] (alert) at (7.7,-17.2) {\textbf{Alert}
+  \nodepart{second}
+  + id : UUID\\
+  + newDecisionId : UUID\\
+  + conflictDecisionId : UUID\\
+  + explanation : text\\
+  + severity : low\,|\,medium\,|\,high};
+
+% Associations : toutes routées dans les canaux entre les classes, jamais au-dessus d'une classe
+\tikzset{mult/.style={font=\scriptsize, inner sep=1pt}}
+% User -- Project (propriétaire) : arc bas au-dessus de la rangée
+\draw ($(user.north)+(0.9,0)$) -- ++(0,0.9) -| ($(project.north)+(-0.9,0)$);
+\node[mult] at ($(user.north)+(1.15,0.28)$) {1};
+\node[mult] at ($(project.north)+(-1.15,0.28)$) {0..*};
+\node[mult, fill=white] at ($(user.north)+(3.8,0.9)$) {owner};
+% User -- ProjectMember : arc haut
+\draw ($(user.north)+(-0.9,0)$) -- ++(0,1.9) -| ($(member.north)+(0,0)$);
+\node[mult] at ($(user.north)+(-1.15,0.28)$) {1};
+\node[mult] at ($(member.north)+(0.3,0.28)$) {0..*};
+% Project -- ProjectMember
+\draw ($(project.north east)+(0,-1.1)$) -- ($(member.north west)+(0,-1.1)$);
+\node[mult] at ($(project.north east)+(0.35,-0.85)$) {1};
+\node[mult] at ($(member.north west)+(-0.45,-0.85)$) {0..*};
+% Project -- Meeting
+\draw (project.south) -- (meeting.north);
+\node[mult] at ($(project.south)+(0.3,-0.3)$) {1};
+\node[mult] at ($(meeting.north)+(0.45,0.3)$) {0..*};
+% Meeting -- Participant
+\draw ($(participant.north east)+(0,-1.1)$) -- ($(meeting.north west)+(0,-1.1)$);
+\node[mult] at ($(participant.north east)+(0.45,-0.85)$) {0..*};
+\node[mult] at ($(meeting.north west)+(-0.3,-0.85)$) {1};
+% Meeting -- Transcription
+\draw ($(meeting.north east)+(0,-1.1)$) -- ($(transcription.north west)+(0,-1.1)$);
+\node[mult] at ($(meeting.north east)+(0.3,-0.85)$) {1};
+\node[mult] at ($(transcription.north west)+(-0.4,-0.85)$) {0..1};
+% Meeting -- Decision
+\draw (meeting.south) -- (decision.north);
+\node[mult] at ($(meeting.south)+(0.3,-0.3)$) {1};
+\node[mult] at ($(decision.north)+(0.45,0.3)$) {0..*};
+% Meeting -- MemoryChunk (canal horizontal sous la rangée 2)
+\draw ($(meeting.south)+(-1.7,0)$) -- ++(0,-0.9) -| (chunk.north);
+\node[mult] at ($(meeting.south)+(-1.95,-0.3)$) {1};
+\node[mult] at ($(chunk.north)+(0.45,0.3)$) {0..*};
+% Meeting -- Task
+\draw ($(meeting.south)+(1.7,0)$) -- ++(0,-0.9) -| (task.north);
+\node[mult] at ($(meeting.south)+(1.95,-0.3)$) {1};
+\node[mult] at ($(task.north)+(0.45,0.3)$) {0..*};
+% Decision -- Alert
+\draw (decision.south) -- (alert.north);
+\node[mult] at ($(decision.south)+(0.45,-0.3)$) {0..*};
+\node[mult] at ($(alert.north)+(0.45,0.3)$) {0..*};
+
+\end{tikzpicture}
+\end{adjustbox}
+\caption{Diagramme de classes — modèle de domaine persistant (dérivé du schéma PostgreSQL réel)}
+\label{fig:class}
+\end{figure}
+
+\subsection{Diagramme d'activité — traitement d'une réunion}
+
+Le diagramme d'activité (figure \ref{fig:activity}) illustre le flux complet déclenché par l'enregistrement d'une réunion, depuis la capture audio jusqu'à la disponibilité des décisions dans la mémoire interrogeable. Il correspond à l'enchaînement réel des appels observés dans \texttt{transcription.controller.js} et \texttt{decision.controller.js}.
+
+\begin{figure}[p]
+\centering
+\begin{tikzpicture}[>=Stealth, node distance=0.9cm, every node/.style={font=\footnotesize}]
+
+\node[circle, fill=black, minimum size=8pt] (s) {};
+\node[draw, rounded corners, below=of s, minimum width=5.4cm] (a1) {Enregistrer / téléverser l'audio (navigateur)};
+\node[draw, rounded corners, below=of a1, minimum width=5.4cm] (a2) {POST /api/transcriptions/upload (multipart)};
+\node[draw, diamond, below=of a2, aspect=2.6] (d1) {Format audio valide\,?};
+\node[draw, rounded corners, right=1.6cm of d1, minimum width=3.4cm] (reject) {400 — format rejeté};
+\node[draw, rounded corners, below=1.2cm of d1, minimum width=5.4cm] (a3) {Transcrire via Whisper local (CPU)};
+\node[draw, rounded corners, below=of a3, minimum width=5.4cm] (a4) {Persister la transcription (transcriptions)};
+\node[draw, rounded corners, below=of a4, minimum width=5.6cm] (a5) {Indexer la transcription (chunks + embeddings)};
+\node[draw, rounded corners, below=of a5, minimum width=5.4cm] (a6) {Déclencher l'extraction des décisions (Gemini)};
+\node[draw, diamond, below=of a6, aspect=2.6] (d2) {Décision(s) détectée(s)\,?};
+\node[draw, rounded corners, right=1.6cm of d2, minimum width=3.6cm] (none) {Aucune décision — fin};
+\node[draw, rounded corners, below=1.2cm of d2, minimum width=5.6cm] (a7) {Persister les décisions (transaction)};
+\node[draw, rounded corners, below=of a7, minimum width=5.6cm] (a8) {Indexer les décisions dans la mémoire};
+\node[circle, draw, below=of a8, minimum size=10pt] (e) {};
+\node[circle, fill=black, minimum size=6pt] at (e) {};
+
+\draw[->] (s) -- (a1);
+\draw[->] (a1) -- (a2);
+\draw[->] (a2) -- (d1);
+\draw[->] (d1) -- node[above, font=\scriptsize]{non} (reject);
+\draw[->] (d1) -- node[right, font=\scriptsize]{oui} (a3);
+\draw[->] (a3) -- (a4);
+\draw[->] (a4) -- (a5);
+\draw[->] (a5) -- (a6);
+\draw[->] (a6) -- (d2);
+\draw[->] (d2) -- node[above, font=\scriptsize]{non} (none);
+\draw[->] (d2) -- node[right, font=\scriptsize]{oui} (a7);
+\draw[->] (a7) -- (a8);
+\draw[->] (a8) -- (e);
+
+\end{tikzpicture}
+\caption{Diagramme d'activité — pipeline complet de traitement d'une réunion enregistrée}
+\label{fig:activity}
+\end{figure}
+
+\subsection{Diagrammes de séquence}
+
+\subsubsection{Authentification (inscription)}
+
+La figure \ref{fig:seq-auth} détaille l'inscription d'un nouvel utilisateur, telle qu'implantée dans \texttt{auth.controller.js} : vérification d'unicité du courriel, hachage \texttt{bcryptjs}, création de l'enregistrement, puis génération du jeton JWT retourné au client.
+
+\begin{figure}[p]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{sequencediagram}
+\newthread{client}{:Client React}
+\newinst[2.6]{ctrl}{AuthController}
+\newinst[2.6]{model}{UserModel}
+\newinst[2.0]{hash}{hash.utils}
+\newinst[2.0]{jwt}{jwt.utils}
+
+\begin{call}{client}{POST /api/auth/register}{ctrl}{201 \{token, user\}}
+  \begin{call}{ctrl}{findUserByEmail(email)}{model}{undefined}
+  \end{call}
+  \begin{call}{ctrl}{hashPassword(password)}{hash}{hash bcrypt}
+  \end{call}
+  \begin{call}{ctrl}{createUser(...)}{model}{newUser}
+  \end{call}
+  \begin{call}{ctrl}{generateToken(payload)}{jwt}{token JWT}
+  \end{call}
+\end{call}
+\end{sequencediagram}
+\end{adjustbox}
+\caption{Diagramme de séquence — inscription d'un utilisateur}
+\label{fig:seq-auth}
+\end{figure}
+
+\subsubsection{Transcription, extraction des décisions et indexation}
+\label{sec:seq-pipeline}
+
+La figure \ref{fig:seq-pipeline} détaille le pipeline central de l'application, couvrant deux endpoints appelés successivement par le client : le téléversement audio (\texttt{POST /api/transcriptions/upload}) puis le déclenchement de l'extraction des décisions (\texttt{POST /api/decisions/extract/:meetingId}). Chaque étape d'indexation mémoire est volontairement non bloquante pour le reste du flux (fonctions \texttt{*Safely}) : un échec de l'API d'\textit{embeddings} ne fait jamais échouer la transcription ou l'extraction elles-mêmes.
+
+\begin{figure}[p]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{sequencediagram}
+\newthread{client}{:Client React}
+\newinst[2.5]{tctrl}{TranscriptionController}
+\newinst[2.1]{whisper}{WhisperService}
+\newinst[2.1]{db}{PostgreSQL}
+\newinst[2.4]{mem}{MemoryService}
+\newinst[2.5]{gemini}{config/gemini.js}
+
+\begin{call}{client}{POST /upload (audio)}{tctrl}{201 \{transcription\}}
+  \begin{call}{tctrl}{transcribeAudio(path)}{whisper}{texte brut}
+  \end{call}
+  \begin{call}{tctrl}{createTranscription(...)}{db}{transcription}
+  \end{call}
+  \begin{call}{tctrl}{indexTranscriptionSafely(...)}{mem}{\{indexed\}}
+    \begin{call}{mem}{splitIntoChunks(texte)}{mem}{chunks[]}
+    \end{call}
+    \begin{call}{mem}{embedText(chunk)}{gemini}{vecteur[768]}
+    \end{call}
+    \begin{call}{mem}{replaceMemoryChunks(...)}{db}{chunks créés}
+    \end{call}
+  \end{call}
+\end{call}
+
+\begin{call}{client}{POST /extract/:meetingId}{tctrl}{201 \{decisions\}}
+\end{call}
+\end{sequencediagram}
+\end{adjustbox}
+\caption{Diagramme de séquence — transcription audio, indexation et point d'entrée de l'extraction}
+\label{fig:seq-pipeline}
+\end{figure}
+
+\subsubsection{Interrogation de la mémoire (RAG)}
+\label{sec:rag-seq}
+
+La figure \ref{fig:seq-rag} détaille le second axe du pipeline RAG : la \textit{récupération} puis la \textit{génération}, déclenchées par \texttt{POST /api/memory/chat}. La recherche est systématiquement bornée au périmètre auquel l'utilisateur authentifié a accès (projet ou réunion dont il est membre), avant même d'atteindre la base vectorielle.
+
+\begin{figure}[p]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{sequencediagram}
+\newthread{client}{:Client React}
+\newinst[2.4]{mctrl}{MemoryController}
+\newinst[2.4]{db}{mtg\_memory\_chunks}
+\newinst[2.6]{msvc}{MemoryService}
+\newinst[2.4]{gemini}{config/gemini.js}
+\newinst[3.2]{iasvc}{ia.service.js}
+
+\begin{call}{client}{POST /memory/chat}{mctrl}{200 \{answer, sources\}}
+  \begin{call}{mctrl}{findProjectById(id)}{db}{projet}
+  \end{call}
+  \begin{call}{mctrl}{retrieveChunks(question)}{msvc}{chunks triés}
+    \begin{call}{msvc}{embedText(question)}{gemini}{vecteur requête}
+    \end{call}
+    \begin{call}{msvc}{searchSimilarChunks(vecteur)}{db}{top-k chunks}
+    \end{call}
+  \end{call}
+  \begin{call}{mctrl}{chatWithMemory(question, chunks)}{iasvc}{réponse}
+    \begin{call}{iasvc}{generateWithFallback(prompt)}{gemini}{texte généré}
+    \end{call}
+  \end{call}
+\end{call}
+\end{sequencediagram}
+\end{adjustbox}
+\caption{Diagramme de séquence — interrogation de la mémoire vectorielle (RAG complet)}
+\label{fig:seq-rag}
+\end{figure}
+
+\subsection{Diagramme d'état — cycle de vie d'une réunion}
+
+La figure \ref{fig:state} illustre les transitions d'état de l'entité \texttt{Meeting}, telles que contraintes par la colonne \texttt{status} (\texttt{CHECK (status IN (...))}) du schéma et pilotées par l'endpoint \texttt{PATCH /api/meetings/:id/status}. L'état \texttt{done} est également atteint automatiquement à la fin d'une transaction d'extraction de décisions (\texttt{decision.model.js}, fonction \texttt{createDecisions}).
+
+\begin{figure}[p]
+\centering
+\begin{tikzpicture}[>=Stealth, node distance=2.3cm, every node/.style={font=\footnotesize}]
+
+\node[circle, fill=black, minimum size=7pt] (start) {};
+\node[draw, rounded corners, right=of start] (planned) {planned};
+\node[draw, rounded corners, right=of planned] (active) {active};
+\node[draw, rounded corners, right=of active] (processing) {processing};
+\node[draw, rounded corners, below=1.6cm of processing] (done) {done};
+\node[draw, rounded corners, below=1.6cm of planned] (cancelled) {cancelled};
+
+\draw[->] (start) -- (planned);
+\draw[->] (planned) -- node[above, font=\scriptsize]{start} (active);
+\draw[->] (active) -- node[above, font=\scriptsize]{upload audio} (processing);
+\draw[->] (processing) -- node[right, font=\scriptsize, align=center]{extraction décisions\\terminée (auto)} (done);
+\draw[->] (planned.south) -- node[left, font=\scriptsize]{annulation} (cancelled.north);
+\draw[->] (active) .. controls +(0,-2.3) and +(2.3,0) .. (cancelled.east);
+
+\end{tikzpicture}
+\caption{Diagramme d'état — cycle de vie de l'entité Meeting}
+\label{fig:state}
+\end{figure}
+
+\subsection{Diagramme de composants}
+
+La figure \ref{fig:component} représente la décomposition logicielle en composants déployables et leurs dépendances, reflétant fidèlement l'organisation réelle des répertoires \texttt{src/routes}, \texttt{src/controllers}, \texttt{src/models} et \texttt{src/services} côté backend, ainsi que \texttt{src/pages}, \texttt{src/context} et \texttt{src/api} côté frontend.
+
+\begin{figure}[p]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tikzpicture}[>=Stealth, node distance=1.9cm]
+
+\node[component, fill=purple!6] (frontend) {Frontend React\\(pages / AuthContext)};
+\componentports{frontend}
+
+\node[component, right=3.6cm of frontend] (routes) {Routes Express\\+ Middlewares};
+\componentports{routes}
+
+\node[component, below=1.6cm of routes] (controllers) {Contrôleurs};
+\componentports{controllers}
+
+\node[component, below left=1.6cm and 0.4cm of controllers] (models) {Modèles\\(requêtes SQL)};
+\componentports{models}
+
+\node[component, below right=1.6cm and 0.4cm of controllers] (services) {Services\\(Whisper / IA / Mémoire)};
+\componentports{services}
+
+\node[device, below=1.7cm of models] (pg) {PostgreSQL 16\\+ pgvector};
+\node[device, right=1.4cm of pg] (whisper) {Whisper CLI\\(processus local)};
+\node[device, right=1.4cm of whisper] (gemini) {API Gemini\\(externe)};
+
+\draw[->] (frontend) -- node[above, font=\scriptsize, align=center]{HTTP/JSON\\(JWT Bearer)} (routes);
+\draw[->] (routes) -- (controllers);
+\draw[->] (controllers) -- (models);
+\draw[->] (controllers) -- (services);
+\draw[->] (models) -- node[left, font=\scriptsize]{SQL / pgvector} (pg);
+\draw[->] (services) -- node[right, font=\scriptsize]{spawn()} (whisper);
+\draw[->] (services) -- node[right, font=\scriptsize]{HTTPS} (gemini);
+\draw[->] (services.west) -- node[above, font=\scriptsize]{appelle} (models.east);
+
+\end{tikzpicture}
+\end{adjustbox}
+\caption{Diagramme de composants — décomposition logicielle frontend / backend / services externes}
+\label{fig:component}
+\end{figure}
+
+\subsection{Diagramme de déploiement}
+
+La figure \ref{fig:deployment} présente la topologie d'exécution actuelle : un poste de développement unique (Windows ou Ubuntu) hébergeant l'ensemble des processus applicatifs, un conteneur Docker isolé pour la base de données, et deux services externes consommés par HTTPS. Aucun environnement de déploiement distant n'est encore mis en place — cette étape est planifiée au bloc 18.
+
+\begin{figure}[p]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[>=Stealth, node distance=2.2cm]
+
+\node[device, minimum height=7.6cm, minimum width=11.2cm] (host) at (0,-0.4) {};
+\node[anchor=north, yshift=-0.22cm, font=\footnotesize\bfseries] at (host.north) {Poste de développement};
+
+\node[device, fill=blue!5] at (-3.3,1.5) (frontend) {Serveur Vite\\:5173};
+\node[device, fill=orange!6] at (3.3,1.5) (backend) {Serveur Express\\:3000};
+\node[device, minimum height=2.8cm, fill=green!6] at (-3.3,-2.1) (docker) {Conteneur Docker\\\texttt{veridian\_db}\\PostgreSQL 16 + pgvector\\:5432};
+\node[device, fill=yellow!10] at (3.3,-2.1) (whisper) {Processus Python\\Whisper (CPU, modèle \textit{small})};
+
+\node[device, right=5.2cm of host, fill=red!5] (gemini) {API Gemini\\(Google AI)};
+
+\draw[->] (frontend) -- node[above, font=\scriptsize]{proxy /api} (backend);
+\draw[->] (backend) -- node[left, font=\scriptsize]{TCP 5432} (docker);
+\draw[->] (backend) -- node[right, font=\scriptsize]{spawn} (whisper);
+\draw[->] (backend.east) -- node[above, font=\scriptsize]{HTTPS} (gemini.west);
+
+\end{tikzpicture}%
+}
+\caption{Diagramme de déploiement — topologie d'exécution en environnement de développement}
+\label{fig:deployment}
+\end{figure}
+
+% ============================================================
+\section{Architecture logicielle et choix technologiques}
+% ============================================================
+
+\subsection{Architecture en couches}
+
+L'architecture suit un modèle en couches strictement séparées, cohérent de bout en bout entre le frontend React et le backend Express — une discipline qui facilite les tests, limite le couplage, et rapproche le projet des principes d'architecture logicielle en microservices même si Veridian demeure, à ce stade, un monolithe modulaire \parencite{newman2021microservices}.
+
+\begin{lstlisting}[language=bash, caption={Architecture en couches de Veridian}]
+Frontend (React 19 / Vite)
+  pages/ -> services/api.js (+ api/client.js) -> AuthContext
+        | HTTP / JSON (JWT Bearer)
+Backend (Node.js 20 / Express 5)
+  routes/ -> middlewares/ -> controllers/ -> models/
+                                  \-> services/ (Whisper, IA, memoire)
+        | SQL / pgvector
+Base de donnees (PostgreSQL 16 + pgvector)
+  Docker Compose - conteneur veridian_db
+\end{lstlisting}
+
+\subsection{Justification des choix de frameworks}
+
+Le tableau \ref{tab:frameworks} justifie chaque choix technologique structurant par rapport au besoin qu'il couvre.
+
+\begin{table}[H]
+\centering
+\caption{Choix technologiques et justification}
+\label{tab:frameworks}
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Besoin} & \textbf{Choix et justification} \\
+\midrule
+API backend & \textbf{Node.js 20 / Express 5} — écosystème unique JavaScript du frontend au backend, réduit la charge cognitive pour un développeur seul ; Express 5 apporte la gestion native des promesses rejetées dans les middlewares. \\
+Base de données & \textbf{PostgreSQL 16} — SGBD relationnel mature, transactions ACID nécessaires à la cohérence des décisions et des alertes. \\
+Mémoire vectorielle & \textbf{pgvector} \parencite{pgvector2024} — évite l'introduction d'une base vectorielle dédiée (Pinecone, Weaviate) ; les vecteurs et les données relationnelles cohabitent dans la même transaction et le même moteur de sauvegarde. \\
+Authentification & \textbf{JWT (jsonwebtoken) + bcryptjs} \parencite{openai2023jwt} — jetons sans état, aucune session serveur à synchroniser, adapté à une architecture qui pourra évoluer vers plusieurs instances. \\
+Transcription & \textbf{Whisper local (modèle \textit{small})} \parencite{radford2022whisper} — exécution locale sans coût récurrent ni dépendance réseau pour cette étape, au prix d'un temps de traitement plus long qu'une API cloud. \\
+Extraction / génération & \textbf{Gemini 1.5/2.5 Flash} \parencite{google2024gemini} — palier gratuit généreux adapté à un projet étudiant, fenêtre de contexte large, \textit{wrapper} \texttt{generateWithFallback} ajouté pour basculer automatiquement vers un modèle de secours en cas de surcharge (503) ou de modèle retiré (404). \\
+Frontend & \textbf{React 19 / Vite 8 / React Router 7} — recharge à chaud quasi instantanée en développement, écosystème de composants le plus documenté pour un étudiant travaillant seul. \\
+Style & \textbf{Tailwind CSS 4} — cohérence visuelle rapide sans fichiers CSS dispersés par composant. \\
+Tests & \textbf{Jest 30 + dotenv-cli} — exécuteur de tests standard de l'écosystème Node ; \texttt{dotenv-cli} contourne un conflit d'ordre de chargement des variables d'environnement entre ES Modules et \texttt{dotenv} lors des tests. \\
+Conteneurisation & \textbf{Docker Compose} — reproductibilité de la base de données indépendamment du système d'exploitation (Windows / Ubuntu) utilisé pour développer. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Conventions de code}
+
+Les conventions suivantes, établies dès le bloc 01, sont vérifiées en vigueur dans l'ensemble du code actuel :
+
+\begin{itemize}
+  \item \textbf{Suppression logique} — toutes les tables portent un indicateur \texttt{is\_active} ; aucune instruction \texttt{DELETE} SQL n'apparaît dans les modèles, à l'exception volontaire de \texttt{task.model.js} (ressource \texttt{tasks}, suppression physique assumée car non historisée par design).
+  \item \textbf{Transactions dans la couche modèle} — la fonction \texttt{withTransaction} (\texttt{config/db.js}) encapsule \texttt{BEGIN/COMMIT/ROLLBACK} et n'est invoquée que depuis \texttt{models/}, jamais depuis un contrôleur. Elle est utilisée pour toute écriture à effets multiples : \texttt{createProjectWithOwner}, \texttt{createMeetingWithHost}, \texttt{createDecisions}, \texttt{createMemoryChunks}, \texttt{replaceMemoryChunks}.
+  \item \textbf{Séparation stricte des couches} — un contrôleur ne contient aucune requête SQL ; un modèle ne contient aucune logique de validation HTTP.
+  \item \textbf{IA agnostique} — le fichier \texttt{src/services/ia.service.js} ne porte pas le nom du fournisseur ; seul \texttt{src/config/gemini.js} connaît l'identité du fournisseur réel, pilotée par les variables \texttt{AI\_PROVIDER} / \texttt{AI\_MODEL}.
+  \item \textbf{Gestion centralisée des erreurs} — tout contrôleur délègue ses erreurs à \texttt{next(error)} ; un middleware unique (\texttt{error.middleware.js}) formate la réponse et n'expose la pile d'appel qu'en environnement de développement.
+\end{itemize}
+
+\begin{infobox}[Mise à jour de convention — \texttt{dotenv}]
+  Le rapport TN1 documentait un épinglage de \texttt{dotenv} à la version 16 pour contourner une incompatibilité avec le chargement des modules ES sur Windows. La version actuellement installée (\texttt{package-lock.json}) est \texttt{17.4.2} : la contrainte a été levée au cours du développement sans qu'une régression ne soit observée. Cette mise à jour illustre l'utilité du journal des problèmes (section \ref{sec:problemes}) comme trace vivante plutôt que figée.
+\end{infobox}
+
+\subsection{Schéma de base de données}
+
+Le schéma relationnel compte, au moment de la rédaction, \textbf{10 tables} et \textbf{11 index explicites} répartis entre \texttt{database/schema.sql} et trois fichiers de migration versionnés (\texttt{001\_update\_vector\_dimension.sql}, \texttt{003\_tasks.sql}, \texttt{007\_memory\_chunks.sql}).
+
+\begin{table}[H]
+\centering
+\caption{Tables PostgreSQL au mi-parcours}
+\label{tab:tables}
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Table} & \textbf{Rôle} \\
+\midrule
+\texttt{users}              & Comptes utilisateurs, courriel unique, mot de passe haché, rôle \\
+\texttt{projects}           & Projets organisationnels, propriétaire, statut \\
+\texttt{project\_members}   & Table d'association utilisateur \,$\leftrightarrow$\, projet, avec rôle \\
+\texttt{meetings}           & Réunions liées à un projet, cycle de statut, chemin audio \\
+\texttt{participants}       & Participants d'une réunion, hôte ou invité \\
+\texttt{transcriptions}     & Texte brut produit par Whisper, un par réunion \\
+\texttt{decisions}          & Décisions extraites par le LLM, contexte, confiance, statut \\
+\texttt{mtg\_memory\_chunks}& Segments de texte vectorisés (768 dimensions) pour le RAG \\
+\texttt{alerts}             & Conflits entre décisions (structure prête, non encore alimentée) \\
+\texttt{tasks}               & Tâches assignées, liées à une réunion et/ou un projet \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+L'extension \texttt{vector} (pgvector) est activée sur la colonne \texttt{embedding} de \texttt{mtg\_memory\_chunks}, indexée par un index \texttt{HNSW} sur l'opérateur de distance cosinus, garantissant des recherches de similarité en temps sous-linéaire même lorsque le volume de segments augmentera.
+
+% ============================================================
+\section{Tests unitaires}
+% ============================================================
+
+\subsection{Stratégie de test}
+
+La suite de tests repose sur \textbf{Jest 30}, exécutée avec le flag \texttt{--experimental-vm-modules} (nécessaire pour les modules ES natifs) via \texttt{dotenv-cli}, qui injecte les variables du fichier \texttt{.env.test} avant le lancement — ce fichier définit notamment un port, un secret JWT et des clés d'API distincts de l'environnement de développement.
+
+À mi-parcours, la couverture se concentre sur les \textbf{fonctions utilitaires pures}, choisies en priorité car elles ne dépendent d'aucune ressource externe (base de données, réseau) et s'exécutent donc rapidement et de façon déterministe. La dépendance \texttt{supertest} est déjà installée en prévision des tests d'intégration des endpoints HTTP, prévus au bloc 17 — aucun test d'intégration n'existe encore à ce stade, ce qui est cohérent avec le statut \textit{Todo} de ce bloc.
+
+\begin{table}[H]
+\centering
+\caption{Suite de tests unitaires au mi-parcours}
+\label{tab:tests}
+\begin{tabularx}{\textwidth}{lXc}
+\toprule
+\textbf{Fichier} & \textbf{Module testé} & \textbf{Cas} \\
+\midrule
+\texttt{hash.utils.test.js} & Hachage et vérification de mot de passe (\texttt{bcryptjs}) & 5 \\
+\texttt{jwt.utils.test.js}  & Génération et vérification de jetons JWT & 6 \\
+\texttt{chunk.utils.test.js} & Découpage de texte en segments chevauchants (RAG) & 6 \\
+\midrule
+\textbf{Total} & \textbf{3 suites, 17 cas de test} & \textbf{17} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Exemples de code}
+
+Le premier extrait teste \texttt{splitIntoChunks}, la fonction pure responsable du découpage des transcriptions en segments chevauchants avant vectorisation (cœur de l'étape d'indexation du pipeline RAG, figure \ref{fig:seq-pipeline}).
+
+\begin{lstlisting}[language=JavaScript, caption={Extrait réel — tests/unit/chunk.utils.test.js}]
+describe('chunk.utils', () => {
+  describe('splitIntoChunks', () => {
+    test('doit retourner un tableau vide pour un texte vide', () => {
+      expect(splitIntoChunks('')).toEqual([]);
+      expect(splitIntoChunks(null)).toEqual([]);
+    });
+
+    test('doit decouper un texte long avec le bon pas (taille - chevauchement)', () => {
+      const chunks = splitIntoChunks(makeText(1200), 500, 100);
+      expect(chunks.map((c) => c.charStart)).toEqual([0, 400, 800]);
+    });
+
+    test('la fin d\'un chunk doit se retrouver au debut du suivant', () => {
+      const chunks = splitIntoChunks(makeText(1200), 500, 100);
+      expect(chunks[0].text.slice(-100)).toBe(chunks[1].text.slice(0, 100));
+    });
+
+    test('doit lancer une erreur si le chevauchement est >= a la taille', () => {
+      expect(() => splitIntoChunks(makeText(1000), 100, 100)).toThrow();
+    });
+  });
+});
+\end{lstlisting}
+
+Le second extrait teste l'unicité du sel de hachage \texttt{bcrypt} — une propriété de sécurité essentielle (deux hachages du même mot de passe ne doivent jamais être identiques), impossible à vérifier par simple lecture du code et donc particulièrement représentative de la valeur des tests automatisés.
+
+\begin{lstlisting}[language=JavaScript, caption={Extrait réel — tests/unit/hash.utils.test.js}]
+describe('hashPassword', () => {
+  test('doit retourner un hash bcrypt (commence par \$2b\$)', async () => {
+    const hash = await hashPassword('test123');
+    expect(hash).toMatch(/^\$2b\$/);
+  });
+
+  test('deux hashes du meme mot de passe doivent etre differents (salt)', async () => {
+    const hash1 = await hashPassword('memeMotDePasse');
+    const hash2 = await hashPassword('memeMotDePasse');
+    expect(hash1).not.toBe(hash2);
+  });
+});
+
+describe('comparePassword', () => {
+  test('doit retourner false pour un mauvais mot de passe', async () => {
+    const hash = await hashPassword('bonMotDePasse');
+    const result = await comparePassword('mauvaisMotDePasse', hash);
+    expect(result).toBe(false);
+  });
+});
+\end{lstlisting}
+
+Le troisième extrait teste la robustesse de \texttt{verifyToken} face à un jeton falsifié — une vérification de sécurité directement liée au diagramme de séquence d'authentification (figure \ref{fig:seq-auth}).
+
+\begin{lstlisting}[language=JavaScript, caption={Extrait réel — tests/unit/jwt.utils.test.js}]
+test('doit lever une erreur pour un token modifie', () => {
+  const token = generateToken(payload);
+  const tokenModifie = token.slice(0, -5) + 'xxxxx';
+  expect(() => verifyToken(tokenModifie)).toThrow();
+});
+\end{lstlisting}
+
+% ============================================================
+\section{Blocs complétés — synthèse de la trace d'ingénierie}
+% ============================================================
+
+\subsection{Bloc 01 — Infrastructure et configuration}
+
+Mise en place du dépôt, de \texttt{docker-compose.yml} (image \texttt{pgvector/pgvector:pg16} avec \textit{healthcheck}), du squelette Express (\texttt{app.js}, \texttt{server.js}) et du schéma SQL initial. Les scripts \texttt{start.ps1} / \texttt{start.sh} automatisent la séquence complète de démarrage depuis un \texttt{git clone} propre.
+
+\subsection{Bloc 02 — Authentification JWT}
+
+Endpoints \texttt{POST /api/auth/register}, \texttt{POST /api/auth/login}, \texttt{GET /api/auth/me}. Hachage \texttt{bcryptjs}, jetons JWT sans état, middleware \texttt{authMiddleware} vérifiant à la fois la validité du jeton et l'état actif du compte (\texttt{is\_active}) à chaque requête protégée.
+
+\subsection{Bloc 03 — Gestion des projets (CRUD)}
+
+Endpoints \texttt{/api/projects}. La création d'un projet (\texttt{createProjectWithOwner}) est transactionnelle : l'insertion du projet et l'ajout du créateur comme membre avec le rôle \texttt{owner} réussissent ou échouent ensemble. Seul le propriétaire peut modifier le projet ou son statut (vérification explicite \texttt{project.owner\_id !== req.user.id}).
+
+\subsection{Bloc 04 — Gestion des réunions (CRUD)}
+
+Endpoints \texttt{/api/meetings}. La création (\texttt{createMeetingWithHost}) ajoute automatiquement le créateur comme participant \texttt{host}. Toutes les requêtes de lecture filtrent par appartenance de l'utilisateur au projet (\texttt{INNER JOIN project\_members}), garantissant l'isolation des données entre équipes.
+
+\subsection{Bloc 05 — Transcription audio (Whisper)}
+
+Endpoint \texttt{POST /api/transcriptions/upload}, fusionné via la \textit{pull request} \#12. Le middleware \texttt{upload.middleware.js} (Multer) valide le type MIME audio et limite la taille du fichier (\texttt{MAX\_FILE\_SIZE\_MB}). Le service \texttt{whisper.service.js} invoque le binaire \texttt{whisper} en sous-processus (\texttt{child\_process.spawn}), configuré pour l'exécution CPU (\texttt{--device cpu --fp16 False}) afin de fonctionner sans GPU dédié.
+
+\subsection{Bloc 06 — Extraction des décisions (Gemini)}
+
+Endpoint \texttt{POST /api/decisions/extract/:meetingId}. Le prompt d'extraction (\texttt{ia.service.js}, fonction \texttt{extractDecisions}) impose un format de sortie JSON strict à cinq champs (\texttt{content}, \texttt{context}, \texttt{responsible}, \texttt{alternatives}, \texttt{confidence}), parsé après nettoyage des délimiteurs Markdown éventuels renvoyés par le modèle. Les décisions sont persistées dans une transaction qui fait également passer la réunion au statut \texttt{done}.
+
+\subsection{Bloc 07 — Mémoire vectorielle (RAG)}
+
+Trois opérations composent le pipeline RAG, implantées dans \texttt{memory.service.js} et \texttt{memory.model.js} : indexation (découpage, \textit{embedding}, insertion transactionnelle avec désactivation logique des anciens segments lors d'une réindexation), recherche (requête \texttt{ORDER BY embedding <=> \$1} avec filtrage par seuil de similarité), et consommation du contexte récupéré par le LLM pour la génération de réponse (section \ref{sec:rag-seq}).
+
+\subsection{Bloc 10 — Frontend : authentification et navigation}
+
+Fusionné via la \textit{pull request} \#19. Structure complète du routage React Router (\texttt{App.jsx}) : routes publiques (\texttt{/login}, \texttt{/register}) et routes protégées regroupées sous \texttt{ProtectedRoute}, qui redirige vers \texttt{/login} tant qu'aucun utilisateur n'est résolu. Le jeton est persisté dans \texttt{localStorage} sous la clé \texttt{veridian\_token}, lue par \texttt{api/client.js}.
+
+\subsection{Bloc 11 — Frontend : tableau de bord et pages de données}
+
+Fusionné via la \textit{pull request} \#24. Sept pages routées (\texttt{DashboardPage}, \texttt{MeetingsPage}, \texttt{ProjectsPage}, \texttt{TasksPage}, \texttt{MemoryPage}, \texttt{LoginPage}, \texttt{RegisterPage}) construites avec des données statiques le temps de stabiliser la structure visuelle avant de les relier à l'API réelle au bloc suivant.
+
+\begin{infobox}[Observation de code]
+  Le fichier \texttt{HomePage.jsx} est importé dans \texttt{App.jsx} mais n'est rattaché à aucune route active — un résidu probable de l'échafaudage initial de Vite, candidat naturel à un nettoyage lors du bloc 13 ou 17.
+\end{infobox}
+
+\subsection{Bloc 12 — Connexion du frontend à l'API réelle (en cours)}
+
+Développement terminé sur la branche dédiée \texttt{bloc-12} (commit \texttt{0e73ad1}, \textit{« connecter toutes les pages frontend à l'API réelle »}), fusion vers \texttt{main} non encore effectuée au moment de la rédaction. Les captures d'écran de la section \ref{sec:prototype-note} en attestent directement : les pages affichent des états vides authentiques plutôt que des gabarits statiques.
+
+Ce bloc a également livré, en support direct des pages déjà construites au bloc 11, la ressource \texttt{tasks} qui n'existait pas encore côté backend : migration \texttt{003\_tasks.sql}, \texttt{task.model.js}, \texttt{task.controller.js} et \texttt{task.routes.js}, avec l'endpoint \texttt{PATCH /api/tasks/:id/status} permettant de faire transiter une tâche entre \texttt{todo}, \texttt{in\_progress} et \texttt{done} sans rechargement de page.
+
+Le code actuel confirme également la résolution de trois incohérences qui, selon la pratique courante sur ce type d'intégration, se manifestent typiquement lors du branchement d'un frontend construit sur données statiques à une API réelle :
+
+\begin{okbox}[Cohérence vérifiée — clé de jeton]
+  \texttt{services/api.js} et \texttt{context/AuthContext.jsx} lisent désormais le jeton via les mêmes fonctions centralisées (\texttt{getToken} / \texttt{clearToken} de \texttt{api/client.js}), sous la même clé \texttt{localStorage} \texttt{'veridian\_token'}.
+\end{okbox}
+
+\begin{okbox}[Cohérence vérifiée — préfixe d'URL]
+  \texttt{services/api.js} définit \texttt{BASE\_URL = 'http://localhost:3000/api'}, incluant le préfixe \texttt{/api} sous lequel toutes les routes backend sont montées (\texttt{app.js}).
+\end{okbox}
+
+\begin{okbox}[Cohérence vérifiée — CORS]
+  \texttt{app.js} déclare un middleware CORS explicite autorisant \texttt{http://localhost:5173} et gérant les requêtes préliminaires \texttt{OPTIONS}, condition nécessaire à tout appel \textit{cross-origin} du frontend Vite vers le backend Express.
+\end{okbox}
+
+% ============================================================
+\section{Problèmes rencontrés}
+\label{sec:problemes}
+% ============================================================
+
+Cette section documente les difficultés techniques réelles rencontrées au cours des premiers blocs, ainsi que les solutions apportées, vérifiées contre l'état actuel du code. Elle alimentera la section correspondante du rapport final (TN4).
+
+\begin{table}[H]
+\centering
+\caption{Journal des problèmes rencontrés}
+\begin{tabularx}{\textwidth}{lXX}
+\toprule
+\textbf{Bloc} & \textbf{Problème} & \textbf{Solution} \\
+\midrule
+07 & La dimension des vecteurs d'\textit{embedding} (1536, héritage d'une première intégration OpenAI) ne correspondait pas à celle produite par l'API Gemini (768), provoquant une erreur de type pgvector. & Migration corrective \texttt{001\_update\_vector\_dimension.sql}, puis redéfinition complète de la table sous le nom \texttt{mtg\_memory\_chunks} dans la migration \texttt{007}. \\
+\midrule
+07 / continu & L'API Gemini applique des limites de débit (429) et peut retourner des erreurs transitoires de surcharge (503) ou de modèle introuvable (404) lorsqu'un modèle est retiré du service. & Fonction \texttt{generateWithFallback} (\texttt{config/gemini.js}) : bascule automatique sur une liste ordonnée de modèles de secours, et \texttt{embedText} réessaie jusqu'à 3 fois avec un délai croissant pour les erreurs 429/503. \\
+\midrule
+12 & Avant la centralisation observée dans le code actuel, deux clés \texttt{localStorage} distinctes (\texttt{'token'} côté service API, \texttt{'veridian\_token'} côté contexte d'authentification) auraient provoqué une déconnexion silencieuse à chaque appel. & Les deux modules importent désormais \texttt{getToken()} / \texttt{clearToken()} depuis \texttt{api/client.js}, source unique de vérité pour le jeton. \\
+\midrule
+12 & L'absence d'en-têtes \texttt{Access-Control-Allow-*} aurait bloqué silencieusement, côté navigateur, toute requête du frontend (\texttt{:5173}) vers le backend (\texttt{:3000}). & Middleware CORS manuel ajouté dans \texttt{app.js}, en amont de toutes les routes, avec court-circuit explicite des requêtes \texttt{OPTIONS}. \\
+\midrule
+Démarrage & La redirection PowerShell \texttt{<} n'est pas supportée pour passer un fichier SQL à \texttt{docker exec}. & Utilisation de \texttt{cmd} ou de \texttt{Get-Content fichier.sql \textbar\ docker exec -i ...} à la place. \\
+\midrule
+Démarrage & Docker Desktop ne démarre pas automatiquement au démarrage de Windows malgré la configuration de \texttt{start.ps1}. & Démarrage manuel requis avant l'exécution du script ; cause précise non identifiée (délai de session Windows ou conflit avec la séquence de démarrage automatique). \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+% ============================================================
+\section{Avancement et planification de la seconde moitié}
+% ============================================================
+
+\subsection{Métriques d'avancement}
+
+\begin{table}[H]
+\centering
+\caption{Métriques du dépôt GitHub au mi-parcours}
+\begin{tabularx}{\textwidth}{lX}
+\toprule
+\textbf{Indicateur} & \textbf{Valeur} \\
+\midrule
+Blocs fusionnés dans \texttt{main} & 9 / 18 (01–07, 10, 11) \\
+Bloc en fin de développement (branche dédiée) & 1 (bloc 12) \\
+Blocs partiellement livrés & 1 (bloc 09 — chat opérationnel, export PDF à faire) \\
+\textit{Pull requests} fusionnées identifiées & \#12, \#19, \#24 \\
+Branches distantes actives (non supprimées) & 6 \\
+Tables PostgreSQL & 10 \\
+Index explicites (dont 1 HNSW vectoriel) & 11 \\
+Endpoints REST applicatifs & 26 (+ 1 \texttt{/api/health}) \\
+Pages frontend effectivement routées & 7 \\
+Suites de tests unitaires & 3 fichiers, 17 cas \\
+Fichiers de migration SQL versionnés & 3 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Plan des blocs restants}
+
+\begin{table}[H]
+\centering
+\caption{Planification de la seconde moitié du projet}
+\begin{tabularx}{\textwidth}{clX}
+\toprule
+\textbf{Bloc} & \textbf{Titre} & \textbf{Objectif principal} \\
+\midrule
+08 & Contradictions \& Alertes   & Relier \texttt{detectContradiction()} à l'extraction de décisions ; persister dans \texttt{alerts} ; exposer un endpoint de consultation \\
+09 & Compléter Chat \& Export PDF & Finaliser l'export PDF des décisions par projet (le chat RAG est déjà fonctionnel) \\
+12 & Finaliser API Connect       & Fusionner la \textit{pull request} du bloc 12 dans \texttt{main} \\
+13 & Frontend Formulaires        & CRUD complet depuis l'interface : projets, réunions, tâches \\
+14 & Frontend Réunion Détaillée  & Lecteur audio, transcription affichée, décisions liées \\
+15 & Décisions \& Contradictions & Vue agrégée des décisions, alertes de contradiction visibles \\
+16 & Calendrier projet           & Vue mensuelle des réunions par projet \\
+17 & Tests et qualité            & Tests d'intégration (\texttt{supertest}) des endpoints critiques : auth, transcription, mémoire RAG \\
+18 & Déploiement et docs finales & Guide de déploiement, rapport TN4, version de démonstration \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Risques résiduels}
+
+\begin{itemize}
+  \item \textbf{Performance de Whisper} : le modèle \textit{small} traite l'audio en temps sensiblement supérieur au temps réel sur le matériel disponible (exécution CPU sans accélération). Pour des réunions longues, le délai de transcription peut devenir perceptible ; une file d'attente asynchrone est envisagée si le besoin se confirme.
+  \item \textbf{Quota API Gemini} : le palier gratuit impose des limites de requêtes par minute. Le mécanisme de nouvelle tentative (\texttt{embedText}) et de bascule de modèle (\texttt{generateWithFallback}) atténue ce risque sans l'éliminer en cas de démonstration intensive.
+  \item \textbf{Bloc 08 non débuté côté persistance} : la logique de détection de contradiction existe mais n'est reliée à aucun flux applicatif ; le risque est de sous-estimer l'effort d'intégration (transaction combinée extraction + détection + alerte) lors de la planification du bloc.
+  \item \textbf{Docker Desktop au démarrage} : un démarrage manuel préalable reste nécessaire dans certains environnements Windows malgré \texttt{start.ps1}.
+\end{itemize}
+
+% ============================================================
+\section{Conclusion}
+% ============================================================
+
+À mi-parcours, le projet Veridian dépasse ses objectifs intermédiaires sur le plan technique : neuf blocs sur dix-huit sont fusionnés dans \texttt{main}, un dixième est en fin de développement, et le pipeline central de l'application — enregistrement, transcription, extraction de décisions, indexation vectorielle, interrogation en langage naturel — fonctionne de bout en bout, comme en attestent le prototype capturé à la section \ref{sec:prototype-note} et les diagrammes de séquence qui en détaillent le fonctionnement interne.
+
+La modélisation UML présentée dans ce rapport (cas d'utilisation, classes, activité, trois diagrammes de séquence, état, composants, déploiement) a été construite à partir du code réellement en place plutôt que d'une intention de conception, ce qui en garantit la fidélité pour la suite du projet. Les blocs restants (08, 09 à compléter, 12 à fusionner, puis 13 à 18) portent principalement sur la fermeture de la boucle de vérification des décisions, l'expérience utilisateur du frontend, la qualité logicielle par les tests d'intégration, et la documentation finale.
+
+La trace d'ingénierie accumulée dans le dépôt GitHub — commits, \textit{pull requests}, historique de fusion — démontre un développement discipliné et traçable, conforme aux pratiques attendues au niveau master, y compris dans la transparence apportée aux écarts entre la planification initiale et l'exécution réelle (renumérotation de blocs fusionnés ensemble, mise à jour de la contrainte \texttt{dotenv}, bloc en statut \textit{Todo} sur le tableau malgré un développement avancé).
+
+% ============================================================
+%  RÉFÉRENCES
+% ============================================================
+\newpage
+\printbibliography[title={Références}]
+
+\end{document}
