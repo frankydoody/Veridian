@@ -8,7 +8,7 @@
 #   2. Demarre Docker Desktop si necessaire et attend qu il soit pret
 #   3. Demarre PostgreSQL via docker compose
 #   4. Installe les dependances npm si absentes (premier clone)
-#   5. Lance la migration de la BD si elle est vide (premier clone)
+#   5. Cree le schema puis applique les migrations si la BD est vide (premier clone)
 #   6. Ouvre backend et frontend dans deux fenetres separees
 #   7. Attend les serveurs et ouvre le navigateur
 # =============================================================================
@@ -165,28 +165,44 @@ if (-not (Test-Path (Join-Path $Frontend 'node_modules'))) {
 }
 
 # =============================================================================
-# 5. Migration de la base de donnees (premier clone seulement)
+# 5. Initialisation de la base de donnees (premier clone seulement)
 # =============================================================================
 
-# Verifie si la table "users" existe — si non, c'est un premier clone
+# Applique un fichier SQL dans le conteneur. On copie le fichier dans le
+# conteneur puis on le lit avec "psql -f" : cela evite l'operateur "<"
+# (non supporte par PowerShell) et les problemes d'encodage d'un "pipe".
+# -v ON_ERROR_STOP=1 : la premiere erreur SQL arrete tout au lieu de continuer.
+function Invoke-SqlFile($file) {
+  $name = Split-Path $file -Leaf
+  docker cp $file "${DbContainer}:/tmp/$name"
+  if ($LASTEXITCODE -ne 0) { Fail "Copie de $name dans le conteneur impossible." }
+  docker exec $DbContainer psql -v ON_ERROR_STOP=1 -q -U veridian_user -d veridian -f "/tmp/$name"
+  if ($LASTEXITCODE -ne 0) { Fail "Echec de l'application de $name (voir l'erreur SQL ci-dessus)." }
+}
+
+# Verifie si la table "users" existe - si non, c'est un premier clone
 $tableExists = docker exec $DbContainer psql -U veridian_user -d veridian -tAc `
   "SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='users');" 2>$null
 
-if ($tableExists -eq 'f' -or $tableExists -eq '') {
-  Info 'Base de donnees vide detectee. Application des migrations...'
+if ($tableExists -ne 't') {
+  Info 'Base de donnees vide detectee. Creation du schema...'
+
+  # Ordre obligatoire : le schema de base d'abord, puis les migrations
+  # (les migrations modifient ou referencent les tables du schema).
+  $SchemaFile = Join-Path $Backend 'database\schema.sql'
+  if (-not (Test-Path $SchemaFile)) { Fail "Fichier schema.sql introuvable : $SchemaFile" }
+  Info '  Schema : schema.sql'
+  Invoke-SqlFile $SchemaFile
 
   $MigrationsDir = Join-Path $Backend 'database\migrations'
   if (Test-Path $MigrationsDir) {
     $sqlFiles = Get-ChildItem -Path $MigrationsDir -Filter '*.sql' | Sort-Object Name
     foreach ($file in $sqlFiles) {
       Info "  Migration : $($file.Name)"
-      Get-Content $file.FullName -Raw | docker exec -i $DbContainer psql -U veridian_user -d veridian
+      Invoke-SqlFile $file.FullName
     }
-    Ok 'Migrations appliquees.'
-  } else {
-    Warn "Dossier migrations introuvable : $MigrationsDir"
-    Warn 'Applique tes migrations manuellement si necessaire.'
   }
+  Ok 'Schema et migrations appliques.'
 } else {
   Ok 'Base de donnees deja initialisee.'
 }

@@ -33,7 +33,7 @@ Veridian/
 │   │   ├── package.json
 │   │   ├── .env           # Variables (non versionné)
 │   │   ├── database/
-│   │   │   ├── schema.sql         # 9 tables
+│   │   │   ├── schema.sql         # schéma de base (9 tables) — à appliquer AVANT les migrations
 │   │   │   └── migrations/
 │   │   └── src/
 │   │       ├── config/    # db.js, gemini.js
@@ -191,11 +191,15 @@ Le script exécute dans l'ordre :
 docker compose up -d
 docker compose ps   # attendre: healthy
 
-# Appliquer le schéma (première fois)
-# Ubuntu
-docker exec -i veridian_db psql -U veridian_user -d veridian < Projet/Backend/database/schema.sql
-# Windows (cmd, PAS PowerShell)
-docker exec -i veridian_db psql -U veridian_user -d veridian < Projet\Backend\database\schema.sql
+# Initialiser la base (première fois seulement) : le schéma d'abord, PUIS les migrations, dans l'ordre
+# Ubuntu / macOS
+for f in Projet/Backend/database/schema.sql Projet/Backend/database/migrations/*.sql; do
+  docker exec -i veridian_db psql -v ON_ERROR_STOP=1 -U veridian_user -d veridian < "$f" || break
+done
+# Windows (PowerShell) : copier chaque fichier dans le conteneur, puis l'exécuter avec -f
+#   docker cp Projet\Backend\database\schema.sql veridian_db:/tmp/schema.sql
+#   docker exec veridian_db psql -v ON_ERROR_STOP=1 -U veridian_user -d veridian -f /tmp/schema.sql
+#   (répéter pour chaque fichier de Projet\Backend\database\migrations\, dans l'ordre : 001, 003, 007)
 
 # Backend
 cd Projet/Backend && npm install && npm run dev
@@ -204,7 +208,7 @@ cd Projet/Backend && npm install && npm run dev
 cd Projet/Frontend && npm install && npm run dev
 ```
 
-> ⚠️ PowerShell ne supporte pas `<` pour `docker exec`. Utiliser `cmd` ou : `Get-Content schema.sql | docker exec -i veridian_db psql -U veridian_user -d veridian`
+> ⚠️ PowerShell ne supporte pas `<` pour `docker exec`. Utiliser `docker cp` puis `psql -f` (voir ci-dessus) ou `cmd`. Les scripts `start.sh` et `start.ps1` font ces étapes automatiquement sur une base vide.
 
 > ⚠️ Docker Desktop (Windows) ne démarre pas automatiquement au boot — le lancer manuellement avant `start.ps1`.
 
@@ -339,7 +343,7 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 
 **Docker Desktop ne démarre pas (Windows)** → Lancer manuellement depuis le menu Démarrer, attendre l'icône verte
 
-**PowerShell : erreur `<` avec docker exec** → Utiliser `cmd` ou : `Get-Content schema.sql | docker exec -i veridian_db psql -U veridian_user -d veridian`
+**PowerShell : erreur `<` avec docker exec** → Utiliser `docker cp` puis `docker exec ... psql -f` (voir « Démarrage manuel »), ou `cmd`
 
 **Erreur de connexion PostgreSQL**
 
