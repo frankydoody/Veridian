@@ -155,11 +155,13 @@ WHISPER_LANGUAGE=fr
 
 ### 3. Démarrage automatique (recommandé)
 
-**Windows** — Docker Desktop doit être démarré manuellement d'abord :
+**Windows** — `start.ps1` est un installateur : sur un PC vierge il installe ce qui manque (Node.js LTS, Docker Desktop, Python, ffmpeg et Whisper via winget), crée le fichier `.env` (secret JWT généré), initialise la base puis lance les serveurs. Sur un PC déjà prêt, il ne fait que démarrer. Le seul prérequis est `winget` (inclus avec Windows 10/11 à jour) :
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\start.ps1
 ```
+
+Options : `-SkipWhisper` (ne pas installer la transcription locale), `-InstallOnly` (installer et préparer sans lancer les serveurs). Si Docker Desktop vient d'être installé, un redémarrage de Windows peut être demandé : relancer ensuite le même script. Modèle de configuration : `Projet/Backend/.env.example`.
 
 **Ubuntu :**
 
@@ -209,8 +211,6 @@ cd Projet/Frontend && npm install && npm run dev
 ```
 
 > ⚠️ PowerShell ne supporte pas `<` pour `docker exec`. Utiliser `docker cp` puis `psql -f` (voir ci-dessus) ou `cmd`. Les scripts `start.sh` et `start.ps1` font ces étapes automatiquement sur une base vide.
-
-> ⚠️ Docker Desktop (Windows) ne démarre pas automatiquement au boot — le lancer manuellement avant `start.ps1`.
 
 ### Arrêt
 
