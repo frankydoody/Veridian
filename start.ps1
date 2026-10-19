@@ -16,7 +16,8 @@
 # Ce que fait le script, dans l'ordre :
 #   1. Verifie winget et met a jour sa liste de paquets (winget source update)
 #   2. Lit Projet\Backend\.env (fourni avec le projet) et le complete si besoin
-#   3. Installe Node.js (LTS), Docker Desktop, et - sauf -SkipWhisper - Python,
+#   3. Verifie la virtualisation (BIOS) et WSL 2 (Virtual Machine Platform + WSL),
+#      les active au besoin, puis installe Node.js (LTS), Docker Desktop, et - sauf -SkipWhisper - Python,
 #      ffmpeg et Whisper (modele inclus), seulement s'ils manquent
 #   4. Installe les dependances npm (premier clone, ou apres un git pull)
 #   5. Demarre Docker Desktop, puis PostgreSQL + pgvector (docker compose)
@@ -306,6 +307,138 @@ function Confirm-Winget {
   }
   Fail ("winget (Gestionnaire de paquets Windows) est introuvable. Installe ""Programme d'installation d'application"" " +
         "depuis le Microsoft Store (ou mets Windows a jour), puis relance ce script.")
+}
+
+# -----------------------------------------------------------------------------
+# Virtualisation et WSL 2 (requis par Docker Desktop)
+# -----------------------------------------------------------------------------
+
+function Test-Admin {
+  try {
+    $id = [Security.Principal.WindowsIdentity]::GetCurrent()
+    return (New-Object Security.Principal.WindowsPrincipal($id)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+  } catch { return $false }
+}
+
+# $true si le moteur Docker repond deja (dans ce cas, rien a verifier cote WSL)
+function Test-DockerWorking {
+  if (-not (Test-Command 'docker')) { return $false }
+  & docker info 2>$null | Out-Null
+  return ($LASTEXITCODE -eq 0)
+}
+
+# Compteur (registre utilisateur) du nombre de passages de configuration WSL :
+# evite une boucle de redemarrages si la detection echoue.
+function Get-WslSetupRuns {
+  try { return [int](Get-ItemProperty -Path 'HKCU:\Software\Veridian' -Name 'WslSetupRuns' -ErrorAction Stop).WslSetupRuns } catch { return 0 }
+}
+function Set-WslSetupRuns($n) {
+  try {
+    if (-not (Test-Path 'HKCU:\Software\Veridian')) { New-Item -Path 'HKCU:\Software\Veridian' -Force | Out-Null }
+    New-ItemProperty -Path 'HKCU:\Software\Veridian' -Name 'WslSetupRuns' -Value $n -PropertyType DWord -Force | Out-Null
+  } catch { }
+}
+
+# WSL est pret si "wsl --status" et "wsl --version" reussissent (seuls les codes de retour comptent :
+# la sortie de wsl.exe est en UTF-16).
+function Test-WslReady {
+  if (-not (Test-Command 'wsl')) { return $false }
+  & wsl.exe --status 2>&1 | Out-Null
+  if ($LASTEXITCODE -ne 0) { return $false }
+  & wsl.exe --version 2>&1 | Out-Null
+  return ($LASTEXITCODE -eq 0)
+}
+
+# La virtualisation materielle (VT-x / AMD-V / SVM) doit etre activee dans le BIOS/UEFI.
+function Confirm-Virtualization {
+  if (Test-DockerWorking) { return }
+  $enabled = $null
+  $hypervisor = $false
+  try {
+    $cpu = Get-CimInstance Win32_Processor -ErrorAction Stop | Select-Object -First 1
+    $enabled = $cpu.VirtualizationFirmwareEnabled
+    $hypervisor = [bool](Get-CimInstance Win32_ComputerSystem -ErrorAction Stop).HypervisorPresent
+  } catch { }
+
+  if ($hypervisor -or $enabled -eq $true) { Ok 'Virtualisation materielle activee.'; return }
+  if ($enabled -eq $false) {
+    Write-Host ''
+    Warn 'La virtualisation est DESACTIVEE dans le BIOS/UEFI de ce PC. Docker Desktop ne peut pas fonctionner sans elle.'
+    Warn '  1. Redemarre le PC et entre dans le BIOS/UEFI (touche F2, F10, Suppr ou Echap selon la marque).'
+    Warn '  2. Active "Intel Virtualization Technology" (VT-x) ou "SVM Mode" (AMD-V).'
+    Warn '  3. Enregistre, demarre Windows, puis relance Demarrer.bat.'
+    Warn '  (Dans une machine virtuelle : active la virtualisation imbriquee dans les parametres de la VM.)'
+    Fail 'Virtualisation desactivee.'
+  }
+  Warn 'Etat de la virtualisation non determine : on continue.'
+}
+
+# Execute l'activation des fonctionnalites Windows et l'installation de WSL.
+# Droits administrateur requis : si la fenetre n'est pas administrateur, une
+# fenetre elevee est ouverte (Windows demande la confirmation UAC).
+# Retourne le code de sortie (0 = ok, 3010 = redemarrage requis).
+function Invoke-WslSetup {
+  $code = @'
+$ErrorActionPreference = 'Continue'
+Write-Host 'Activation de "Plateforme de machine virtuelle"...'
+dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart | Out-Null
+$a = $LASTEXITCODE
+Write-Host 'Activation de "Sous-systeme Windows pour Linux"...'
+dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart | Out-Null
+$b = $LASTEXITCODE
+Write-Host 'Installation / mise a jour de WSL...'
+wsl.exe --install --no-distribution
+$c = $LASTEXITCODE
+wsl.exe --update | Out-Null
+wsl.exe --set-default-version 2 | Out-Null
+if (($a -eq 3010) -or ($b -eq 3010) -or ($c -eq 3010)) { exit 3010 }
+if (($a -ne 0) -or ($b -ne 0)) { exit 1 }
+exit 0
+'@
+  $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($code))
+  $psArgs  = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $encoded)
+  if (Test-Admin) {
+    & powershell.exe @psArgs
+    return $LASTEXITCODE
+  }
+  Info 'Droits administrateur requis : accepte la fenetre de confirmation Windows (UAC).'
+  try {
+    $proc = Start-Process -FilePath 'powershell.exe' -ArgumentList $psArgs -Verb RunAs -Wait -PassThru -ErrorAction Stop
+    return $proc.ExitCode
+  } catch {
+    return -1
+  }
+}
+
+# Verifie WSL 2 et l'active si necessaire (avant Docker Desktop).
+function Confirm-Wsl {
+  if (Test-DockerWorking) { Ok 'Docker fonctionne deja : WSL 2 n''a pas besoin d''etre verifie.'; return }
+  if (Test-WslReady) { Ok 'WSL 2 deja installe.'; Set-WslSetupRuns 0; return }
+
+  $runs = Get-WslSetupRuns
+  if ($runs -ge 2) {
+    Warn 'WSL n''est toujours pas detecte apres deux configurations : on continue, Docker Desktop terminera l''installation.'
+    return
+  }
+
+  Info 'Installation de l''environnement de virtualisation (Plateforme de machine virtuelle + WSL 2)...'
+  Set-WslSetupRuns ($runs + 1)
+  $rc = Invoke-WslSetup
+  if ($rc -eq -1) {
+    Fail 'La confirmation administrateur (UAC) a ete refusee. Relance le script et accepte la fenetre Windows.'
+  }
+  if ($rc -eq 3010) {
+    Request-Restart 'La virtualisation et WSL 2 sont activees, mais Windows doit redemarrer pour les prendre en compte.'
+  }
+  if ($rc -ne 0) {
+    Warn "La configuration de WSL a retourne le code $rc (Internet requis ; Windows 10 version 2004 ou plus recente)."
+  }
+  if (Test-WslReady) {
+    Ok 'WSL 2 pret.'
+    Set-WslSetupRuns 0
+  } else {
+    Request-Restart 'WSL 2 est installe, mais Windows doit redemarrer pour le finaliser.'
+  }
 }
 
 function Confirm-Node {
@@ -658,6 +791,8 @@ function Main {
 
   Confirm-Winget
   Initialize-EnvFile
+  Confirm-Virtualization
+  Confirm-Wsl
   Confirm-Node
   Confirm-DockerInstalled
   Confirm-Whisper

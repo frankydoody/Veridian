@@ -117,17 +117,18 @@ Le script (`start.ps1`) est un installateur : chaque étape vérifie d'abord son
 |---|---|
 | 1 | Met à jour la liste des paquets winget |
 | 2 | Lit `.env` (le crée et le complète si besoin) |
-| 3 | Installe **Node.js LTS**, **Docker Desktop**, **Python 3.12**, **ffmpeg** et **Whisper** (avec son modèle) — seulement ceux qui manquent |
-| 4 | `npm install` du backend et du frontend (premier clone ou après un `git pull`) |
-| 5 | Démarre Docker Desktop, puis **PostgreSQL 16 + pgvector** (`docker compose`) |
-| 6 | Crée le schéma (`schema.sql`) puis applique les **migrations** non encore appliquées (suivies dans la table `schema_migrations`) |
-| 7 | Ouvre deux fenêtres, **Veridian - Backend** et **Veridian - Frontend**, qui exécutent chacune `npm run dev`, puis ouvre le navigateur |
+| 3 | Vérifie la **virtualisation** (BIOS/UEFI) et **WSL 2** ; active la *Plateforme de machine virtuelle* et WSL au besoin (confirmation administrateur Windows demandée) |
+| 4 | Installe **Node.js LTS**, **Docker Desktop**, **Python 3.12**, **ffmpeg** et **Whisper** (avec son modèle) — seulement ceux qui manquent |
+| 5 | `npm install` du backend et du frontend (premier clone ou après un `git pull`) |
+| 6 | Démarre Docker Desktop, puis **PostgreSQL 16 + pgvector** (`docker compose`) |
+| 7 | Crée le schéma (`schema.sql`) puis applique les **migrations** non encore appliquées (suivies dans la table `schema_migrations`) |
+| 8 | Ouvre deux fenêtres, **Veridian - Backend** et **Veridian - Frontend**, qui exécutent chacune `npm run dev`, puis ouvre le navigateur |
 
 À savoir :
 
 - **Premier lancement sur un PC vierge : prévoir 15 à 30 minutes.** Docker Desktop, l'image PostgreSQL, Whisper (plusieurs Go) et son modèle sont téléchargés une seule fois.
 - Windows affiche des demandes d'autorisation (UAC) pendant les installations : accepter.
-- **Redémarrage** : la première installation de Docker Desktop (WSL 2) demande souvent un redémarrage de Windows. Le script le propose, puis **se relance tout seul** à l'ouverture de session suivante. Si ça ne se produit pas, double-cliquer à nouveau sur `Demarrer.bat`.
+- **Redémarrage** : l'activation de la virtualisation / WSL 2 et la première installation de Docker Desktop demandent souvent un redémarrage de Windows. Le script le propose, puis **se relance tout seul** à l'ouverture de session suivante. Si ça ne se produit pas, double-cliquer à nouveau sur `Demarrer.bat`.
 - Les lancements suivants prennent quelques secondes : le script ne fait que démarrer.
 - Garder les deux fenêtres « Backend » et « Frontend » ouvertes tant qu'on utilise l'application.
 
@@ -349,7 +350,9 @@ Les valeurs `DB_*` correspondent à `docker-compose.yml` : ne pas les changer sa
 |---|---|
 | `winget` est introuvable | Mettre Windows à jour, ou installer « Programme d'installation d'application » depuis le Microsoft Store, puis relancer |
 | Le script s'arrête après l'installation de Docker | Normal : redémarrer Windows. Le script se relance seul à l'ouverture de session ; sinon double-cliquer sur `Demarrer.bat` |
-| Docker ne répond pas après 5 minutes | Vérifier que la virtualisation est activée dans le BIOS/UEFI, ouvrir Docker Desktop une fois, attendre l'icône verte, relancer |
+| « La virtualisation est DESACTIVEE dans le BIOS/UEFI » | Redémarrer dans le BIOS/UEFI, activer *Intel Virtualization Technology* (VT-x) ou *SVM Mode* (AMD-V), enregistrer, relancer `Demarrer.bat`. Dans une machine virtuelle : activer la virtualisation imbriquée |
+| La fenêtre de confirmation administrateur (UAC) a été refusée | Relancer `Demarrer.bat` et accepter : l'activation de WSL 2 exige les droits administrateur |
+| Docker ne répond pas après 5 minutes | Ouvrir Docker Desktop une fois, attendre l'icône verte, relancer. Si WSL pose problème : `wsl --update` dans un terminal administrateur, puis redémarrer |
 | Port 5432 déjà utilisé | Un PostgreSQL est déjà installé sur le PC : arrêter son service (`services.msc`), relancer |
 | Port 3000 ou 5173 déjà utilisé | Fermer le programme qui l'occupe (ou l'ancienne fenêtre « Backend »/« Frontend »), relancer |
 | L'application démarre mais l'IA ne répond pas | `GEMINI_API_KEY` absente ou invalide dans `Projet\Backend\.env` : corriger puis relancer |
