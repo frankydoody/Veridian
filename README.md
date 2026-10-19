@@ -155,11 +155,7 @@ WHISPER_LANGUAGE=fr
 
 ### 3. Démarrage automatique (recommandé)
 
-**Windows** — `start.ps1` est un installateur : sur un PC vierge il installe ce qui manque (Node.js LTS, Docker Desktop, Python, ffmpeg et Whisper via winget), crée le fichier `.env` (secret JWT généré), initialise la base puis lance les serveurs. Sur un PC déjà prêt, il ne fait que démarrer. Le seul prérequis est `winget` (inclus avec Windows 10/11 à jour) :
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\start.ps1
-```
+**Windows** — il suffit de placer le fichier `.env` fourni dans `Projet\Backend\`, puis de double-cliquer sur `Demarrer.bat` (ou `powershell -ExecutionPolicy Bypass -File .\start.ps1`). Le script est un installateur : il met à jour la liste winget, installe ce qui manque (Node.js LTS, Docker Desktop, Python, ffmpeg, Whisper et son modèle), démarre Docker puis PostgreSQL + pgvector, crée le schéma et applique les migrations, puis ouvre le backend et le frontend (`npm run dev`) dans deux fenêtres. Sur un PC déjà prêt, il ne fait que démarrer. Le seul prérequis est `winget` (inclus avec Windows 10/11 à jour). Si Windows doit redémarrer (première installation de Docker / WSL 2), le script le propose et se relance tout seul à l'ouverture de session.
 
 Options : `-SkipWhisper` (ne pas installer la transcription locale), `-InstallOnly` (installer et préparer sans lancer les serveurs). Si Docker Desktop vient d'être installé, un redémarrage de Windows peut être demandé : relancer ensuite le même script. Modèle de configuration : `Projet/Backend/.env.example`.
 
