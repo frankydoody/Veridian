@@ -7,6 +7,7 @@
 # Options :
 #   -SkipWhisper   n'installe pas Python / ffmpeg / Whisper (pas de transcription audio)
 #   -InstallOnly   installe et prepare tout, mais ne lance pas les serveurs
+#   -NoSeed        n'ajoute pas les donnees de demonstration (base vide)
 #
 # Le script fonctionne sur un PC sur lequel RIEN n'est installe : il installe
 # ce qui manque (via winget), et ne touche pas a ce qui est deja present.
@@ -22,6 +23,8 @@
 #   4. Installe les dependances npm (premier clone, ou apres un git pull)
 #   5. Demarre Docker Desktop, puis PostgreSQL + pgvector (docker compose)
 #   6. Cree le schema de la base, puis applique les migrations non encore appliquees
+#      Sur une base sans aucun utilisateur : ajoute les donnees de demonstration
+#      (3 comptes, mot de passe 12345678 ; voir Projet\Backend\database\seed.js)
 #   7. Ouvre le backend et le frontend (npm run dev) dans DEUX fenetres, puis le navigateur
 #
 # Si Windows doit redemarrer (premiere installation de Docker / WSL 2), le script
@@ -33,7 +36,8 @@
 
 param(
   [switch]$SkipWhisper,
-  [switch]$InstallOnly
+  [switch]$InstallOnly,
+  [switch]$NoSeed
 )
 
 # 'Continue' : les erreurs des commandes natives (docker, winget...) sont testees via $LASTEXITCODE
@@ -747,6 +751,24 @@ function Initialize-Database {
   else { Ok 'Base de donnees a jour (aucune migration a appliquer).' }
 }
 
+# Ajoute les donnees de demonstration (database\seed.js) uniquement si la base
+# ne contient AUCUN utilisateur : une base deja utilisee n'est jamais modifiee.
+function Initialize-Seed {
+  if ($NoSeed) { Warn 'Option -NoSeed : donnees de demonstration non ajoutees.'; return }
+  $count = Invoke-Sql 'SELECT COUNT(*) FROM users;'
+  if ($count -ne '0') { Ok 'La base contient deja des utilisateurs : donnees de demonstration non ajoutees.'; return }
+
+  Info 'Ajout des donnees de demonstration (3 comptes, 3 projets, reunions, decisions, taches)...'
+  $seedFile = Join-Path $Backend 'database\seed.js'
+  if (-not (Test-Path $seedFile)) { Warn "seed.js introuvable : $seedFile"; return }
+  Push-Location $Backend
+  try {
+    & node $seedFile
+    if ($LASTEXITCODE -ne 0) { Warn 'Les donnees de demonstration n''ont pas pu etre ajoutees (l''application fonctionne quand meme).' }
+    else { Ok 'Donnees de demonstration ajoutees : admin@example.com / mot de passe 12345678' }
+  } finally { Pop-Location }
+}
+
 # -----------------------------------------------------------------------------
 # Lancement
 # -----------------------------------------------------------------------------
@@ -803,6 +825,7 @@ function Main {
   Start-DockerDesktop
   Start-Database
   Initialize-Database
+  Initialize-Seed
 
   if ($InstallOnly) {
     Write-Host ''
@@ -819,6 +842,7 @@ function Main {
   Ok '  Frontend : http://localhost:5173'
   Ok '  Backend  : http://localhost:3000'
   Ok '  BD       : localhost:5432 (via Docker)'
+  Ok '  Compte   : admin@example.com / 12345678 (donnees de demonstration)'
   Ok '============================================================'
   Write-Host ''
   Info 'Pour tout arreter : Ctrl+C dans chaque fenetre, puis :'

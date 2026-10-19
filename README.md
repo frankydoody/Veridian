@@ -36,6 +36,7 @@ Veridian/
 │   │   ├── .env.example   # Modèle de .env sans secret
 │   │   ├── database/
 │   │   │   ├── schema.sql         # schéma de base (9 tables) — à appliquer AVANT les migrations
+│   │   │   ├── seed.js            # données de démonstration (3 comptes, projets, réunions...)
 │   │   │   └── migrations/
 │   │   └── src/
 │   │       ├── config/    # db.js, gemini.js
@@ -121,7 +122,7 @@ Le script (`start.ps1`) est un installateur : chaque étape vérifie d'abord son
 | 4 | Installe **Node.js LTS**, **Docker Desktop**, **Python 3.12**, **ffmpeg** et **Whisper** (avec son modèle) — seulement ceux qui manquent |
 | 5 | `npm install` du backend et du frontend (premier clone ou après un `git pull`) |
 | 6 | Démarre Docker Desktop, puis **PostgreSQL 16 + pgvector** (`docker compose`) |
-| 7 | Crée le schéma (`schema.sql`) puis applique les **migrations** non encore appliquées (suivies dans la table `schema_migrations`) |
+| 7 | Crée le schéma (`schema.sql`) puis applique les **migrations** non encore appliquées (suivies dans la table `schema_migrations`), puis ajoute les **données de démonstration** si la base n'a aucun utilisateur |
 | 8 | Ouvre deux fenêtres, **Veridian - Backend** et **Veridian - Frontend**, qui exécutent chacune `npm run dev`, puis ouvre le navigateur |
 
 À savoir :
@@ -132,7 +133,7 @@ Le script (`start.ps1`) est un installateur : chaque étape vérifie d'abord son
 - Les lancements suivants prennent quelques secondes : le script ne fait que démarrer.
 - Garder les deux fenêtres « Backend » et « Frontend » ouvertes tant qu'on utilise l'application.
 
-Options (ligne de commande) : `-SkipWhisper` (ne pas installer la transcription audio locale) et `-InstallOnly` (tout installer et préparer, sans lancer les serveurs) :
+Options (ligne de commande) : `-SkipWhisper` (ne pas installer la transcription audio locale), `-InstallOnly` (tout installer et préparer, sans lancer les serveurs) et `-NoSeed` (ne pas ajouter les données de démonstration) :
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\start.ps1 -InstallOnly
@@ -146,7 +147,34 @@ powershell -ExecutionPolicy Bypass -File .\start.ps1 -InstallOnly
 | API | http://localhost:3000 |
 | Health check | http://localhost:3000/api/health |
 
-Créer un compte sur la page d'inscription, puis un projet et une réunion.
+Se connecter avec un compte de démonstration (voir ci-dessous), ou créer son propre compte sur la page d'inscription.
+
+### Données de démonstration
+
+Au premier démarrage (base sans aucun utilisateur), le script ajoute un jeu de données pour pouvoir tester immédiatement. **Mot de passe de tous les comptes : `12345678`**
+
+| Compte | Rôle | Projets accessibles |
+|---|---|---|
+| `admin@example.com` | admin | Refonte du site web client, Application mobile Atlas |
+| `marie.tremblay@example.com` | membre | Refonte du site web client, Application mobile Atlas |
+| `samuel.gagnon@example.com` | membre | Refonte du site web client, Plan de relève RH (confidentiel) |
+
+Contenu : 3 projets, 7 réunions (6 terminées avec transcription en français, 1 planifiée sans audio pour tester le téléversement), 15 décisions (confirmées, provisoires, contredites), 2 alertes de contradiction (sévérité haute et moyenne), 13 tâches (à faire, en cours, terminées, une en retard) réparties entre les trois comptes.
+
+Scénarios de test utiles :
+- **Contradictions** : dans « Refonte du site web client », l'hébergement chez Cloudflare Pages (lancement) est contredit par la migration vers un serveur interne (suivi technique) ; dans « Application mobile Atlas », le report des notifications push est contredit par leur ajout pour la démonstration.
+- **Isolation des données** : « Plan de relève RH (confidentiel) » n'appartient qu'à Samuel ; `admin@example.com` et Marie ne doivent ni le voir ni y accéder (réponse 404).
+- **Tâches** : chaque utilisateur ne voit que ses propres tâches.
+- **Mémoire / chat** : les transcriptions et décisions sont indexées au premier démarrage si la clé Gemini est valide ; sinon, relancer l'indexation d'une réunion avec `POST /api/memory/index/:meetingId`.
+
+Commandes (depuis `Projet/Backend`) :
+
+```bash
+node database/seed.js                  # ajoute les données si elles n'existent pas (sinon ne fait rien)
+node database/seed.js --no-embeddings  # idem, sans appeler Gemini
+```
+
+Partir d'une base entièrement vide : `docker compose down -v`, puis relancer `Demarrer.bat`. Ne pas ajouter les données de démonstration : `powershell -ExecutionPolicy Bypass -File .\start.ps1 -NoSeed` (Ubuntu : `NO_SEED=1 ./start.sh`).
 
 ### Mettre à jour le projet
 

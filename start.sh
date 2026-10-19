@@ -9,6 +9,7 @@
 #   2. Démarre la base de données PostgreSQL (Docker) et attend qu'elle soit prête
 #   3. Installe les dépendances npm si elles sont absentes
 #   3b. Crée le schéma puis applique les migrations si la base est vide
+#   3c. Ajoute les données de démonstration si la base n'a aucun utilisateur
 #   4. Ouvre un terminal pour le backend et un terminal pour le frontend
 #   5. Attend que les deux serveurs répondent, puis ouvre le navigateur
 # =============================================================================
@@ -130,6 +131,21 @@ if [ "$table_exists" != "t" ]; then
   ok "Schéma et migrations appliqués."
 else
   ok "Base de données déjà initialisée."
+fi
+
+# ─── 3c. Données de démonstration (base sans aucun utilisateur seulement) ────
+# NO_SEED=1 ./start.sh   pour ne pas les ajouter.
+
+user_count="$(docker exec "$DB_CONTAINER" psql -U veridian_user -d veridian -tAc \
+  "SELECT COUNT(*) FROM users;" 2>/dev/null || echo "")"
+
+if [ "$user_count" = "0" ] && [ "${NO_SEED:-0}" != "1" ]; then
+  info "Ajout des données de démonstration (3 comptes, 3 projets, réunions, décisions, tâches)..."
+  if (cd "$BACKEND" && node database/seed.js); then
+    ok "Données de démonstration ajoutées : admin@example.com / mot de passe 12345678"
+  else
+    warn "Les données de démonstration n'ont pas pu être ajoutées (l'application fonctionne quand même)."
+  fi
 fi
 
 # ─── 4. Terminaux backend et frontend ────────────────────────────────────────
