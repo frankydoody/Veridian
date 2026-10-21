@@ -267,7 +267,7 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | 05 | Transcription Audio (Whisper) | ✅ Done | Pipeline Whisper local, transcription en base |
 | 06 | Extraction des décisions (Gemini) | ✅ Done | Appel Gemini 1.5 Flash, décisions extraites |
 | 07 | Mémoire vectorielle (RAG) | ✅ Done | Embeddings pgvector, recherche sémantique |
-| 08 | Détection contradictions & Alertes | Todo | Comparaison décisions, alertes persistées |
+| 08 | Détection contradictions & Alertes | ✅ Done | Comparaison des nouvelles décisions aux décisions passées du projet, alertes persistées, routes `/api/alerts` |
 | 09 | Chat mémoire & Export PDF | Todo | Interface chat RAG, export PDF par projet |
 
 ### Frontend
@@ -325,6 +325,9 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `src/config/gemini.js` | Configuration Gemini AI |
 | `src/services/whisper.service.js` | Pipeline de transcription audio |
 | `src/services/ia.service.js` | `extractDecisions`, `detectContradiction`, `chatWithMemory` |
+| `src/services/contradiction.service.js` | Compare les nouvelles décisions aux décisions passées du projet et crée les alertes (bloc 08) |
+| `src/models/alert.model.js` | Alertes : création avec marquage de la décision contredite (transaction), liste, résolution |
+| `src/controllers/alert.controller.js` | `GET /api/alerts/project/:projectId[?status=open]`, `PATCH /api/alerts/:id/resolve` |
 | `src/utils/jwt.utils.js` | Génération et vérification des tokens JWT |
 | `src/utils/hash.utils.js` | Hachage bcrypt |
 
@@ -344,8 +347,9 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | Branches | Statut |
 |---|---|
 | `main` | Active — base de production |
-| `bloc-01` à `bloc-07`, `bloc-10`, `bloc-11` | Fusionnées |
-| `bloc-08`, `bloc-09`, `bloc-12` à `bloc-18` | À faire |
+| `bloc-01` à `bloc-07`, `bloc-10`, `bloc-11`, `fix/securite-et-installation` | Fusionnées |
+| `bloc-08-contradictions` | En revue (PR) |
+| `bloc-09`, `bloc-12` à `bloc-18` | À faire |
 
 ---
 
