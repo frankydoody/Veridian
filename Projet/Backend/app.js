@@ -6,6 +6,7 @@ import transcriptionRoutes from './src/routes/transcription.routes.js';
 import decisionRoutes from './src/routes/decision.routes.js';
 import memoryRoutes from './src/routes/memory.routes.js';
 import taskRoutes from './src/routes/task.routes.js';
+import alertRoutes from './src/routes/alert.routes.js';
 import { errorMiddleware } from './src/middlewares/error.middleware.js';
 
 const app = express();
@@ -29,6 +30,7 @@ app.use('/api/transcriptions', transcriptionRoutes);
 app.use('/api/decisions', decisionRoutes);
 app.use('/api/memory', memoryRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/alerts', alertRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
