@@ -57,3 +57,6 @@ Desktop.ini
 # Préférences personnelles de VS Code — chaque dev a les siennes
 .vscode/settings.json
 .idea/ 
+
+# Journaux et PID des serveurs lances par start.sh (Linux, sans ecran)
+.veridian-logs/
