@@ -90,3 +90,40 @@ Authorization: Bearer {{token}}
   "question": "Qui est responsable de quoi ?",
   "meetingId": "COLLE_MEETING_ID_ICI"
 }
+
+### ─── Bloc 09 : chat avec historique ─────────────────────────────────────
+
+### Créer une conversation (dans un projet dont tu es membre)
+# @name createConversation
+POST {{baseUrl}}/chat/conversations
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "projectId": "COLLE_PROJECT_ID_ICI"
+}
+
+### Poser une question dans la conversation
+POST {{baseUrl}}/chat/conversations/{{createConversation.response.body.conversation.id}}/messages
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "question": "Quel framework a-t-on choisi et pourquoi ?"
+}
+
+### Relire la conversation (messages et sources)
+GET {{baseUrl}}/chat/conversations/{{createConversation.response.body.conversation.id}}
+Authorization: Bearer {{token}}
+
+### Lister mes conversations d'un projet
+GET {{baseUrl}}/chat/conversations?projectId=COLLE_PROJECT_ID_ICI
+Authorization: Bearer {{token}}
+
+### Supprimer la conversation
+DELETE {{baseUrl}}/chat/conversations/{{createConversation.response.body.conversation.id}}
+Authorization: Bearer {{token}}
+
+### ─── Bloc 09 : export PDF du projet ─────────────────────────────────────
+GET {{baseUrl}}/projects/COLLE_PROJECT_ID_ICI/export/pdf
+Authorization: Bearer {{token}}
