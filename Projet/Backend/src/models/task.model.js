@@ -66,3 +66,22 @@ export async function deleteTask(id, userId) {
     [id, userId]
   );
 }
+
+
+// ─── Tâches d'un projet (toutes, quel que soit le créateur) ──────────────────
+// L'appartenance au projet est vérifiée par l'appelant. Sert à l'export PDF.
+export async function findTasksByProject(projectId) {
+  const result = await query(
+    `SELECT t.id, t.title, t.description, t.assignee, t.priority, t.status,
+            t.due_date, t.created_at, m.title AS meeting_title
+     FROM tasks t
+     LEFT JOIN meetings m ON t.meeting_id = m.id
+     WHERE t.project_id = $1
+     ORDER BY
+       CASE t.status WHEN 'done' THEN 2 ELSE 1 END,
+       CASE t.priority WHEN 'haute' THEN 1 WHEN 'moyenne' THEN 2 ELSE 3 END,
+       t.created_at DESC`,
+    [projectId]
+  );
+  return result.rows;
+}
