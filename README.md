@@ -280,7 +280,7 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | 12 | Frontend API Connect | Todo | Connexion à l'API réelle, données dynamiques |
 | 13 | Frontend Formulaires | Todo | Formulaires création projet/réunion/tâche + validation |
 | 14 | Frontend Réunion Détaillée | Todo | Lecteur audio, transcription, décisions liées |
-| 15 | Frontend Décisions & Contradictions | Todo | Vue agrégée, alertes en temps réel |
+| 15 | Frontend Décisions & Contradictions | ✅ Done | Page `/decisions` : décisions du projet filtrables, alertes de contradiction à résoudre, bouton d'export PDF |
 | 16 | Frontend Calendrier de projet | Todo | Vue calendrier mensuel, navigation |
 
 ### Qualité et livraison
@@ -359,7 +359,8 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `bloc-01` à `bloc-07`, `bloc-10`, `bloc-11`, `fix/securite-et-installation` | Fusionnées |
 | `bloc-08-contradictions` | En revue (PR) |
 | `bloc-09-chat-export` | En test |
-| `bloc-12` à `bloc-18` | À faire |
+| `bloc-15-frontend-decisions` | En test |
+| `bloc-12` à `bloc-14`, `bloc-16` à `bloc-18` | À faire |
 
 ---
 
