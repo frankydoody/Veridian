@@ -25,7 +25,7 @@ Application web de mémoire organisationnelle alimentée par l'IA — INF1430, F
 Veridian/
 ├── Demarrer.bat           # Double-clic : installe et démarre (Windows)
 ├── start.ps1              # Installateur / démarrage automatisé Windows
-├── start.sh               # Démarrage automatisé Ubuntu
+├── start.sh               # Installateur / démarrage automatisé Linux
 ├── docker-compose.yml     # PostgreSQL 16 + pgvector
 ├── Projet/
 │   ├── Backend/
@@ -174,7 +174,7 @@ node database/seed.js                  # ajoute les données si elles n'existent
 node database/seed.js --no-embeddings  # idem, sans appeler Gemini
 ```
 
-Partir d'une base entièrement vide : `docker compose down -v`, puis relancer `Demarrer.bat`. Ne pas ajouter les données de démonstration : `powershell -ExecutionPolicy Bypass -File .\start.ps1 -NoSeed` (Ubuntu : `NO_SEED=1 ./start.sh`).
+Partir d'une base entièrement vide : `docker compose down -v`, puis relancer `Demarrer.bat`. Ne pas ajouter les données de démonstration : `powershell -ExecutionPolicy Bypass -File .\start.ps1 -NoSeed` (Linux : `./start.sh --no-seed`).
 
 ### Mettre à jour le projet
 
@@ -195,34 +195,42 @@ docker compose down -v    # arrête et efface les données
 
 ---
 
-## Installation sur Ubuntu
+## Installation sur Linux
+
+Distributions prises en charge : Debian, Ubuntu, Linux Mint (`apt`), Fedora (`dnf`) et Arch, Manjaro (`pacman`). Sur un PC vierge, il suffit d'avoir `git` : le script installe le reste.
+
+1. Cloner le dépôt et se placer dedans :
 
 ```bash
-sudo apt install -y git curl ffmpeg python3-pip
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-source ~/.bashrc && nvm install 20 && nvm use 20 && nvm alias default 20
-pip3 install openai-whisper --break-system-packages
+git clone https://github.com/frankydoody/Veridian.git
+cd Veridian
 ```
 
-Docker (une seule fois) :
+2. Placer le fichier `.env` reçu dans `Projet/Backend/` (même procédure que pour Windows, voir [Le fichier .env](#le-fichier-env)). S'il n'existe pas, le script le crée et demande la clé Gemini.
+
+3. Lancer le script :
 
 ```bash
-sudo apt install -y ca-certificates curl gnupg
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt update && sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-sudo usermod -aG docker $USER && newgrp docker
+./start.sh            # si « Permission denied » : bash start.sh
 ```
 
-Puis placer le `.env` dans `Projet/Backend/` (même procédure que ci-dessus) et lancer :
+Le mot de passe administrateur (`sudo`) est demandé seulement pour installer ce qui manque. Le script est **idempotent** : on peut le relancer à tout moment, il ne refait que ce qui manque ou a changé (après un `git pull`, par exemple).
 
-```bash
-chmod +x start.sh   # une seule fois
-./start.sh
-```
+| Étape | Ce que le script fait |
+|---|---|
+| 1. Paquets | Détecte la distribution et met à jour la liste des paquets (`apt update`, `dnf makecache`, `pacman -Sy`) |
+| 2. `.env` | Crée ou complète `Projet/Backend/.env` : secret JWT généré, valeurs de base de données imposées, fins de ligne Windows corrigées, ancien modèle Gemini remplacé |
+| 3. Node.js | Installe Node.js 22 (NodeSource ; repli sur `nvm` sans droits administrateur) si la version est inférieure à 20 |
+| 4. Docker | Installe Docker et `docker compose` s'ils manquent, démarre le service, ajoute l'utilisateur au groupe `docker` (utilise `sudo docker` en attendant la reconnexion) |
+| 5. Transcription | Installe Python 3, `ffmpeg` et Whisper (dans `~/.veridian/whisper-venv`, commande `~/.local/bin/whisper`), puis télécharge le modèle une fois |
+| 6. Dépendances | `npm install` du backend et du frontend si absentes ou si `package-lock.json` a changé |
+| 7. Base de données | Démarre PostgreSQL (Docker), crée le schéma si la base est vide, applique les migrations pas encore appliquées (table `schema_migrations`) |
+| 8. Données de démonstration | Ajoute les 3 comptes et les données d'exemple seulement si la base n'a aucun utilisateur |
+| 9. Serveurs | Ouvre les terminaux **Veridian - Backend** et **Veridian - Frontend** (ou les lance en arrière-plan, journaux dans `.veridian-logs/`, si aucun écran n'est disponible) puis ouvre le navigateur |
 
-`start.sh` vérifie les prérequis, démarre la base, applique le schéma puis les migrations, installe les dépendances npm et ouvre les terminaux **Veridian - Backend** et **Veridian - Frontend**.
+Options : `./start.sh --skip-whisper` (sans transcription audio), `--install-only` (tout préparer sans lancer les serveurs), `--no-seed` (sans données de démonstration), `--stop` (arrête les serveurs lancés en arrière-plan et la base), `--help`.
+
+Si le script vient d'ajouter l'utilisateur au groupe `docker`, fermer puis rouvrir la session permet d'utiliser `docker` sans `sudo` (le script fonctionne dans les deux cas).
 
 ### Démarrage manuel (toutes plateformes)
 
@@ -388,7 +396,11 @@ Les valeurs `DB_*` correspondent à `docker-compose.yml` : ne pas les changer sa
 | La transcription audio échoue | Ouvrir une **nouvelle** fenêtre PowerShell (mise à jour du PATH) et relancer `Demarrer.bat` ; vérifier avec `whisper --help` et `ffmpeg -version` |
 | Erreur de connexion PostgreSQL | `docker compose down -v` puis `docker compose up -d` et relancer `Demarrer.bat` (réinitialise la base) |
 | `<` refusé dans PowerShell avec `docker exec` | Utiliser `docker cp` puis `psql -f` (voir « Démarrage manuel ») |
-| Whisper introuvable (Ubuntu) | `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc` |
+| `./start.sh` : « Permission denied » | `bash start.sh` (ou `chmod +x start.sh` une fois) |
+| Linux : « permission denied » avec Docker | Fermer puis rouvrir la session (groupe `docker`), ou `newgrp docker` ; entre-temps le script utilise `sudo docker` |
+| Linux : port 5432 déjà utilisé | Un PostgreSQL local tourne : `sudo systemctl stop postgresql` (et `sudo systemctl disable postgresql` pour le garder arrêté), puis relancer `./start.sh` |
+| Linux : Whisper introuvable | `echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc && source ~/.bashrc`, puis relancer `./start.sh` (il refait le lien) |
+| Linux : Python 3.14 ou plus récent seulement | Whisper demande Python 3.9 à 3.13 : installer Python 3.12 (`pyenv` ou le dépôt de la distribution) puis relancer, ou utiliser `--skip-whisper` |
 
 ---
 
