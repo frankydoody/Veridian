@@ -9,6 +9,7 @@ import MeetingsPage   from './pages/MeetingsPage'
 import ProjectsPage   from './pages/ProjectsPage'
 import TasksPage      from './pages/TasksPage'
 import MemoryPage     from './pages/MemoryPage'
+import DecisionsPage  from './pages/DecisionsPage'
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
           <Route path="meetings"   element={<MeetingsPage />} />
           <Route path="projects"   element={<ProjectsPage />} />
           <Route path="tasks"      element={<TasksPage />} />
+          <Route path="decisions"  element={<DecisionsPage />} />
           <Route path="memory"     element={<MemoryPage />} />
         </Route>
       </Route>
