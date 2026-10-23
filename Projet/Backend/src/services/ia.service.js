@@ -65,9 +65,11 @@ Retourne UNIQUEMENT l'objet JSON, sans texte avant ou après.`;
 };
 
 
-// chunks : lignes retournées par searchSimilarChunks
-// (chunk_text, chunk_type, meeting_title, similarity)
-export const chatWithMemory = async (question, chunks) => {
+// chunks  : lignes retournées par searchSimilarChunks
+//           (chunk_text, chunk_type, meeting_title, similarity)
+// history : derniers échanges de la conversation [{ role, content }] (optionnel),
+//           pour comprendre les questions de suivi (« et qui s'en occupe ? »).
+export const chatWithMemory = async (question, chunks, history = []) => {
 
   const context = chunks
     .map((c, i) => {
@@ -76,10 +78,17 @@ export const chatWithMemory = async (question, chunks) => {
     })
     .join('\n\n');
 
+  const conversation = history.length > 0
+    ? `Début de la conversation (pour comprendre les questions de suivi, ce ne sont PAS des sources) :
+${history.map((m) => `${m.role === 'user' ? 'Utilisateur' : 'Assistant'} : ${m.content}`).join('\n')}
+
+`
+    : '';
+
   const prompt = `Tu es l'assistant mémoire organisationnelle de Veridian.
 Tu aides les équipes à retrouver et comprendre les décisions passées de leur projet.
 
-Voici les extraits pertinents trouvés dans l'historique du projet :
+${conversation}Voici les extraits pertinents trouvés dans l'historique du projet :
 
 ${context}
 
@@ -91,5 +100,3 @@ Cite toujours la source (numéro et réunion) de ta réponse.`;
 
 return await generateWithFallback(prompt);
 };
-
-

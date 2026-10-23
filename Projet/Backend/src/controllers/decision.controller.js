@@ -8,6 +8,7 @@ import { findProjectById } from '../models/project.model.js';
 import { findTranscriptionByMeeting } from '../models/transcription.model.js';
 import { extractDecisions } from '../services/ia.service.js';
 import { indexDecisionsSafely } from '../services/memory.service.js';
+import { checkContradictionsSafely } from '../services/contradiction.service.js';
 
 export const extractDecisionsHandler = async (req, res, next) => {
   try {
@@ -41,11 +42,15 @@ export const extractDecisionsHandler = async (req, res, next) => {
     // Bloc 07 : les décisions entrent dans la mémoire vectorielle
     const memory = await indexDecisionsSafely(meetingId, meeting.project_id, decisions);
 
+    // Bloc 08 : comparaison avec les décisions passées du projet (alertes de contradiction)
+    const contradictions = await checkContradictionsSafely(meetingId, meeting.project_id, decisions);
+
     return res.status(201).json({
       message: `${decisions.length} décision(s) extraite(s) avec succès`,
       count: decisions.length,
       decisions,
-      memory
+      memory,
+      contradictions
     });
 
   } catch (error) {

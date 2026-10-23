@@ -165,7 +165,8 @@ Scénarios de test utiles :
 - **Contradictions** : dans « Refonte du site web client », l'hébergement chez Cloudflare Pages (lancement) est contredit par la migration vers un serveur interne (suivi technique) ; dans « Application mobile Atlas », le report des notifications push est contredit par leur ajout pour la démonstration.
 - **Isolation des données** : « Plan de relève RH (confidentiel) » n'appartient qu'à Samuel ; `admin@example.com` et Marie ne doivent ni le voir ni y accéder (réponse 404).
 - **Tâches** : chaque utilisateur ne voit que ses propres tâches.
-- **Mémoire / chat** : les transcriptions et décisions sont indexées au premier démarrage si la clé Gemini est valide ; sinon, relancer l'indexation d'une réunion avec `POST /api/memory/index/:meetingId`.
+- **Mémoire / chat** : les transcriptions et décisions sont indexées au premier démarrage si la clé Gemini est valide ; sinon, relancer l'indexation d'une réunion avec `POST /api/memory/index/:meetingId`. Les conversations sont créées avec `POST /api/chat/conversations` (`{ "projectId": ... }`), puis chaque question est envoyée à `POST /api/chat/conversations/:id/messages` (`{ "question": ... }`) ; chaque utilisateur ne voit que ses propres conversations.
+- **Export PDF** : `GET /api/projects/:id/export/pdf` (avec le token) télécharge le rapport du projet ; les non-membres reçoivent 404.
 
 Commandes (depuis `Projet/Backend`) :
 
@@ -267,8 +268,8 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | 05 | Transcription Audio (Whisper) | ✅ Done | Pipeline Whisper local, transcription en base |
 | 06 | Extraction des décisions (Gemini) | ✅ Done | Appel Gemini 1.5 Flash, décisions extraites |
 | 07 | Mémoire vectorielle (RAG) | ✅ Done | Embeddings pgvector, recherche sémantique |
-| 08 | Détection contradictions & Alertes | Todo | Comparaison décisions, alertes persistées |
-| 09 | Chat mémoire & Export PDF | Todo | Interface chat RAG, export PDF par projet |
+| 08 | Détection contradictions & Alertes | ✅ Done | Comparaison des nouvelles décisions aux décisions passées du projet, alertes persistées, routes `/api/alerts` |
+| 09 | Chat mémoire & Export PDF | ✅ Done | Conversations avec historique par utilisateur et par projet (`/api/chat`), export PDF d'un projet (`GET /api/projects/:id/export/pdf`) |
 
 ### Frontend
 
@@ -295,7 +296,7 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 
 ### Schéma de base de données
 
-9 tables, 17 index. Préfixes : `core_` (partagé), `mtg_` (réunions).
+11 tables. Préfixes : `core_` (partagé), `mtg_` (réunions).
 
 | Table | Rôle |
 |---|---|
@@ -308,6 +309,8 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `mtg_decisions` | Décisions extraites par Gemini |
 | `mtg_memory_chunks` | Vecteurs pgvector (mémoire RAG) |
 | `mtg_alerts` | Alertes de contradiction |
+| `mtg_chat_conversations` | Conversations du chat mémoire (une par utilisateur et par projet), soft delete |
+| `mtg_chat_messages` | Questions et réponses du chat, avec les sources utilisées |
 
 ### Règles architecturales
 
@@ -325,6 +328,15 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `src/config/gemini.js` | Configuration Gemini AI |
 | `src/services/whisper.service.js` | Pipeline de transcription audio |
 | `src/services/ia.service.js` | `extractDecisions`, `detectContradiction`, `chatWithMemory` |
+| `src/services/contradiction.service.js` | Compare les nouvelles décisions aux décisions passées du projet et crée les alertes (bloc 08) |
+| `src/models/alert.model.js` | Alertes : création avec marquage de la décision contredite (transaction), liste, résolution |
+| `src/controllers/alert.controller.js` | `GET /api/alerts/project/:projectId[?status=open]`, `PATCH /api/alerts/:id/resolve` |
+| `src/models/chat.model.js` | Conversations et messages du chat (filtrés par utilisateur), suppression douce, enregistrement question + réponse en une transaction (bloc 09) |
+| `src/services/chat.service.js` | Chat avec historique : recherche dans le projet, réponse du LLM avec les derniers messages, sources enregistrées |
+| `src/controllers/chat.controller.js` | `POST/GET /api/chat/conversations`, `GET/DELETE /api/chat/conversations/:id`, `POST /api/chat/conversations/:id/messages` |
+| `src/services/pdf.service.js` | Génère le rapport PDF d'un projet (résumé, réunions, décisions, tâches, alertes) avec `pdfkit` |
+| `src/controllers/export.controller.js` | `GET /api/projects/:id/export/pdf` (téléchargement du rapport) |
+| `database/migrations/009_chat_conversations.sql` | Tables `mtg_chat_conversations` et `mtg_chat_messages` |
 | `src/utils/jwt.utils.js` | Génération et vérification des tokens JWT |
 | `src/utils/hash.utils.js` | Hachage bcrypt |
 
@@ -344,8 +356,10 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | Branches | Statut |
 |---|---|
 | `main` | Active — base de production |
-| `bloc-01` à `bloc-07`, `bloc-10`, `bloc-11` | Fusionnées |
-| `bloc-08`, `bloc-09`, `bloc-12` à `bloc-18` | À faire |
+| `bloc-01` à `bloc-07`, `bloc-10`, `bloc-11`, `fix/securite-et-installation` | Fusionnées |
+| `bloc-08-contradictions` | En revue (PR) |
+| `bloc-09-chat-export` | En test |
+| `bloc-12` à `bloc-18` | À faire |
 
 ---
 

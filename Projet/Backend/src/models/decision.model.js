@@ -60,3 +60,22 @@ export const findDecisionsByProject = async (projectId) => {
   );
   return result.rows;
 };
+
+
+// Décisions encore valides du projet, prises dans d'AUTRES réunions : elles
+// servent de base de comparaison pour détecter les contradictions (bloc 08).
+// Les décisions déjà contredites ou désactivées sont exclues.
+export const findDecisionsForComparison = async (projectId, excludeMeetingId, limit = 50) => {
+  const result = await query(
+    `SELECT id, meeting_id, content, context, responsible
+     FROM decisions
+     WHERE project_id = $1
+       AND meeting_id <> $2
+       AND is_active = true
+       AND status IN ('confirmed', 'draft')
+     ORDER BY created_at DESC
+     LIMIT $3`,
+    [projectId, excludeMeetingId, limit]
+  );
+  return result.rows;
+};
