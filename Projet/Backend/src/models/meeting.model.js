@@ -69,9 +69,12 @@ export const findMeetingById = async (id, userId) => {
   const result = await query(
     `SELECT m.id, m.project_id, m.title, m.description,
             m.status, m.is_active, m.audio_path,
-            m.started_at, m.ended_at, m.created_at
+            m.started_at, m.ended_at, m.created_at,
+            m.analysis_status, m.analysis_error, m.analyzed_at,
+            p.name AS project_name
      FROM meetings m
      INNER JOIN project_members pm ON m.project_id = pm.project_id
+     INNER JOIN projects p ON p.id = m.project_id
      WHERE m.id = $1
      AND pm.user_id = $2
      AND pm.is_active = true
