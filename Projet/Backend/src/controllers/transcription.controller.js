@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import {
   createTranscription,
   findTranscriptionByMeeting,
@@ -8,6 +9,16 @@ import {
 import { findMeetingById } from '../models/meeting.model.js';
 import { transcribeAudio } from '../services/whisper.service.js';
 import { indexTranscriptionSafely } from '../services/memory.service.js';
+import { processMeetingSafely } from '../services/meeting-pipeline.service.js';
+import { setMeetingAudio } from '../models/meeting-detail.model.js';
+import { resolveAudioPath } from '../config/storage.js';
+
+// Lance l'analyse en arrière-plan (sauf autoAnalyze = 'false'). Ne bloque pas la réponse.
+const startAutoAnalysis = (meeting, user, autoAnalyze) => {
+  if (String(autoAnalyze) === 'false') return { analysis_status: 'none' };
+  processMeetingSafely(meeting, user);
+  return { analysis_status: 'processing' };
+};
 
 export const uploadAndTranscribeHandler = async (req, res, next) => {
   try {
@@ -37,17 +48,29 @@ export const uploadAndTranscribeHandler = async (req, res, next) => {
 
     const text = await transcribeAudio(req.file.path);
 
-    fs.unlinkSync(req.file.path);
+    // Une seule transcription par réunion (meeting_id UNIQUE) : un nouvel envoi la remplace
+    const existing = await findTranscriptionByMeeting(meetingId);
+    const transcription = existing
+      ? await updateTranscriptionText(existing.id, text)
+      : await createTranscription(meetingId, text);
 
-    const transcription = await createTranscription(meetingId, text);
+    // Bloc 14 : l'audio est conservé pour le lecteur de la page de la réunion
+    // (seul le nom du fichier est enregistré ; l'ancien enregistrement est supprimé)
+    const previousAudio = resolveAudioPath(meeting.audio_path);
+    await setMeetingAudio(meetingId, path.basename(req.file.path));
+    if (previousAudio && previousAudio !== path.resolve(req.file.path)) fs.unlinkSync(previousAudio);
 
     // Bloc 07 : la transcription entre dans la mémoire vectorielle
     const memory = await indexTranscriptionSafely(meetingId, meeting.project_id, text);
 
+    // Bloc 19 : l'analyse IA (projets, décisions, tâches, courriels) démarre toute seule
+    const analysis = startAutoAnalysis(meeting, req.user, req.body.autoAnalyze);
+
     return res.status(201).json({
       message: 'Audio transcrit avec succès',
       transcription,
-      memory
+      memory,
+      analysis
     });
 
   } catch (error) {
@@ -131,6 +154,42 @@ export const updateTranscriptionHandler = async (req, res, next) => {
       memory
     });
 
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+// POST /api/transcriptions/text — transcription fournie en texte (collée, importée,
+// ou jeu de démonstration) : remplace l'audio + Whisper, puis lance la même analyse.
+export const submitTextHandler = async (req, res, next) => {
+  try {
+    const { meetingId, rawText, autoAnalyze } = req.body;
+
+    if (!meetingId || !rawText || String(rawText).trim() === '') {
+      return res.status(400).json({ message: 'meetingId et rawText sont obligatoires' });
+    }
+
+    const meeting = await findMeetingById(meetingId, req.user.id);
+    if (!meeting) {
+      return res.status(404).json({ message: 'Réunion introuvable ou accès non autorisé' });
+    }
+
+    const text = String(rawText).trim();
+    const existing = await findTranscriptionByMeeting(meetingId);
+    const transcription = existing
+      ? await updateTranscriptionText(existing.id, text)
+      : await createTranscription(meetingId, text);
+
+    const memory = await indexTranscriptionSafely(meetingId, meeting.project_id, text);
+    const analysis = startAutoAnalysis(meeting, req.user, autoAnalyze);
+
+    return res.status(201).json({
+      message: 'Transcription enregistrée',
+      transcription,
+      memory,
+      analysis
+    });
   } catch (error) {
     next(error);
   }

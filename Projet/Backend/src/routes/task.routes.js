@@ -3,6 +3,7 @@ import { authMiddleware } from '../middlewares/auth.middleware.js';
 import {
   getAllTasksHandler,
   createTaskHandler,
+  updateTaskHandler,
   updateTaskStatusHandler,
   deleteTaskHandler,
 } from '../controllers/task.controller.js';
@@ -13,6 +14,7 @@ router.use(authMiddleware);
 
 router.get('/',            getAllTasksHandler);
 router.post('/',           createTaskHandler);
+router.put('/:id',         updateTaskHandler);
 router.patch('/:id/status', updateTaskStatusHandler);
 router.delete('/:id',      deleteTaskHandler);
 

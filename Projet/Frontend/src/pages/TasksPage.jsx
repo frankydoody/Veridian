@@ -2,16 +2,11 @@
 // Liste des tâches — données réelles depuis GET /api/tasks
 
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../services/api.js'
+import TaskFormModal from '../components/TaskFormModal.jsx'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-// Convertit le statut DB → label filtre
-function statusToFilter(status) {
-  if (status === 'done')       return 'terminées'
-  if (status === 'in_progress') return 'en cours'
-  return 'en cours'  // todo → "en cours" (pas encore commencé)
-}
 
 const PRIORITY_STYLE = {
   haute:   { color: '#FF6B6B', bg: 'rgba(255,107,107,0.12)' },
@@ -20,7 +15,7 @@ const PRIORITY_STYLE = {
 }
 
 // ─── Composant TaskRow ────────────────────────────────────────────────────────
-function TaskRow({ task, onToggle }) {
+function TaskRow({ task, onToggle, onEdit }) {
   const done = task.status === 'done'
   const p    = PRIORITY_STYLE[task.priority] || { color: 'var(--color-text-muted)', bg: 'var(--color-surface-2)' }
 
@@ -56,13 +51,25 @@ function TaskRow({ task, onToggle }) {
         )}
       </div>
 
-      {/* Titre */}
-      <span style={{
-        fontSize: '13px', fontWeight: '500', color: 'var(--color-text)',
-        textDecoration: done ? 'line-through' : 'none',
-      }}>
+      {/* Titre (ouvre la modification) et réunion d'origine, dans une même cellule */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+      <button
+        onClick={() => onEdit(task)}
+        title="Modifier la tâche"
+        style={{
+          background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer',
+          fontSize: '13px', fontWeight: '500', color: 'var(--color-text)',
+          textDecoration: done ? 'line-through' : 'none', fontFamily: 'inherit',
+        }}
+      >
         {task.title}
-      </span>
+      </button>
+      {task.meeting_id && (
+        <Link to={`/meetings/${task.meeting_id}`} style={{ fontSize: '11px', color: 'var(--color-text-faint)', width: 'fit-content' }}>
+          Réunion : {task.meeting_title}
+        </Link>
+      )}
+      </div>
 
       {/* Assigné */}
       <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
@@ -94,6 +101,10 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
   const [filter,  setFilter]  = useState('toutes')
+  // null = fermé ; { task: null } = création ; { task } = modification
+  const [editing, setEditing] = useState(null)
+  // Erreur d'une action (n'efface pas la liste, contrairement à une erreur de chargement)
+  const [actionError, setActionError] = useState('')
 
   // Chargement initial
   useEffect(() => {
@@ -111,7 +122,7 @@ export default function TasksPage() {
       // Remplace la tâche modifiée dans la liste locale
       setTasks((prev) => prev.map((t) => t.id === task.id ? data.task : t))
     } catch (err) {
-      console.error('Erreur toggle tâche :', err.message)
+      setActionError(`Statut non modifié : ${err.message}`)
     }
   }
 
@@ -148,7 +159,7 @@ export default function TasksPage() {
             Extraites automatiquement des réunions · {tasks.length} tâche{tasks.length !== 1 ? 's' : ''}
           </p>
         </div>
-        <button style={{
+        <button onClick={() => setEditing({ task: null })} style={{
           background: 'var(--color-ai)',
           color: '#fff',
           border: 'none',
@@ -161,6 +172,12 @@ export default function TasksPage() {
           + Nouvelle tâche
         </button>
       </div>
+
+      {actionError && (
+        <div role="alert" style={{ padding: '0.6rem 0.9rem', borderRadius: 'var(--radius-md)', background: 'var(--color-danger-muted)', color: 'var(--color-danger)', fontSize: '13px' }}>
+          {actionError}
+        </div>
+      )}
 
       {/* Onglets */}
       <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -209,7 +226,7 @@ export default function TasksPage() {
 
         {/* Lignes */}
         {filtered.map((t) => (
-          <TaskRow key={t.id} task={t} onToggle={handleToggle} />
+          <TaskRow key={t.id} task={t} onToggle={handleToggle} onEdit={(task) => setEditing({ task })} />
         ))}
 
         {/* Vide */}
@@ -222,6 +239,22 @@ export default function TasksPage() {
         )}
       </div>
 
+      {editing && (
+        <TaskFormModal
+          task={editing.task}
+          onClose={() => setEditing(null)}
+          onSaved={(saved) => {
+            setTasks((prev) => (editing.task
+              ? prev.map((t) => (t.id === saved.id ? saved : t))
+              : [saved, ...prev]))
+            setEditing(null)
+          }}
+          onDeleted={(deleted) => {
+            setTasks((prev) => prev.filter((t) => t.id !== deleted.id))
+            setEditing(null)
+          }}
+        />
+      )}
     </div>
   )
 }

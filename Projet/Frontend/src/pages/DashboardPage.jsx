@@ -1,7 +1,10 @@
 // src/pages/DashboardPage.jsx
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../services/api'
+import { formatRelative } from '../utils/dates'
+import { MEETING_STATUS, labelOf } from '../utils/labels'
 
 // ─── StatCard ─────────────────────────────────────────────────────────────────
 function StatCard({ label, value, color }) {
@@ -31,9 +34,10 @@ function StatCard({ label, value, color }) {
 }
 
 // ─── RecentItem ───────────────────────────────────────────────────────────────
-function RecentItem({ title, subtitle, dot }) {
+function RecentItem({ title, subtitle, dot, to }) {
   return (
-    <div style={{
+    <Link to={to} style={{
+      textDecoration: 'none',
       display: 'flex',
       alignItems: 'center',
       gap: '0.75rem',
@@ -54,25 +58,8 @@ function RecentItem({ title, subtitle, dot }) {
           {subtitle}
         </div>
       </div>
-    </div>
+    </Link>
   )
-}
-
-function formatRelative(dateStr) {
-  if (!dateStr) return ''
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 60) return `il y a ${minutes} min`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `il y a ${hours}h`
-  const days = Math.floor(hours / 24)
-  return `il y a ${days} jour${days > 1 ? 's' : ''}`
-}
-
-const STATUS_DOT = {
-  completed:   '#6BCB77',
-  in_progress: 'var(--color-ai)',
-  planned:     '#4D96FF',
 }
 
 // ─── Page principale ──────────────────────────────────────────────────────────
@@ -81,6 +68,7 @@ export default function DashboardPage() {
   const [projects, setProjects]   = useState([])
   const [meetings, setMeetings]   = useState([])
   const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState(null)
 
   useEffect(() => {
     async function fetchAll() {
@@ -93,7 +81,7 @@ export default function DashboardPage() {
         setProjects(projData.projects ?? [])
         setMeetings(meetData.meetings ?? [])
       } catch (err) {
-        console.error('Dashboard fetch error:', err)
+        setError(err.message)
       } finally {
         setLoading(false)
       }
@@ -120,9 +108,11 @@ export default function DashboardPage() {
 
   // Activité récente = 5 dernières réunions
   const recent = meetings.slice(0, 5).map(m => ({
+    id: m.id,
+    to: `/meetings/${m.id}`,
     title: m.title,
-    subtitle: `${m.project_name ?? 'Projet'} · ${formatRelative(m.created_at)}`,
-    dot: STATUS_DOT[m.status] ?? 'var(--color-ai)',
+    subtitle: `${m.project_name ?? 'Projet'} · ${labelOf(MEETING_STATUS, m.status).label} · ${formatRelative(m.created_at)}`,
+    dot: labelOf(MEETING_STATUS, m.status).color,
   }))
 
   return (
@@ -131,7 +121,7 @@ export default function DashboardPage() {
       {/* En-tête */}
       <div>
         <h1 style={{ fontSize: '1.375rem', fontWeight: '600', color: 'var(--color-text-1)' }}>
-          Bonjour, {user?.name?.split(' ')[0] || 'Francis'} 👋
+          Bonjour{user?.name ? `, ${user.name.split(' ')[0]}` : ''} 👋
         </h1>
         <p style={{ fontSize: '13px', color: 'var(--color-text-2)', marginTop: '0.25rem' }}>
           Voici un résumé de l'activité de ton organisation.
@@ -166,14 +156,20 @@ export default function DashboardPage() {
           </p>
         )}
 
-        {!loading && recent.length === 0 && (
+        {!loading && error && (
+          <p role="alert" style={{ color: 'var(--color-danger)', fontSize: '13px', marginTop: '1rem' }}>
+            Impossible de charger le tableau de bord : {error}
+          </p>
+        )}
+
+        {!loading && !error && recent.length === 0 && (
           <p style={{ color: 'var(--color-text-2)', fontSize: '13px', marginTop: '1rem' }}>
             Aucune activité récente.
           </p>
         )}
 
-        {!loading && recent.map((r) => (
-          <RecentItem key={r.title} {...r} />
+        {!loading && !error && recent.map((r) => (
+          <RecentItem key={r.id} {...r} />
         ))}
       </div>
 

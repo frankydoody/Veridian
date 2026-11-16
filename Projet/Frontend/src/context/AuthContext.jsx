@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { apiFetch, getToken, setToken, clearToken } from '../api/client.js';
+import { setSessionMessage, SESSION_EXPIRED_MESSAGE } from '../services/api.js';
 
 const AuthContext = createContext(null);
 
@@ -16,7 +17,11 @@ export function AuthProvider({ children }) {
 
     apiFetch('/auth/me')
       .then((data) => setUser(data.user))
-      .catch(() => clearToken())
+      .catch(() => {
+        // Jeton présent mais refusé (expiré, secret JWT changé...) : on l'explique à l'utilisateur
+        clearToken();
+        setSessionMessage(SESSION_EXPIRED_MESSAGE);
+      })
       .finally(() => setLoading(false));
   }, []);
 
