@@ -13,12 +13,22 @@ jest.unstable_mockModule('../../src/services/whisper.service.js', () => ({ trans
 jest.unstable_mockModule('../../src/services/memory.service.js', () => ({ indexTranscriptionSafely }));
 jest.unstable_mockModule('../../src/services/meeting-pipeline.service.js', () => ({ processMeetingSafely }));
 jest.unstable_mockModule('../../src/models/processing.model.js', () => ({ setTranscriptionStatus }));
+const setMeetingAudio = jest.fn();
+jest.unstable_mockModule('../../src/models/meeting-detail.model.js', () => ({ setMeetingAudio }));
 jest.unstable_mockModule('../../src/models/transcription.model.js', () => ({
   createTranscription, findTranscriptionByMeeting, updateTranscriptionText,
 }));
 
 const { transcribeMeetingAudio, transcribeMeetingAudioSafely } =
   await import('../../src/services/meeting-processing.service.js');
+const fs = await import('fs');
+const os = await import('os');
+const path = await import('path');
+const tempAudio = () => {
+  const p = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'veridian-proc-')), 'audio_new.webm');
+  fs.writeFileSync(p, 'x');
+  return p;
+};
 
 const meeting = { id: 'm-1', project_id: 'p-1' };
 const user = { id: 'u-1', email: 'a@x.com' };
@@ -39,6 +49,15 @@ describe('transcribeMeetingAudio', () => {
     expect(createTranscription).toHaveBeenCalledWith('m-1', 'Marie fera les maquettes.');
     expect(indexTranscriptionSafely).toHaveBeenCalledWith('m-1', 'p-1', 'Marie fera les maquettes.');
     expect(processMeetingSafely).toHaveBeenCalledWith(meeting, user);
+    expect(setMeetingAudio).toHaveBeenCalledWith('m-1', 'a.webm'); // audio adopté après succès
+  });
+
+  test("échec : le nouveau fichier est supprimé et l'ancien audio n'est pas remplacé", async () => {
+    transcribeAudio.mockResolvedValue('');
+    const file = tempAudio();
+    await expect(transcribeMeetingAudio(meeting, user, file)).rejects.toThrow(/Aucune parole/);
+    expect(setMeetingAudio).not.toHaveBeenCalled();
+    expect(fs.existsSync(file)).toBe(false);
   });
 
   test('transcription existante : elle est remplacée (pas de doublon)', async () => {

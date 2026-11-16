@@ -54,7 +54,8 @@ describe('uploadAndTranscribeHandler', () => {
     await uploadAndTranscribeHandler(req(filePath), res, jest.fn());
 
     expect(res.status).toHaveBeenCalledWith(202);
-    expect(setMeetingAudio).toHaveBeenCalledWith(MEETING, 'audio_test.webm');
+    // L'audio n'est adopté qu'après une transcription réussie (service d'arrière-plan)
+    expect(setMeetingAudio).not.toHaveBeenCalled();
     expect(setTranscriptionStatus).toHaveBeenCalledWith(MEETING, 'processing');
     expect(transcribeMeetingAudioSafely).toHaveBeenCalledWith(
       expect.objectContaining({ id: MEETING }), { id: 'u-1' }, filePath, { autoAnalyze: true });

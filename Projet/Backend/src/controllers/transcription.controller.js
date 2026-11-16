@@ -1,5 +1,4 @@
 import fs from 'fs';
-import path from 'path';
 import {
   findTranscriptionByMeeting,
   findTranscriptionById,
@@ -9,9 +8,7 @@ import { findMeetingById } from '../models/meeting.model.js';
 import { indexTranscriptionSafely } from '../services/memory.service.js';
 import { processMeetingSafely } from '../services/meeting-pipeline.service.js';
 import { saveTranscription, transcribeMeetingAudioSafely } from '../services/meeting-processing.service.js';
-import { setMeetingAudio } from '../models/meeting-detail.model.js';
 import { setTranscriptionStatus } from '../models/processing.model.js';
-import { resolveAudioPath } from '../config/storage.js';
 import { isUuid } from '../utils/validation.utils.js';
 
 const NOT_FOUND = { message: 'Réunion introuvable ou accès non autorisé' };
@@ -53,10 +50,7 @@ export const uploadAndTranscribeHandler = async (req, res, next) => {
       return res.status(409).json(BUSY);
     }
 
-    // Le nouvel enregistrement remplace l'ancien (seul le NOM du fichier est gardé en base)
-    const previousAudio = resolveAudioPath(meeting.audio_path);
-    await setMeetingAudio(meeting.id, path.basename(req.file.path));
-    if (previousAudio && previousAudio !== path.resolve(req.file.path)) removeFile(previousAudio);
+    // L'audio ne remplacera l'ancien qu'APRÈS une transcription réussie (service d'arrière-plan)
     await setTranscriptionStatus(meeting.id, 'processing');
 
     // Arrière-plan : on n'attend PAS (pas de « await ») ; l'état est suivi en base
