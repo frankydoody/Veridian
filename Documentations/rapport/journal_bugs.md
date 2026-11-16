@@ -63,7 +63,8 @@ test (comment on s'assure qu'il ne revient pas) → leçon.
 - **Cause** : quatre fichiers (`.gitignore`, `Demarrer.bat`, `package.json` et `package-lock.json` du backend) étaient enregistrés avec des fins de ligne Windows (CRLF), alors que le reste du dépôt était en LF. Avec `core.autocrlf=true`, Git convertit les fins de ligne à chaque lecture et écriture, et il voyait une différence.
 - **Correction** : ajout d'un `.gitattributes` (`* text=auto eol=lf`, `*.bat`/`*.cmd`/`*.ps1` en CRLF, binaires sans conversion), puis renormalisation **de ces quatre fichiers seulement**, dans un commit séparé (`git add --renormalize -- <fichiers>`). Avant ce correctif, on contournait le problème en ajoutant les fichiers un par un plutôt qu'avec `git add -A`.
 - **Test** : `git diff --cached --ignore-cr-at-eol` était vide (seules les fins de ligne changeaient) ; `git status` ne montre plus de faux fichiers modifiés ; `git ls-files --eol` affiche `i/lf` pour ces fichiers.
-- **Leçon** : un `.gitattributes` fixe la règle **dans le dépôt**, pour toutes les machines, alors que `core.autocrlf` dépend de la configuration de chacun.
+- **Complément (bloc 12)** : deux autres fichiers, `tests/api.http` et `src/models/decision.model.js`, avaient des fins de ligne **mélangées** (CRLF et LF dans le même fichier). La première recherche ne visait que `i/crlf` et les avait ratés. Ils ont été renormalisés au bloc 12. La bonne commande de détection liste tout ce qui n'est pas du LF pur : `git ls-files --eol | awk '$1 !~ /^i\/(lf|none|-text)$/'` (résultat vide attendu).
+- **Leçon** : un `.gitattributes` fixe la règle **dans le dépôt**, pour toutes les machines, alors que `core.autocrlf` dépend de la configuration de chacun. Pour détecter un problème, mieux vaut chercher « tout ce qui n'est pas correct » plutôt qu'« un cas incorrect connu ».
 
 ### BUG-08 — `npm test` ne démarre pas sous Windows
 - **Bloc** : hygiène du dépôt (avant le bloc 12)
