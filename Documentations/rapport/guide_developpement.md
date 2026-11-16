@@ -1057,6 +1057,16 @@ Cette section explique, bloc par bloc, les choix faits et leur justification. Le
 - **Formulaires accessibles.** Chaque champ a une étiquette reliée (`htmlFor`/`id`), et les erreurs sont annoncées (`role="alert"`). La fenêtre de dialogue se ferme avec Échap et place le focus sur le premier champ.
 - **Tests sur vraie base.** `tests/integration/formulaires.it.mjs` traverse les vraies routes (`supertest`) avec PostgreSQL : il vérifie les codes d'accès (404 pour un externe, 403 pour un membre non propriétaire), la réactivation d'un membre et la suppression logique.
 
+
+### 9.4 Bloc 14 — Page de détail d'une réunion
+
+- **Une route agrégée.** `GET /api/meetings/:id/details` fait **une** vérification d'appartenance, puis lance six requêtes indépendantes en parallèle (`Promise.all`) : transcription, décisions, tâches, contradictions, risques, courriels. Appeler six routes depuis la page aurait demandé six allers-retours et six vérifications d'accès.
+- **Toutes les tâches de la réunion.** La page montre les tâches extraites par l'analyse **et** celles ajoutées à la main (`meeting_id`), sauf les tâches supprimées. `GET /api/meetings/:id/analysis` (bloc 19) ne montre que le résultat de l'analyse.
+- **Contradictions dans les deux sens.** Une alerte s'affiche sur la réunion de la nouvelle décision **et** sur celle de la décision contredite (`nd.meeting_id = $1 OR cd.meeting_id = $1`).
+- **Audio protégé.** Une balise `<audio src="/api/...">` ne peut pas envoyer l'en-tête `Authorization`. Rendre la route publique permettrait à quiconque connaît l'adresse d'écouter la réunion. La page télécharge donc le fichier avec le jeton (`api.blob`), crée une adresse locale (`URL.createObjectURL`) et la libère en quittant la page (`URL.revokeObjectURL`). Le serveur répond avec `res.sendFile`, qui gère l'en-tête `Range` (réponse 206) : le lecteur peut avancer sans tout retélécharger.
+- **Chemin de fichier sûr.** Seul le **nom** du fichier est gardé en base. `resolveAudioPath` refuse un nom qui contient un dossier (`../`), un chemin absolu, ou qui sortirait du dossier d'envoi. Même une base modifiée ne permettrait pas de lire `.env`. Le client ne reçoit jamais ce nom, seulement `has_audio`.
+- **Transcription modifiable.** La correction passe par `PUT /api/transcriptions/:id` (bloc 05), qui ré-indexe la mémoire. La page affiche le résultat réel de cette ré-indexation : un échec (clé invalide, quota) est montré, pas caché.
+
 ---
 
 *Guide de développement Veridian — INF4018 — Francis Côté*

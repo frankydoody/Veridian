@@ -209,3 +209,18 @@ Authorization: Bearer {{token}}
 ### Identifiant mal formé → 400 (et non plus 500)
 GET {{baseUrl}}/projects/pas-un-uuid
 Authorization: Bearer {{token}}
+
+### ─── Bloc 14 : page de détail d'une réunion ────────────────────────────
+### Tout le détail en un appel : réunion (has_audio), transcription, décisions, tâches,
+### contradictions, risques, courriels. Non-membre → 404.
+GET {{baseUrl}}/meetings/COLLE_MEETING_ID_ICI/details
+Authorization: Bearer {{token}}
+
+### Audio de la réunion (après vérification d'appartenance) ; 404 s'il n'y en a pas
+GET {{baseUrl}}/meetings/COLLE_MEETING_ID_ICI/audio
+Authorization: Bearer {{token}}
+
+### Audio : lecture partielle (le lecteur l'utilise pour avancer) → 206 Partial Content
+GET {{baseUrl}}/meetings/COLLE_MEETING_ID_ICI/audio
+Authorization: Bearer {{token}}
+Range: bytes=0-1023

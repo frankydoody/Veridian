@@ -153,3 +153,27 @@ test (comment on s'assure qu'il ne revient pas) → leçon.
 - **Correction** : la ligne affiche maintenant `utilisateur@hôte:port/base`, sans le mot de passe.
 - **Test** : démarrer le backend et vérifier la ligne « Base de données : … ».
 - **Leçon** : un journal finit dans des captures d'écran, des rapports et des fichiers partagés. Un secret ne doit jamais y être écrit, même en développement.
+
+### BUG-19 — L'audio d'une réunion n'était jamais conservé
+- **Bloc** : 14
+- **Symptôme** : impossible d'écouter une réunion : `meetings.audio_path` restait toujours vide.
+- **Cause** : `uploadAndTranscribeHandler` supprimait le fichier (`fs.unlinkSync`) dès la fin de la transcription et n'enregistrait jamais son nom.
+- **Correction** : le fichier est conservé dans le dossier d'envoi (`src/config/storage.js`, ignoré par Git) ; seul son **nom** est enregistré (`setMeetingAudio`) ; un nouvel envoi supprime l'ancien fichier. `GET /api/meetings/:id/audio` l'envoie après vérification d'appartenance, et `resolveAudioPath` refuse tout chemin qui sortirait du dossier.
+- **Test** : `tests/unit/meeting-detail.controller.test.js` (chemins piégés refusés, non-membre 404) et `tests/integration/detail-reunion.it.mjs` (lecture complète 200, lecture partielle `Range` 206, non-membre 404, sans jeton 401).
+- **Leçon** : une fonctionnalité annoncée (« lecteur audio ») doit être vérifiée de bout en bout. Ici, la colonne existait, mais rien ne la remplissait.
+
+### BUG-20 — Deuxième envoi audio pour une même réunion : erreur 500
+- **Bloc** : 14
+- **Symptôme** : envoyer un nouvel enregistrement pour une réunion déjà transcrite répondait `500 Erreur interne du serveur`.
+- **Cause** : `transcriptions.meeting_id` est `UNIQUE`. L'envoi audio faisait toujours un `INSERT`, ce qui violait la contrainte (code PostgreSQL `23505`). La route texte (`POST /api/transcriptions/text`) gérait déjà ce cas.
+- **Correction** : l'envoi audio met à jour la transcription existante, exactement comme la route texte.
+- **Test** : avec une réunion déjà transcrite, envoyer un audio : la transcription est remplacée (réponse 201).
+- **Leçon** : deux chemins qui écrivent la même table doivent respecter les mêmes contraintes. Une règle `UNIQUE` en base se traduit par « créer ou mettre à jour » dans le code.
+
+### BUG-21 — « IA active » affiché avec une clé Gemini invalide
+- **Bloc** : 14
+- **Symptôme** : la pastille de l'en-tête affichait « IA active », mais la modification d'une transcription répondait « la mémoire n'a pas pu être ré-indexée ». La console du backend montrait `[400 Bad Request] API key not valid` (`API_KEY_INVALID`).
+- **Cause** : `GET /api/health` vérifie seulement qu'une clé est **présente** dans `.env`, pas qu'elle est **valide**. Le libellé « active » laissait croire le contraire, et le message de ré-indexation ne mentionnait pas la possibilité d'une clé invalide.
+- **Correction** : la pastille dit « IA configurée », avec une infobulle qui précise que la validité n'est pas vérifiée ; le message de ré-indexation mentionne une clé invalide et renvoie à la console du backend. La vérification réelle de la clé (appel minimal à Gemini) est prévue dans le script de vérification de l'installation (bloc 18).
+- **Test** : avec une clé invalide, modifier une transcription : le message indique la piste « clé invalide », et la console du backend donne la raison exacte.
+- **Leçon** : un indicateur doit dire exactement ce qu'il mesure. « Présente » n'est pas « valide ».
