@@ -31,8 +31,8 @@ Les outils actuels de transcription automatique, tels qu'Otter.ai et Fireflies.a
 Veridian est une application web complète qui permet aux équipes d'entreprise de :
 
 - Enregistrer automatiquement les réunions directement depuis le navigateur
-- Transcrire l'audio via l'API OpenAI Whisper
-- Extraire les décisions structurées via l'API Anthropic Claude
+- Transcrire l'audio avec Whisper, exécuté localement (aucune donnée envoyée à un service externe)
+- Extraire les décisions, les tâches et les acteurs avec l'API Google Gemini
 - Maintenir une mémoire organisationnelle vectorielle persistante (RAG + pgvector)
 - Détecter automatiquement les contradictions entre décisions
 - Interroger l'historique en langage naturel via un chat IA
@@ -58,7 +58,7 @@ Veridian suit une architecture **client-serveur en trois couches** :
 ```
 
 - **Frontend (React/Vite)** : Interface utilisateur exécutée dans le navigateur. Gère l'enregistrement audio, l'affichage des décisions, le chat et la gestion des projets.
-- **Backend (Node.js/Express)** : Serveur API REST qui traite les requêtes du frontend, appelle les APIs externes (Whisper, Claude) et gère la base de données.
+- **Backend (Node.js/Express)** : Serveur API REST qui traite les requêtes du frontend, lance Whisper en local, appelle l'API Gemini et gère la base de données.
 - **Base de données (PostgreSQL + pgvector)** : Stocke les données relationnelles (utilisateurs, projets, décisions) et les vecteurs d'embeddings pour la recherche sémantique.
 
 ### 1.4 Structure du dépôt
@@ -345,7 +345,7 @@ Desktop.ini
 **Explication des exclusions critiques :**
 
 - **`node_modules/`** : Dossier contenant les dépendances npm téléchargées. Peut contenir plus de 50 000 fichiers et peser plusieurs centaines de Mo. Ce dossier est régénéré par `npm install` et ne doit jamais être versionné.
-- **`.env`** : Contient les clés API (OpenAI, Anthropic) et les mots de passe de base de données. Si ce fichier est commité sur GitHub, ces informations sensibles sont exposées publiquement. C'est la règle de sécurité la plus importante du projet.
+- **`.env`** : Contient la clé API Gemini, le secret JWT, les identifiants SMTP et les mots de passe de base de données. Si ce fichier est commité sur GitHub, ces informations sensibles sont exposées publiquement. C'est la règle de sécurité la plus importante du projet.
 - **`uploads/`** : Fichiers audio temporaires uploadés par les utilisateurs. Ces fichiers sont traités puis supprimés — ils n'ont pas de valeur permanente.
 
 **Règles de syntaxe `.gitignore` :**
