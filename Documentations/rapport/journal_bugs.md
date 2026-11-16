@@ -121,3 +121,35 @@ test (comment on s'assure qu'il ne revient pas) → leçon.
 - **Correction** : le prénom vient uniquement de l'utilisateur connecté. Le composant `ServiceStatus` lit l'état réel des services dans `GET /api/health`.
 - **Test** : retirer `GEMINI_API_KEY` du `.env` et relancer le backend : la pastille devient « IA non configurée ».
 - **Leçon** : une maquette qui ment (« IA active ») est pire que pas d'indicateur. Elle cache précisément la panne qu'on cherche.
+
+### BUG-15 — Identifiant mal formé : erreur 500 au lieu de 400
+- **Bloc** : 13
+- **Symptôme** : `GET /api/projects/abc` (ou une réunion, une tâche) répondait `500 Erreur interne du serveur`.
+- **Cause** : l'identifiant était envoyé tel quel à PostgreSQL, qui refuse une chaîne qui n'est pas un UUID (`invalid input syntax for type uuid`, code `22P02`). L'erreur remontait jusqu'au gestionnaire d'erreurs générique.
+- **Correction** : `isUuid` dans `src/utils/validation.utils.js`, vérifié au début des contrôleurs de projets, de réunions, de tâches et de membres : réponse 400 sans appel à la base.
+- **Test** : `tests/unit/forms.controller.test.js` et `tests/unit/task.controller.test.js` (« identifiant invalide → 400 », sans appel au modèle).
+- **Leçon** : une entrée invalide est une erreur du **client** (4xx). Un 500 doit signaler un vrai problème du serveur, sinon les vraies pannes se perdent dans le bruit.
+
+### BUG-16 — Le nom du projet disparaît après avoir coché une tâche
+- **Bloc** : 13
+- **Symptôme** : sur la page Tâches, cocher une tâche vidait sa colonne « Projet » jusqu'au rechargement de la page.
+- **Cause** : `PATCH /api/tasks/:id/status` renvoyait la ligne brute (`RETURNING *`), sans les jointures (`project_name`). La page remplaçait sa ligne par cette version incomplète.
+- **Correction** : toutes les routes de tâches renvoient la tâche complète, relue avec `findTaskForUser` (même forme que la liste).
+- **Test** : `tests/unit/task.controller.test.js` (« renvoie la tâche complète ») et `tests/integration/formulaires.it.mjs` (vérifie `project_name` après le changement de statut).
+- **Leçon** : une même ressource doit avoir la même forme dans toutes les réponses de l'API. Sinon le client doit deviner quels champs sont présents.
+
+### BUG-17 — Suppression d'une tâche : effacement réel et réponse 204 trompeuse
+- **Bloc** : 13
+- **Symptôme** : `DELETE /api/tasks/:id` répondait toujours 204 (« supprimée »), même pour une tâche inexistante ou appartenant à quelqu'un d'autre ; quand elle réussissait, la ligne était définitivement effacée.
+- **Cause** : la requête `DELETE FROM tasks WHERE id = $1 AND user_id = $2` ne vérifiait pas le nombre de lignes touchées, et la table `tasks` n'avait pas de colonne `is_active`, contrairement à la règle de suppression logique du projet.
+- **Correction** : migration `011_tasks_suppression_logique.sql` (`tasks.is_active`) ; `deactivateTask` fait un `UPDATE … SET is_active = false` ; le contrôleur répond 404 si la tâche est invisible pour l'utilisateur, 403 s'il n'en est ni le créateur ni le propriétaire du projet ; toutes les lectures excluent les tâches supprimées.
+- **Test** : `tests/integration/formulaires.it.mjs` vérifie que la tâche disparaît de la liste **et** que sa ligne existe toujours avec `is_active = false`.
+- **Leçon** : vérifier `rowCount` après un `UPDATE` ou un `DELETE`. « Aucune ligne touchée » est une information, pas un succès.
+
+### BUG-18 — Mot de passe de la base affiché dans la console
+- **Bloc** : 13
+- **Symptôme** : au démarrage du backend, la console affichait `password: 'veridian_pass'` avec les autres paramètres de connexion.
+- **Cause** : un `console.log` de débogage dans `src/config/db.js` affichait tout l'objet de configuration.
+- **Correction** : la ligne affiche maintenant `utilisateur@hôte:port/base`, sans le mot de passe.
+- **Test** : démarrer le backend et vérifier la ligne « Base de données : … ».
+- **Leçon** : un journal finit dans des captures d'écran, des rapports et des fichiers partagés. Un secret ne doit jamais y être écrit, même en développement.

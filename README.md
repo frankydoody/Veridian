@@ -278,7 +278,7 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | 10 | Frontend Auth | ✅ Done | Pages connexion/inscription, token JWT côté client |
 | 11 | Frontend Dashboard | ✅ Done | Pages Projets, Réunions, Tâches, Mémoire (statique) |
 | 12 | Frontend API Connect | ✅ Done | Toutes les pages lisent l'API (états chargement / vide / erreur), session expirée (401) renvoyée vers la connexion avec un message, durées relatives passé/futur, statuts réels de la base, pastilles d'état réelles (clé Gemini, SMTP) |
-| 13 | Frontend Formulaires | Todo | Formulaires création projet/réunion/tâche + validation |
+| 13 | Frontend Formulaires | ✅ Done | Formulaires Créer un projet / une réunion / une tâche (et modification de tâche), validation client et serveur ; page d'un projet avec gestion des membres (`/api/projects/:id/members`) ; acteur d'une tâche choisi parmi les membres ; suppression logique des tâches (migration 011) |
 | 14 | Frontend Réunion Détaillée | Todo | Lecteur audio, transcription, décisions liées |
 | 15 | Frontend Décisions & Contradictions | ✅ Done | Page `/decisions` : décisions du projet filtrables, alertes de contradiction à résoudre, bouton d'export PDF |
 | 16 | Frontend Calendrier de projet | Todo | Vue calendrier mensuel, navigation |
@@ -353,6 +353,12 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `src/controllers/analysis.controller.js` | `POST /api/meetings/:id/analyze[?wait=true&notify=false]`, `GET /api/meetings/:id/analysis` |
 | `database/migrations/010_pipeline_reunion.sql` | `tasks.assignee_id`, état d'analyse des réunions, tables `mtg_risks` et `mtg_notifications` |
 | `tests/integration/pipeline.it.mjs` | Scénario complet sur une vraie base avec une IA simulée (voir l'en-tête du fichier) |
+| `src/models/member.model.js` | Membres d'un projet : liste, compte par courriel exact, ajout ou réactivation (`ON CONFLICT`), retrait logique (bloc 13) |
+| `src/controllers/member.controller.js` | `GET/POST /api/projects/:id/members`, `DELETE /api/projects/:id/members/:userId` |
+| `src/controllers/task.controller.js` | Tâches : création, `PUT /api/tasks/:id` (champs envoyés seulement, acteur membre du projet), statut, suppression logique |
+| `src/utils/validation.utils.js` | Validation des entrées : UUID, courriel, longueur des textes, date d'échéance (17 h UTC) |
+| `database/migrations/011_tasks_suppression_logique.sql` | `tasks.is_active` (suppression logique) |
+| `tests/integration/formulaires.it.mjs` | Formulaires et membres sur une vraie base, par les vraies routes HTTP (bloc 13) |
 | `src/utils/jwt.utils.js` | Génération et vérification des tokens JWT |
 | `src/utils/hash.utils.js` | Hachage bcrypt |
 
@@ -367,6 +373,10 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `src/utils/dates.js` | Durées relatives passé/futur, dates, échéances lues en UTC, tâche en retard |
 | `src/utils/labels.js` | Libellés et couleurs des statuts, priorités et gravités (mêmes clés que la base) |
 | `src/utils/dates.test.js` | Tests des dates (`npm test` dans `Projet/Frontend`, testeur intégré à Node) |
+| `src/components/Modal.jsx`, `src/components/form.jsx` | Fenêtre de dialogue accessible et champs de formulaire partagés |
+| `src/components/ProjectFormModal.jsx`, `MeetingFormModal.jsx`, `TaskFormModal.jsx` | Formulaires de création (et de modification pour les tâches) |
+| `src/pages/ProjectDetailPage.jsx` | Page `/projects/:id` : membres (ajout, retrait) et réunions du projet |
+| `src/utils/validation.js` | Validation côté client, mêmes règles que le serveur (testée dans `validation.test.js`) |
 
 ---
 
@@ -388,8 +398,9 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `fix/installation-linux` (PR #30) | PR ouverte, à tester |
 | `bloc-19-pipeline-ia` (PR #31) | PR ouverte, à tester |
 | `chore/hygiene-depot` (PR #32) | PR ouverte — empilée sur `bloc-19-pipeline-ia` |
-| `bloc-12-frontend-api` | PR ouverte — empilée sur `chore/hygiene-depot` |
-| `bloc-13`, `bloc-14`, `bloc-16` à `bloc-18`, `bloc-20` à `bloc-22` | À faire |
+| `bloc-12-frontend-api` (PR #33) | PR ouverte — empilée sur `chore/hygiene-depot` |
+| `bloc-13-formulaires` | PR ouverte — empilée sur `bloc-12-frontend-api` |
+| `bloc-14`, `bloc-16` à `bloc-18`, `bloc-20` à `bloc-22` | À faire |
 
 Une branche « empilée » part d'une branche pas encore fusionnée : fusionner les PR dans l'ordre du tableau. Après chaque fusion, la PR suivante ne montre plus que ses propres commits.
 

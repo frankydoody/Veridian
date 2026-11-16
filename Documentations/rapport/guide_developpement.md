@@ -1044,6 +1044,19 @@ Cette section explique, bloc par bloc, les choix faits et leur justification. Le
   ```
 - **Pastilles d'état réelles.** `GET /api/health` renvoie `services.ai` (une clé Gemini est-elle configurée ?) et `services.email` (`smtp` ou `console`). Ce sont des indicateurs, jamais des secrets. L'en-tête affiche « IA non configurée » ou « Courriels simulés » au lieu d'une pastille « IA active » codée en dur.
 
+
+### 9.3 Bloc 13 — Formulaires et membres
+
+- **Ajouter un membre par courriel exact, sans route de recherche.** Une route `GET /api/users?search=` permettrait de parcourir la liste des comptes. L'ajout se fait plutôt avec le courriel **complet** d'un compte existant (`POST /api/projects/:id/members`), et seul le propriétaire du projet peut le faire. La réponse ne contient jamais `password_hash`.
+- **404 ou 403 ?** Une personne qui n'est pas membre d'un projet reçoit toujours 404, comme si le projet n'existait pas : on ne lui révèle rien. Un membre qui tente une action réservée au propriétaire (ajouter ou retirer un membre, supprimer la tâche d'un autre) reçoit 403 : il connaît déjà le projet, donc le 403 ne révèle rien de plus et lui explique pourquoi l'action est refusée. C'est la même règle que la modification d'un projet (bloc 03).
+- **Réactiver plutôt que dupliquer.** La clé primaire de `project_members` est `(user_id, project_id)`. Comme un membre retiré garde sa ligne (`is_active = false`), le réajouter avec un simple `INSERT` violerait la clé. On utilise `INSERT … ON CONFLICT DO UPDATE SET is_active = true WHERE project_members.is_active = false` : une seule requête crée ou réactive la ligne. Si rien n'est renvoyé, la personne était déjà membre (409).
+- **L'acteur d'une tâche est un membre du projet.** Le serveur vérifie `isActiveMember` à la création et à la modification (400 sinon). Le formulaire ne propose de toute façon que les membres du projet choisi. Les deux contrôles sont nécessaires : le second guide l'utilisateur, le premier protège contre un appel direct à l'API.
+- **Modification partielle sans injection SQL.** `PUT /api/tasks/:id` ne modifie que les champs envoyés. La requête est construite à partir d'une **liste fixe** de colonnes autorisées ; les valeurs passent toutes par des paramètres `$1, $2…`. Aucun texte venant de la requête n'est collé dans le SQL.
+- **Suppression logique des tâches.** Comme pour les autres tables, une tâche supprimée garde sa ligne (`is_active = false`, migration 011). L'historique reste disponible pour l'analyse des risques et le rapport.
+- **Validation à deux niveaux.** `Frontend/src/utils/validation.js` reprend les limites du serveur (`Backend/src/utils/validation.utils.js`) : 150 caractères pour un nom de projet, 200 pour un titre, 2000 pour une description. Le client affiche l'erreur à côté du champ sans appel réseau, et le serveur reste la vraie protection.
+- **Formulaires accessibles.** Chaque champ a une étiquette reliée (`htmlFor`/`id`), et les erreurs sont annoncées (`role="alert"`). La fenêtre de dialogue se ferme avec Échap et place le focus sur le premier champ.
+- **Tests sur vraie base.** `tests/integration/formulaires.it.mjs` traverse les vraies routes (`supertest`) avec PostgreSQL : il vérifie les codes d'accès (404 pour un externe, 403 pour un membre non propriétaire), la réactivation d'un membre et la suppression logique.
+
 ---
 
 *Guide de développement Veridian — INF4018 — Francis Côté*
