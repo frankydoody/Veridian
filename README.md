@@ -289,7 +289,7 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 |---|---|---|---|
 | 19 | Pipeline IA & courriels | ✅ Done (à tester) | Une réunion transcrite est analysée : projets détectés (existants réutilisés, nouveaux créés), décisions, tâches liées à un acteur avec date de fin estimée, contradictions, risques, courriel par acteur et résumé de l'organisateur (`POST /api/meetings/:id/analyze`, `GET /api/meetings/:id/analysis`, `POST /api/transcriptions/text`) |
 | 20 | Frontend Enregistrement | ✅ Done | Enregistrement dans le navigateur (MediaRecorder : pause, niveau du micro, écoute de contrôle), téléversement d'un fichier, transcription collée ; envoi en `202` et Whisper en arrière-plan (`transcription_status`, migration 012), suivi en direct, erreurs claires (micro refusé, ffmpeg absent, fichier trop gros) |
-| 21 | Frontend Réunion & Tâches liées | Todo | Page de détail d'une réunion (décisions, tâches, acteurs, risques), « Mes tâches » |
+| 21 | Frontend Réunion & Tâches liées | ✅ Done | Section Analyse de la réunion (état en direct, relance, projets nouveaux ou existants, courriels), tâches regroupées par acteur avec échéance estimée ; page « Mes tâches » (filtres, tri par échéance, retard, statut) ; tableau de bord aux compteurs réels (`GET /api/dashboard`, migration 013) |
 | 22 | Jeu de données de scénario & tests d'intégration | Todo | Transcriptions de démonstration en plusieurs réunions, tests sur vraie base |
 
 ### Qualité et livraison
@@ -369,6 +369,10 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `src/models/processing.model.js` | État de la transcription ; remise en erreur des traitements interrompus au démarrage |
 | `database/migrations/012_transcription_asynchrone.sql` | `meetings.transcription_status` et `transcription_error` |
 | `tests/integration/enregistrement.it.mjs` | Envoi et transcription en arrière-plan avec le **vrai** Whisper (bloc 20) |
+| `src/models/dashboard.model.js` | Compteurs du tableau de bord en SQL (tâches ouvertes et en retard, alertes ouvertes, réunions du mois) et prochaines échéances |
+| `src/controllers/dashboard.controller.js` | `GET /api/dashboard` (bloc 21) |
+| `database/migrations/013_projet_reunion_source.sql` | `projects.source_meeting_id` : réunion dont l'analyse a créé le projet |
+| `tests/integration/resultats.it.mjs` | Analyse (IA simulée), projet nouveau, relance sans doublon, compteurs du tableau de bord (bloc 21) |
 | `src/utils/jwt.utils.js` | Génération et vérification des tokens JWT |
 | `src/utils/hash.utils.js` | Hachage bcrypt |
 
@@ -390,6 +394,8 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `src/components/AudioRecorder.jsx` | Enregistrement dans le navigateur (MediaRecorder, pause, niveau du micro, écoute, envoi avec progression) |
 | `src/components/AddRecordingPanel.jsx` | Onglets Enregistrer / Téléverser un fichier / Coller un texte |
 | `src/utils/recording.js` | Format d'enregistrement, messages d'erreur du micro, vérification d'un fichier (testé dans `recording.test.js`) |
+| `src/pages/TasksPage.jsx` | « Mes tâches » : filtres (statut, retard, projet, acteur), tri par échéance, changement de statut |
+| `src/utils/tasks.js` | Filtres, tri par échéance et regroupement par acteur (testés dans `tasks.test.js`) |
 | `src/utils/validation.js` | Validation côté client, mêmes règles que le serveur (testée dans `validation.test.js`) |
 
 ---
@@ -415,8 +421,9 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `bloc-12-frontend-api` (PR #33) | PR ouverte — empilée sur `chore/hygiene-depot` |
 | `bloc-13-formulaires` (PR #34) | PR ouverte — empilée sur `bloc-12-frontend-api` |
 | `bloc-14-detail-reunion` (PR #35) | PR ouverte — empilée sur `bloc-13-formulaires` |
-| `bloc-20-enregistrement` | PR ouverte — empilée sur `bloc-14-detail-reunion` |
-| `bloc-16` à `bloc-18`, `bloc-21`, `bloc-22` | À faire |
+| `bloc-20-enregistrement` (PR #36) | PR ouverte — empilée sur `bloc-14-detail-reunion` |
+| `bloc-21-resultats-taches` | PR ouverte — empilée sur `bloc-20-enregistrement` |
+| `bloc-16` à `bloc-18`, `bloc-22` | À faire |
 
 Une branche « empilée » part d'une branche pas encore fusionnée : fusionner les PR dans l'ordre du tableau. Après chaque fusion, la PR suivante ne montre plus que ses propres commits.
 

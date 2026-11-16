@@ -225,3 +225,27 @@ test (comment on s'assure qu'il ne revient pas) → leçon.
 - **Correction** : `express.json({ limit: '1mb' })` dans `app.js` ; le contrôleur borne lui-même le texte à 200 000 caractères avec un message en français.
 - **Test** : envoyer une transcription de 150 000 caractères à `POST /api/transcriptions/text` : réponse 201.
 - **Leçon** : les limites par défaut d'une bibliothèque doivent être vérifiées par rapport aux usages réels de l'application.
+
+### BUG-28 — Le suivi en direct s'arrêtait avant la fin de l'analyse
+- **Bloc** : 21
+- **Symptôme** : après avoir collé une transcription (ou à la fin d'une transcription audio), la page affichait parfois « Non analysée », sans bandeau, alors que l'analyse tournait. Il fallait recharger la page à la main pour voir le résultat.
+- **Cause** : condition de course. L'analyse était lancée sans `await`, et elle n'écrivait `analysis_status = 'processing'` qu'au début de son exécution, une fraction de seconde plus tard. Une interrogation arrivée entre-temps lisait `none` (ou « transcription terminée, analyse non commencée ») et concluait que plus rien n'était en cours.
+- **Correction** : l'état « en cours » est écrit **avant** de répondre (`startAutoAnalysis`, `analyzeMeetingHandler`). Après une transcription, l'analyse est marquée « en cours » **avant** que la transcription passe à « terminée » (`meeting-processing.service.js`). Il n'existe donc aucun instant où rien n'est « en cours » alors qu'il reste du travail.
+- **Test** : `tests/unit/meeting-processing.service.test.js` vérifie l'**ordre** des deux écritures (`invocationCallOrder`) ; `tests/integration/resultats.it.mjs` interroge l'état immédiatement après l'envoi.
+- **Leçon** : quand une tâche part en arrière-plan, son état doit être enregistré **avant** de rendre la main, pas par la tâche elle-même.
+
+### BUG-29 — « Nouveau projet » : NULL au lieu de false
+- **Bloc** : 21
+- **Symptôme** : dans le détail d'une réunion, un projet existant avait `is_new: null` au lieu de `false`.
+- **Cause** : logique à trois valeurs de SQL. Pour un projet sans réunion source, `source_meeting_id` vaut `NULL`, et `NULL = $1` ne vaut ni vrai ni faux : il vaut `NULL`.
+- **Correction** : `COALESCE(p.source_meeting_id = $1, false) AS is_new` dans `meeting-detail.model.js`.
+- **Test** : `tests/integration/resultats.it.mjs` vérifie `is_new === false` pour le projet existant et `true` pour le nouveau.
+- **Leçon** : toute comparaison avec une colonne qui peut être `NULL` peut produire `NULL`. Il faut la protéger avec `COALESCE` ou `IS [NOT] DISTINCT FROM`.
+
+### BUG-30 — Colonne « Statut » coupée dans « Mes tâches »
+- **Bloc** : 21
+- **Symptôme** : dans une fenêtre d'environ 930 px de large, la dernière colonne du tableau (le menu de statut) était coupée.
+- **Cause** : le tableau imposait une largeur minimale de 760 px, alors que la zone de contenu (à côté du menu latéral) n'en faisait qu'environ 665.
+- **Correction** : colonnes en `minmax(…)` et largeur minimale de 650 px ; en dessous, le tableau défile horizontalement au lieu d'être coupé.
+- **Test** : vérifié dans le navigateur à 929 px de large : toutes les colonnes sont visibles.
+- **Leçon** : vérifier une page à la largeur d'un portable ordinaire, pas seulement sur un grand écran.
