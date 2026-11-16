@@ -1,7 +1,7 @@
 // src/pages/ProjectDetailPage.jsx — détail d'un projet : membres et réunions (bloc 13)
 // GET /api/projects/:id, GET/POST/DELETE /api/projects/:id/members, GET /api/meetings/project/:id
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../services/api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import MeetingFormModal from '../components/MeetingFormModal.jsx'
@@ -118,6 +118,7 @@ function MembersCard({ projectId, isOwner }) {
 export default function ProjectDetailPage() {
   const { id } = useParams()
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [project, setProject] = useState(null)
   const [meetings, setMeetings] = useState([])
   const [loading, setLoading] = useState(true)
@@ -176,7 +177,9 @@ export default function ProjectDetailPage() {
           <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
             {meetings.map((m) => (
               <li key={m.id} style={{ padding: '0.6rem 0', borderBottom: '1px solid var(--color-border)' }}>
-                <span style={{ color: 'var(--color-text)', fontSize: '13px', fontWeight: 500 }}>{m.title}</span>
+                <Link to={`/meetings/${m.id}`} style={{ color: 'var(--color-text)', textDecoration: 'none', fontSize: '13px', fontWeight: 500 }}>
+                  {m.title}
+                </Link>
                 <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
                   {labelOf(MEETING_STATUS, m.status).label} · {formatDateTime(m.created_at)}
                 </div>
@@ -190,10 +193,7 @@ export default function ProjectDetailPage() {
         <MeetingFormModal
           projectId={project.id}
           onClose={() => setShowMeetingForm(false)}
-          onCreated={(meeting) => {
-            setMeetings((list) => [meeting, ...list])
-            setShowMeetingForm(false)
-          }}
+          onCreated={(meeting) => navigate(`/meetings/${meeting.id}`)}
         />
       )}
     </div>

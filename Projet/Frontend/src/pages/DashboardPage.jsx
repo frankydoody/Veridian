@@ -109,7 +109,7 @@ export default function DashboardPage() {
   // Activité récente = 5 dernières réunions
   const recent = meetings.slice(0, 5).map(m => ({
     id: m.id,
-    to: '/meetings',
+    to: `/meetings/${m.id}`,
     title: m.title,
     subtitle: `${m.project_name ?? 'Projet'} · ${labelOf(MEETING_STATUS, m.status).label} · ${formatRelative(m.created_at)}`,
     dot: labelOf(MEETING_STATUS, m.status).color,

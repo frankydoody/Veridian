@@ -2,6 +2,7 @@
 // Liste des tâches — données réelles depuis GET /api/tasks
 
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../services/api.js'
 import TaskFormModal from '../components/TaskFormModal.jsx'
 
@@ -50,7 +51,8 @@ function TaskRow({ task, onToggle, onEdit }) {
         )}
       </div>
 
-      {/* Titre : ouvre le formulaire de modification */}
+      {/* Titre (ouvre la modification) et réunion d'origine, dans une même cellule */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
       <button
         onClick={() => onEdit(task)}
         title="Modifier la tâche"
@@ -62,6 +64,12 @@ function TaskRow({ task, onToggle, onEdit }) {
       >
         {task.title}
       </button>
+      {task.meeting_id && (
+        <Link to={`/meetings/${task.meeting_id}`} style={{ fontSize: '11px', color: 'var(--color-text-faint)', width: 'fit-content' }}>
+          Réunion : {task.meeting_title}
+        </Link>
+      )}
+      </div>
 
       {/* Assigné */}
       <span style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>

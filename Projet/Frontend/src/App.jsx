@@ -11,6 +11,7 @@ import TasksPage      from './pages/TasksPage'
 import MemoryPage     from './pages/MemoryPage'
 import DecisionsPage  from './pages/DecisionsPage'
 import ProjectDetailPage from './pages/ProjectDetailPage'
+import MeetingDetailPage from './pages/MeetingDetailPage'
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/"          element={<DashboardPage />} />
           <Route path="meetings"   element={<MeetingsPage />} />
+          <Route path="meetings/:id" element={<MeetingDetailPage />} />
           <Route path="projects"   element={<ProjectsPage />} />
           <Route path="projects/:id" element={<ProjectDetailPage />} />
           <Route path="tasks"      element={<TasksPage />} />
