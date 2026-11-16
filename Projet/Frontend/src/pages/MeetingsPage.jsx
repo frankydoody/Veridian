@@ -1,40 +1,21 @@
 import { useState, useEffect } from 'react'
 import { api } from '../services/api'
+import { formatDateTime } from '../utils/dates'
+import { MEETING_STATUS, ANALYSIS_STATUS, labelOf } from '../utils/labels'
+import MeetingFormModal from '../components/MeetingFormModal.jsx'
 
-const STATUS_LABELS = {
-  completed: 'terminée',
-  in_progress: 'en cours',
-  planned: 'planifiée',
-}
-
-const STATUS_COLORS = {
-  completed: { bg: 'var(--color-success-muted)', color: 'var(--color-success)' },
-  in_progress: { bg: 'var(--color-ai-muted)', color: 'var(--color-ai)' },
-  planned: { bg: 'var(--color-surface-3)', color: 'var(--color-text-2)' },
-}
-
-function formatDate(dateStr) {
-  if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('fr-CA', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
-function StatusBadge({ status }) {
-  const label = STATUS_LABELS[status] ?? status
-  const style = STATUS_COLORS[status] ?? {}
+function StatusBadge({ table, status }) {
+  const { label, color } = labelOf(table, status)
   return (
     <span style={{
       padding: '2px 10px',
       borderRadius: '999px',
       fontSize: '0.75rem',
       fontWeight: 600,
-      background: style.bg,
-      color: style.color,
+      border: `1px solid ${color}`,
+      color,
+      width: 'fit-content',
+      whiteSpace: 'nowrap',
     }}>
       {label}
     </span>
@@ -46,6 +27,7 @@ export default function MeetingsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [filter, setFilter] = useState('all')
+  const [showForm, setShowForm] = useState(false)
 
   useEffect(() => {
     async function fetchMeetings() {
@@ -65,11 +47,12 @@ export default function MeetingsPage() {
     ? meetings
     : meetings.filter(m => m.status === filter)
 
+  // Statuts réels de la table meetings (voir utils/labels.js)
   const filters = [
     { key: 'all', label: 'Toutes' },
-    { key: 'in_progress', label: 'En cours' },
     { key: 'planned', label: 'Planifiées' },
-    { key: 'completed', label: 'Terminées' },
+    { key: 'processing', label: 'En traitement' },
+    { key: 'done', label: 'Terminées' },
   ]
 
   return (
@@ -84,7 +67,7 @@ export default function MeetingsPage() {
             {loading ? '...' : `${meetings.length} réunion${meetings.length !== 1 ? 's' : ''} au total`}
           </p>
         </div>
-        <button style={{
+        <button onClick={() => setShowForm(true)} style={{
           padding: '8px 18px',
           background: 'var(--color-ai)',
           color: '#fff',
@@ -169,8 +152,8 @@ export default function MeetingsPage() {
             <span>Titre</span>
             <span>Projet</span>
             <span>Statut</span>
-            <span>Début</span>
-            <span>Fin</span>
+            <span>Analyse</span>
+            <span>Créée</span>
           </div>
 
           {/* Rows */}
@@ -195,16 +178,25 @@ export default function MeetingsPage() {
               <span style={{ color: 'var(--color-text-2)', fontSize: '0.85rem' }}>
                 {m.project_name ?? '—'}
               </span>
-              <StatusBadge status={m.status} />
+              <StatusBadge table={MEETING_STATUS} status={m.status} />
+              <StatusBadge table={ANALYSIS_STATUS} status={m.analysis_status ?? 'none'} />
               <span style={{ color: 'var(--color-text-2)', fontSize: '0.82rem' }}>
-                {formatDate(m.started_at)}
-              </span>
-              <span style={{ color: 'var(--color-text-2)', fontSize: '0.82rem' }}>
-                {formatDate(m.ended_at)}
+                {formatDateTime(m.created_at)}
               </span>
             </div>
           ))}
         </div>
+      )}
+
+      {showForm && (
+        <MeetingFormModal
+          onClose={() => setShowForm(false)}
+          onCreated={() => {
+            // La réponse de création n'a pas le nom du projet : on recharge la liste
+            setShowForm(false)
+            api.get('/meetings').then((data) => setMeetings(data.meetings ?? [])).catch((err) => setError(err.message))
+          }}
+        />
       )}
     </div>
   )

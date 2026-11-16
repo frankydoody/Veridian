@@ -36,8 +36,15 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/chat', chatRoutes);
 
+// État du serveur et des services configurés. Ne renvoie que des indicateurs, JAMAIS de secret.
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({
+    status: 'ok',
+    services: {
+      ai: Boolean(process.env.GEMINI_API_KEY),
+      email: process.env.SMTP_HOST ? 'smtp' : 'console',
+    },
+  });
 });
 
 app.use(errorMiddleware);
