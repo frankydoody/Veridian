@@ -288,7 +288,7 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | Bloc | Titre | Statut | Description |
 |---|---|---|---|
 | 19 | Pipeline IA & courriels | ✅ Done (à tester) | Une réunion transcrite est analysée : projets détectés (existants réutilisés, nouveaux créés), décisions, tâches liées à un acteur avec date de fin estimée, contradictions, risques, courriel par acteur et résumé de l'organisateur (`POST /api/meetings/:id/analyze`, `GET /api/meetings/:id/analysis`, `POST /api/transcriptions/text`) |
-| 20 | Frontend Enregistrement | Todo | Enregistrement audio dans le navigateur, téléversement, suivi de l'analyse |
+| 20 | Frontend Enregistrement | ✅ Done | Enregistrement dans le navigateur (MediaRecorder : pause, niveau du micro, écoute de contrôle), téléversement d'un fichier, transcription collée ; envoi en `202` et Whisper en arrière-plan (`transcription_status`, migration 012), suivi en direct, erreurs claires (micro refusé, ffmpeg absent, fichier trop gros) |
 | 21 | Frontend Réunion & Tâches liées | Todo | Page de détail d'une réunion (décisions, tâches, acteurs, risques), « Mes tâches » |
 | 22 | Jeu de données de scénario & tests d'intégration | Todo | Transcriptions de démonstration en plusieurs réunions, tests sur vraie base |
 
@@ -363,6 +363,12 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `src/models/meeting-detail.model.js` | Détail d'une réunion en six requêtes parallèles ; nom du fichier audio (bloc 14) |
 | `src/controllers/meeting-detail.controller.js` | `GET /api/meetings/:id/details`, `GET /api/meetings/:id/audio` (après vérification d'appartenance) |
 | `tests/integration/detail-reunion.it.mjs` | Détail de réunion et audio (`Range`, accès) sur une vraie base (bloc 14) |
+| `src/middlewares/upload.middleware.js` | Envoi audio : types acceptés, extension tirée du type, `MAX_AUDIO_MB`, erreurs 413 / 415 |
+| `src/services/whisper.service.js` | Whisper en ligne de commande : vérification de ffmpeg, délai maximal, erreurs actionnables, silence détecté |
+| `src/services/meeting-processing.service.js` | Traitement en arrière-plan : Whisper → transcription → audio adopté → mémoire → analyse (bloc 20) |
+| `src/models/processing.model.js` | État de la transcription ; remise en erreur des traitements interrompus au démarrage |
+| `database/migrations/012_transcription_asynchrone.sql` | `meetings.transcription_status` et `transcription_error` |
+| `tests/integration/enregistrement.it.mjs` | Envoi et transcription en arrière-plan avec le **vrai** Whisper (bloc 20) |
 | `src/utils/jwt.utils.js` | Génération et vérification des tokens JWT |
 | `src/utils/hash.utils.js` | Hachage bcrypt |
 
@@ -380,7 +386,10 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `src/components/Modal.jsx`, `src/components/form.jsx` | Fenêtre de dialogue accessible et champs de formulaire partagés |
 | `src/components/ProjectFormModal.jsx`, `MeetingFormModal.jsx`, `TaskFormModal.jsx` | Formulaires de création (et de modification pour les tâches) |
 | `src/pages/ProjectDetailPage.jsx` | Page `/projects/:id` : membres (ajout, retrait) et réunions du projet |
-| `src/pages/MeetingDetailPage.jsx` | Page `/meetings/:id` : audio, transcription modifiable, décisions, tâches, contradictions, risques, courriels |
+| `src/pages/MeetingDetailPage.jsx` | Page `/meetings/:id` : audio, transcription modifiable, décisions, tâches, contradictions, risques, courriels ; suivi en direct du traitement |
+| `src/components/AudioRecorder.jsx` | Enregistrement dans le navigateur (MediaRecorder, pause, niveau du micro, écoute, envoi avec progression) |
+| `src/components/AddRecordingPanel.jsx` | Onglets Enregistrer / Téléverser un fichier / Coller un texte |
+| `src/utils/recording.js` | Format d'enregistrement, messages d'erreur du micro, vérification d'un fichier (testé dans `recording.test.js`) |
 | `src/utils/validation.js` | Validation côté client, mêmes règles que le serveur (testée dans `validation.test.js`) |
 
 ---
@@ -405,8 +414,9 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `chore/hygiene-depot` (PR #32) | PR ouverte — empilée sur `bloc-19-pipeline-ia` |
 | `bloc-12-frontend-api` (PR #33) | PR ouverte — empilée sur `chore/hygiene-depot` |
 | `bloc-13-formulaires` (PR #34) | PR ouverte — empilée sur `bloc-12-frontend-api` |
-| `bloc-14-detail-reunion` | PR ouverte — empilée sur `bloc-13-formulaires` |
-| `bloc-16` à `bloc-18`, `bloc-20` à `bloc-22` | À faire |
+| `bloc-14-detail-reunion` (PR #35) | PR ouverte — empilée sur `bloc-13-formulaires` |
+| `bloc-20-enregistrement` | PR ouverte — empilée sur `bloc-14-detail-reunion` |
+| `bloc-16` à `bloc-18`, `bloc-21`, `bloc-22` | À faire |
 
 Une branche « empilée » part d'une branche pas encore fusionnée : fusionner les PR dans l'ordre du tableau. Après chaque fusion, la PR suivante ne montre plus que ses propres commits.
 
@@ -430,6 +440,9 @@ Une branche « empilée » part d'une branche pas encore fusionnée : fusionner 
 | `WHISPER_MODE` | `local` | Mode Whisper |
 | `WHISPER_MODEL` | `small` | Modèle Whisper (`tiny`/`small`/`medium`) |
 | `WHISPER_LANGUAGE` | `fr` | Langue de transcription |
+| `WHISPER_TIMEOUT_MIN` | `30` | Durée maximale d'une transcription, en minutes (au-delà, elle est arrêtée) |
+| `WHISPER_COMMAND` / `FFMPEG_COMMAND` | vide | Chemin complet de `whisper` / `ffmpeg` s'ils ne sont pas dans le `PATH` |
+| `MAX_AUDIO_MB` | `200` | Taille maximale d'un fichier audio envoyé, en Mo (413 au-delà) |
 | `SMTP_HOST` | vide | Serveur SMTP. Vide = mode console : les courriels sont affichés dans le terminal du backend, rien n'est envoyé |
 | `SMTP_PORT` | `587` | Port SMTP |
 | `SMTP_SECURE` | `false` | `true` pour TLS direct (port 465) |

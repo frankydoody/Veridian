@@ -177,3 +177,51 @@ test (comment on s'assure qu'il ne revient pas) → leçon.
 - **Correction** : la pastille dit « IA configurée », avec une infobulle qui précise que la validité n'est pas vérifiée ; le message de ré-indexation mentionne une clé invalide et renvoie à la console du backend. La vérification réelle de la clé (appel minimal à Gemini) est prévue dans le script de vérification de l'installation (bloc 18).
 - **Test** : avec une clé invalide, modifier une transcription : le message indique la piste « clé invalide », et la console du backend donne la raison exacte.
 - **Leçon** : un indicateur doit dire exactement ce qu'il mesure. « Présente » n'est pas « valide ».
+
+### BUG-22 — Whisper exécuté pendant la requête HTTP
+- **Bloc** : 20
+- **Symptôme** : envoyer l'audio d'une longue réunion laissait le navigateur en attente pendant toute la transcription, plusieurs minutes, jusqu'à l'abandon de la requête (délai dépassé) alors que le serveur travaillait encore.
+- **Cause** : `uploadAndTranscribeHandler` attendait (`await`) la fin de Whisper avant de répondre. Une transcription sur processeur prend à peu près la durée de l'enregistrement.
+- **Correction** : l'envoi répond `202 Accepted` tout de suite. Whisper, la mémoire puis l'analyse tournent en arrière-plan (`meeting-processing.service.js`). L'état est enregistré en base (`meetings.transcription_status`, migration 012) et la page l'interroge toutes les 3 s. Au démarrage, le serveur remet en erreur les traitements restés « en cours » (interrompus par l'arrêt précédent).
+- **Test** : `tests/integration/enregistrement.it.mjs` (vrai Whisper) vérifie une réponse 202 en moins de 5 s, puis le passage à `done` ; `tests/unit/upload.controller.test.js` vérifie que le contrôleur n'attend pas le traitement.
+- **Leçon** : une requête HTTP doit répondre en quelques secondes. Un travail long se lance en arrière-plan, avec un état consultable.
+
+### BUG-23 — Limite de taille ignorée avec une valeur décimale
+- **Bloc** : 20
+- **Symptôme** : avec `MAX_AUDIO_MB=0.0001`, un fichier de 5 000 octets était accepté.
+- **Cause** : `0.0001 × 1 048 576 = 104,857…`, qui n'est pas un nombre entier d'octets. `busboy` (utilisé par `multer`) ignore alors **complètement** la limite, sans erreur.
+- **Correction** : `maxAudioBytes()` arrondit à l'entier inférieur (`Math.floor`).
+- **Test** : `tests/unit/upload.middleware.test.js`, « fichier trop gros → 413 ».
+- **Leçon** : une option invalide peut être ignorée en silence par une bibliothèque. Il faut tester l'effet réel d'une limite, pas seulement sa valeur.
+
+### BUG-24 — Whisper « transcrit » un silence en phrase inventée
+- **Bloc** : 20
+- **Symptôme** : un enregistrement sans parole (micro coupé, bruit de la pièce) était transcrit « Thank you. », et l'analyse IA démarrait sur ce texte.
+- **Cause** : comportement connu de Whisper. Sur du silence, le modèle produit des phrases fréquentes dans ses données d'entraînement (sous-titres de vidéos) : « Merci. », « Sous-titres réalisés par la communauté d'Amara.org », « Thank you. »…
+- **Correction** : `isLikelySilenceHallucination` (`whisper.service.js`) compare la transcription **entière** à une liste de ces phrases. Si elle s'y réduit, le texte est considéré vide et l'utilisateur voit « Aucune parole détectée… vérifiez le micro ». Une vraie réunion qui contient « merci » n'est jamais rejetée.
+- **Test** : `tests/unit/whisper.service.test.js` ; vérifié dans le navigateur en enregistrant 3 s de silence.
+- **Leçon** : un modèle d'IA produit toujours une réponse, même sans données réelles. Il faut prévoir le cas « rien d'utile » explicitement.
+
+### BUG-25 — Un envoi échoué remplaçait quand même l'audio
+- **Bloc** : 20
+- **Symptôme** : après l'échec d'un nouvel envoi (silence, panne de Whisper), la page montrait le nouvel enregistrement avec l'ancienne transcription : les deux ne correspondaient plus.
+- **Cause** : le contrôleur enregistrait le nouvel audio (et supprimait l'ancien) **avant** la transcription.
+- **Correction** : le service d'arrière-plan n'adopte le nouvel audio qu'**après** une transcription réussie ; en cas d'échec, le nouveau fichier est supprimé et l'ancien reste en place.
+- **Test** : `tests/unit/meeting-processing.service.test.js` (« échec : le nouveau fichier est supprimé… ») et `upload.controller.test.js`.
+- **Leçon** : une opération en plusieurs étapes ne doit modifier l'état visible qu'à la fin, quand tout a réussi.
+
+### BUG-26 — Erreurs d'envoi transformées en erreur 500
+- **Bloc** : 20
+- **Symptôme** : un fichier d'un mauvais type, ou trop gros, donnait `500 Erreur interne du serveur`.
+- **Cause** : les erreurs de `multer` (filtre de type, `LIMIT_FILE_SIZE`) n'avaient pas de code HTTP et arrivaient au gestionnaire d'erreurs générique.
+- **Correction** : `uploadAudio` enveloppe `multer` et traduit ses erreurs : 413 (trop gros, avec la limite), 415 (type refusé, avec la liste des formats), 400 (autre erreur d'envoi). Le frontend vérifie aussi le fichier **avant** l'envoi.
+- **Test** : `tests/unit/upload.middleware.test.js` et `tests/integration/enregistrement.it.mjs` (415).
+- **Leçon** : une erreur prévisible de l'utilisateur mérite un code 4xx et un message qui dit quoi faire.
+
+### BUG-27 — Transcription collée refusée au-delà de 100 Ko
+- **Bloc** : 20
+- **Symptôme** : coller la transcription d'une longue réunion répondait `413 request entity too large`, en anglais.
+- **Cause** : `express.json()` limite par défaut le corps d'une requête à 100 Ko. Une heure de réunion fait environ 60 000 caractères, et les lettres accentuées comptent pour deux octets en UTF-8.
+- **Correction** : `express.json({ limit: '1mb' })` dans `app.js` ; le contrôleur borne lui-même le texte à 200 000 caractères avec un message en français.
+- **Test** : envoyer une transcription de 150 000 caractères à `POST /api/transcriptions/text` : réponse 201.
+- **Leçon** : les limites par défaut d'une bibliothèque doivent être vérifiées par rapport aux usages réels de l'application.
