@@ -19,6 +19,8 @@ jest.unstable_mockModule('../../src/models/transcription.model.js', () => ({
 jest.unstable_mockModule('../../src/models/meeting.model.js', () => ({ findMeetingById }));
 jest.unstable_mockModule('../../src/services/whisper.service.js', () => ({ transcribeAudio: jest.fn() }));
 jest.unstable_mockModule('../../src/services/memory.service.js', () => ({ indexTranscriptionSafely }));
+jest.unstable_mockModule('../../src/services/meeting-pipeline.service.js', () => ({ processMeetingSafely: jest.fn() }));
+jest.unstable_mockModule('../../src/models/meeting-detail.model.js', () => ({ setMeetingAudio: jest.fn() }));
 
 const { updateTranscriptionHandler } = await import('../../src/controllers/transcription.controller.js');
 
@@ -30,7 +32,7 @@ const makeRes = () => {
 };
 
 const makeReq = () => ({
-  params: { id: 't-1' },
+  params: { id: '66666666-6666-4666-8666-666666666666' },
   body: { rawText: 'nouveau texte' },
   user: { id: 'user-b' },
 });
@@ -39,7 +41,7 @@ describe('updateTranscriptionHandler (contrôle d\'accès)', () => {
   beforeEach(() => jest.clearAllMocks());
 
   test('doit répondre 404 et NE PAS modifier si l\'utilisateur n\'est pas membre du projet', async () => {
-    findTranscriptionById.mockResolvedValue({ id: 't-1', meeting_id: 'm-1' });
+    findTranscriptionById.mockResolvedValue({ id: '66666666-6666-4666-8666-666666666666', meeting_id: 'm-1' });
     findMeetingById.mockResolvedValue(undefined);   // pas membre
 
     const res = makeRes();
@@ -61,15 +63,15 @@ describe('updateTranscriptionHandler (contrôle d\'accès)', () => {
   });
 
   test('doit modifier et ré-indexer si l\'utilisateur est membre du projet', async () => {
-    findTranscriptionById.mockResolvedValue({ id: 't-1', meeting_id: 'm-1' });
+    findTranscriptionById.mockResolvedValue({ id: '66666666-6666-4666-8666-666666666666', meeting_id: 'm-1' });
     findMeetingById.mockResolvedValue({ id: 'm-1', project_id: 'p-1' });
-    updateTranscriptionText.mockResolvedValue({ id: 't-1', meeting_id: 'm-1', raw_text: 'nouveau texte' });
+    updateTranscriptionText.mockResolvedValue({ id: '66666666-6666-4666-8666-666666666666', meeting_id: 'm-1', raw_text: 'nouveau texte' });
     indexTranscriptionSafely.mockResolvedValue({ indexed: true, stored: 1 });
 
     const res = makeRes();
     await updateTranscriptionHandler(makeReq(), res, jest.fn());
 
-    expect(updateTranscriptionText).toHaveBeenCalledWith('t-1', 'nouveau texte');
+    expect(updateTranscriptionText).toHaveBeenCalledWith('66666666-6666-4666-8666-666666666666', 'nouveau texte');
     expect(indexTranscriptionSafely).toHaveBeenCalledWith('m-1', 'p-1', 'nouveau texte');
     expect(res.status).toHaveBeenCalledWith(200);
   });
