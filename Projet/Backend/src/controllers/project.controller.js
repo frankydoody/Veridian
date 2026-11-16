@@ -5,20 +5,20 @@ import {
   updateProject,
   updateProjectStatus,
 } from '../models/project.model.js';
+import { isUuid, cleanText } from '../utils/validation.utils.js';
+
+const INVALID_ID = { message: 'Identifiant de projet invalide' };
 
 export const createProjectHandler = async (req, res, next) => {
   try {
-    const { name, description } = req.body;
-
-    if (!name) {
-      return res.status(400).json({
-        message: 'Le nom du projet est obligatoire'
-      });
-    }
+    const name = cleanText(req.body?.name, { label: 'Le nom du projet', max: 150, required: true });
+    if (name.error) return res.status(400).json({ message: name.error });
+    const description = cleanText(req.body?.description, { label: 'La description', max: 2000 });
+    if (description.error) return res.status(400).json({ message: description.error });
 
     const project = await createProjectWithOwner(
-      name,
-      description,
+      name.value,
+      description.value,
       req.user.id
     );
 
@@ -50,6 +50,7 @@ export const getProjectsHandler = async (req, res, next) => {
 export const getProjectByIdHandler = async (req, res, next) => {
   try {
     const { id } = req.params;
+    if (!isUuid(id)) return res.status(400).json(INVALID_ID);
 
     const project = await findProjectById(id, req.user.id);
 
@@ -72,6 +73,7 @@ export const getProjectByIdHandler = async (req, res, next) => {
 export const updateProjectHandler = async (req, res, next) => {
   try {
     const { id } = req.params;
+    if (!isUuid(id)) return res.status(400).json(INVALID_ID);
     const { name, description } = req.body;
 
     if (!name) {
@@ -109,6 +111,7 @@ export const updateProjectHandler = async (req, res, next) => {
 export const updateProjectStatusHandler = async (req, res, next) => {
   try {
     const { id } = req.params;
+    if (!isUuid(id)) return res.status(400).json(INVALID_ID);
     const { status } = req.body;
 
     const validStatuses = ['active', 'archived', 'inactive'];
