@@ -283,6 +283,15 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | 15 | Frontend Décisions & Contradictions | ✅ Done | Page `/decisions` : décisions du projet filtrables, alertes de contradiction à résoudre, bouton d'export PDF |
 | 16 | Frontend Calendrier de projet | Todo | Vue calendrier mensuel, navigation |
 
+### Pipeline IA de bout en bout (extension du plan)
+
+| Bloc | Titre | Statut | Description |
+|---|---|---|---|
+| 19 | Pipeline IA & courriels | ✅ Done (à tester) | Une réunion transcrite est analysée : projets détectés (existants réutilisés, nouveaux créés), décisions, tâches liées à un acteur avec date de fin estimée, contradictions, risques, courriel par acteur et résumé de l'organisateur (`POST /api/meetings/:id/analyze`, `GET /api/meetings/:id/analysis`, `POST /api/transcriptions/text`) |
+| 20 | Frontend Enregistrement | Todo | Enregistrement audio dans le navigateur, téléversement, suivi de l'analyse |
+| 21 | Frontend Réunion & Tâches liées | Todo | Page de détail d'une réunion (décisions, tâches, acteurs, risques), « Mes tâches » |
+| 22 | Jeu de données de scénario & tests d'intégration | Todo | Transcriptions de démonstration en plusieurs réunions, tests sur vraie base |
+
 ### Qualité et livraison
 
 | Bloc | Titre | Statut | Description |
@@ -337,6 +346,13 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `src/services/pdf.service.js` | Génère le rapport PDF d'un projet (résumé, réunions, décisions, tâches, alertes) avec `pdfkit` |
 | `src/controllers/export.controller.js` | `GET /api/projects/:id/export/pdf` (téléchargement du rapport) |
 | `database/migrations/009_chat_conversations.sql` | Tables `mtg_chat_conversations` et `mtg_chat_messages` |
+| `src/services/meeting-pipeline.service.js` | Orchestre l'analyse d'une réunion : IA → enregistrement → mémoire → contradictions → risques → courriels (bloc 19) |
+| `src/utils/analysis.utils.js` | Fonctions pures : correspondance des noms (acteurs, projets), priorités, dates estimées, nettoyage de la réponse de l'IA |
+| `src/models/pipeline.model.js` | Enregistrement atomique de l'analyse (projets, décisions, tâches), risques, journal des courriels |
+| `src/services/notification.service.js` | Construction des courriels (un par acteur + résumé) et envoi SMTP ; sans `SMTP_HOST`, mode console |
+| `src/controllers/analysis.controller.js` | `POST /api/meetings/:id/analyze[?wait=true&notify=false]`, `GET /api/meetings/:id/analysis` |
+| `database/migrations/010_pipeline_reunion.sql` | `tasks.assignee_id`, état d'analyse des réunions, tables `mtg_risks` et `mtg_notifications` |
+| `tests/integration/pipeline.it.mjs` | Scénario complet sur une vraie base avec une IA simulée (voir l'en-tête du fichier) |
 | `src/utils/jwt.utils.js` | Génération et vérification des tokens JWT |
 | `src/utils/hash.utils.js` | Hachage bcrypt |
 
@@ -359,8 +375,9 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `bloc-01` à `bloc-07`, `bloc-10`, `bloc-11`, `fix/securite-et-installation` | Fusionnées |
 | `bloc-08-contradictions` | En revue (PR) |
 | `bloc-09-chat-export` | En test |
-| `bloc-15-frontend-decisions` | En test |
-| `bloc-12` à `bloc-14`, `bloc-16` à `bloc-18` | À faire |
+| `bloc-15-frontend-decisions` | Fusionnée |
+| `bloc-19-pipeline-ia` | En test |
+| `bloc-12` à `bloc-14`, `bloc-16` à `bloc-18`, `bloc-20` à `bloc-22` | À faire |
 
 ---
 
@@ -382,6 +399,11 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `WHISPER_MODE` | `local` | Mode Whisper |
 | `WHISPER_MODEL` | `small` | Modèle Whisper (`tiny`/`small`/`medium`) |
 | `WHISPER_LANGUAGE` | `fr` | Langue de transcription |
+| `SMTP_HOST` | vide | Serveur SMTP. Vide = mode console : les courriels sont affichés dans le terminal du backend, rien n'est envoyé |
+| `SMTP_PORT` | `587` | Port SMTP |
+| `SMTP_SECURE` | `false` | `true` pour TLS direct (port 465) |
+| `SMTP_USER` / `SMTP_PASSWORD` | vide | Identifiants SMTP (Gmail : mot de passe d'application) |
+| `MAIL_FROM` | `Veridian <no-reply@veridian.local>` | Expéditeur des courriels |
 
 Les valeurs `DB_*` correspondent à `docker-compose.yml` : ne pas les changer sans modifier aussi ce fichier.
 
