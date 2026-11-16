@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import {
   createTranscription,
   findTranscriptionByMeeting,
@@ -9,6 +10,8 @@ import { findMeetingById } from '../models/meeting.model.js';
 import { transcribeAudio } from '../services/whisper.service.js';
 import { indexTranscriptionSafely } from '../services/memory.service.js';
 import { processMeetingSafely } from '../services/meeting-pipeline.service.js';
+import { setMeetingAudio } from '../models/meeting-detail.model.js';
+import { resolveAudioPath } from '../config/storage.js';
 
 // Lance l'analyse en arrière-plan (sauf autoAnalyze = 'false'). Ne bloque pas la réponse.
 const startAutoAnalysis = (meeting, user, autoAnalyze) => {
@@ -45,9 +48,17 @@ export const uploadAndTranscribeHandler = async (req, res, next) => {
 
     const text = await transcribeAudio(req.file.path);
 
-    fs.unlinkSync(req.file.path);
+    // Une seule transcription par réunion (meeting_id UNIQUE) : un nouvel envoi la remplace
+    const existing = await findTranscriptionByMeeting(meetingId);
+    const transcription = existing
+      ? await updateTranscriptionText(existing.id, text)
+      : await createTranscription(meetingId, text);
 
-    const transcription = await createTranscription(meetingId, text);
+    // Bloc 14 : l'audio est conservé pour le lecteur de la page de la réunion
+    // (seul le nom du fichier est enregistré ; l'ancien enregistrement est supprimé)
+    const previousAudio = resolveAudioPath(meeting.audio_path);
+    await setMeetingAudio(meetingId, path.basename(req.file.path));
+    if (previousAudio && previousAudio !== path.resolve(req.file.path)) fs.unlinkSync(previousAudio);
 
     // Bloc 07 : la transcription entre dans la mémoire vectorielle
     const memory = await indexTranscriptionSafely(meetingId, meeting.project_id, text);
