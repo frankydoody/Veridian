@@ -42,8 +42,8 @@ export default function ServiceStatus() {
     <div style={{ display: 'flex', gap: '0.5rem' }}>
       <Pill
         ok={services.ai}
-        label={services.ai ? 'IA active' : 'IA non configurée'}
-        title={services.ai ? 'Clé Gemini configurée' : 'GEMINI_API_KEY absente du fichier .env : l\'analyse des réunions ne fonctionnera pas'}
+        label={services.ai ? 'IA configurée' : 'IA non configurée'}
+        title={services.ai ? "Une clé Gemini est présente dans .env (sa validité n'est pas vérifiée ici)" : 'GEMINI_API_KEY absente du fichier .env : l\'analyse des réunions ne fonctionnera pas'}
       />
       {services.email === 'console' && (
         <Pill
