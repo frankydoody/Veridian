@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
+import ServiceStatus from './ServiceStatus.jsx';
 
 const NAV_ITEMS = [
   {
@@ -38,7 +39,7 @@ const NAV_ITEMS = [
   },
   {
     to: '/tasks',
-    label: 'Tâches',
+    label: 'Mes tâches',
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
         <path d="M9 11l3 3L22 4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>
@@ -306,21 +307,8 @@ export default function Layout() {
 
           <div style={{ flex: 1 }} />
 
-          {/* Badge IA active */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: '0.375rem',
-            padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-full)',
-            background: 'var(--color-ai-glow)', border: '1px solid rgba(168,85,247,0.25)',
-          }}>
-            <div style={{
-              width: '6px', height: '6px', borderRadius: '50%',
-              background: 'var(--color-ai)', boxShadow: '0 0 6px var(--color-ai)',
-            }} />
-            <span style={{
-              fontSize: '11px', fontWeight: '500', color: 'var(--color-ai)',
-              fontFamily: 'var(--font-display)',
-            }}>IA active</span>
-          </div>
+          {/* État réel des services (clé Gemini, SMTP) */}
+          <ServiceStatus />
 
           {/* Menu compte (avatar + dropdown) */}
           <AccountMenu user={user} onLogout={handleLogout} />
