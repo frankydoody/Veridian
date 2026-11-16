@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { transcribeAudio } from './whisper.service.js';
 import { setMeetingAudio } from '../models/meeting-detail.model.js';
+import { setAnalysisStatus } from '../models/pipeline.model.js';
 import { resolveAudioPath } from '../config/storage.js';
 import { indexTranscriptionSafely } from './memory.service.js';
 import { processMeetingSafely } from './meeting-pipeline.service.js';
@@ -50,6 +51,9 @@ export const transcribeMeetingAudio = async (meeting, user, audioPath, { autoAna
     adopted = true;
     if (previousAudio && previousAudio !== path.resolve(audioPath)) fs.rmSync(previousAudio, { force: true });
 
+    // L'analyse est marquée « en cours » AVANT que la transcription passe à « terminée » :
+    // il n'existe aucun instant où rien n'est « en cours » alors qu'il reste du travail (BUG-28)
+    if (autoAnalyze) await setAnalysisStatus(meeting.id, 'processing');
     await setTranscriptionStatus(meeting.id, 'done');
 
     const memory = await indexTranscriptionSafely(meeting.id, meeting.project_id, text);

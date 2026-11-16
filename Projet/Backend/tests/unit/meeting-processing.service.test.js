@@ -15,6 +15,8 @@ jest.unstable_mockModule('../../src/services/meeting-pipeline.service.js', () =>
 jest.unstable_mockModule('../../src/models/processing.model.js', () => ({ setTranscriptionStatus }));
 const setMeetingAudio = jest.fn();
 jest.unstable_mockModule('../../src/models/meeting-detail.model.js', () => ({ setMeetingAudio }));
+const setAnalysisStatus = jest.fn();
+jest.unstable_mockModule('../../src/models/pipeline.model.js', () => ({ setAnalysisStatus }));
 jest.unstable_mockModule('../../src/models/transcription.model.js', () => ({
   createTranscription, findTranscriptionByMeeting, updateTranscriptionText,
 }));
@@ -58,6 +60,16 @@ describe('transcribeMeetingAudio', () => {
     await expect(transcribeMeetingAudio(meeting, user, file)).rejects.toThrow(/Aucune parole/);
     expect(setMeetingAudio).not.toHaveBeenCalled();
     expect(fs.existsSync(file)).toBe(false);
+  });
+
+  test('analyse marquée « en cours » AVANT la fin de la transcription (régression BUG-28)', async () => {
+    transcribeAudio.mockResolvedValue('Texte');
+    await transcribeMeetingAudio(meeting, user, '/tmp/a.webm');
+    const analysisOrder = setAnalysisStatus.mock.invocationCallOrder[0];
+    const doneIndex = setTranscriptionStatus.mock.calls.findIndex((c) => c[1] === 'done');
+    const doneOrder = setTranscriptionStatus.mock.invocationCallOrder[doneIndex];
+    expect(setAnalysisStatus).toHaveBeenCalledWith('m-1', 'processing');
+    expect(analysisOrder).toBeLessThan(doneOrder);
   });
 
   test('transcription existante : elle est remplacée (pas de doublon)', async () => {

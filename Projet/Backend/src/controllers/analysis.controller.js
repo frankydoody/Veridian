@@ -2,7 +2,7 @@
 // Bloc 19 — Lancer et consulter l'analyse IA d'une réunion
 import { findMeetingById } from '../models/meeting.model.js';
 import { findTranscriptionByMeeting } from '../models/transcription.model.js';
-import { findAnalysisByMeeting } from '../models/pipeline.model.js';
+import { findAnalysisByMeeting, setAnalysisStatus } from '../models/pipeline.model.js';
 import { processMeeting, processMeetingSafely } from '../services/meeting-pipeline.service.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -39,6 +39,8 @@ export const analyzeMeetingHandler = async (req, res, next) => {
     }
 
     // Arrière-plan : on ne fait pas attendre l'utilisateur pendant les appels à l'IA
+    // « processing » enregistré AVANT de répondre : le suivi ne peut pas lire un état périmé (BUG-28)
+    await setAnalysisStatus(meeting.id, 'processing');
     processMeetingSafely(meeting, req.user, options);
     return res.status(202).json({ message: 'Analyse démarrée', analysis_status: 'processing' });
   } catch (error) {
