@@ -40,6 +40,16 @@
   --color-text-muted:    #94A3B8;
   --color-text-faint:    #64748B;
 
+  /* Danger — erreurs */
+  --color-danger:        #F87171;
+  --color-danger-muted:  rgba(248, 113, 113, 0.12);
+
+  /* Alias utilisés par certaines pages (même palette, autres noms) */
+  --color-text-1:        #E2E8F0;  /* = --color-text */
+  --color-text-2:        #94A3B8;  /* = --color-text-muted */
+  --color-ai-muted:      rgba(168, 85, 247, 0.15);  /* = --color-ai-glow */
+  --color-success-muted: rgba(16, 185, 129, 0.10);  /* = --color-success-bg */
+
   /* Typography */
   --font-display:        'Space Grotesk', sans-serif;
   --font-body:           'Inter', sans-serif;
