@@ -3,6 +3,10 @@
 @token = COLLE_TON_TOKEN_ICI
 
 ### Health Check
+# Bloc 12 : renvoie aussi l'état des services, sans aucun secret :
+# { "status": "ok", "services": { "ai": true, "email": "console" } }
+#   ai    : une clé GEMINI_API_KEY est configurée
+#   email : "smtp" (courriels réellement envoyés) ou "console" (affichés dans le terminal du backend)
 GET {{baseUrl}}/health
 
 ### Inscription
@@ -126,4 +130,28 @@ Authorization: Bearer {{token}}
 
 ### ─── Bloc 09 : export PDF du projet ─────────────────────────────────────
 GET {{baseUrl}}/projects/COLLE_PROJECT_ID_ICI/export/pdf
+Authorization: Bearer {{token}}
+
+### ─── Bloc 19 : pipeline IA (projets, décisions, tâches, courriels) ──────
+### 1. Transcription fournie en texte (remplace audio + Whisper) ; lance l'analyse automatiquement
+POST {{baseUrl}}/transcriptions/text
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "meetingId": "COLLE_MEETING_ID_ICI",
+  "rawText": "Marie configurera Cloudflare Pages avant le 12 novembre. Samuel fera les maquettes du nouveau portail fournisseurs. On a décidé de construire le portail avec React.",
+  "autoAnalyze": false
+}
+
+### 2. Lancer l'analyse et attendre le résultat (?notify=false pour ne pas envoyer de courriels)
+POST {{baseUrl}}/meetings/COLLE_MEETING_ID_ICI/analyze?wait=true
+Authorization: Bearer {{token}}
+
+### 3. Lancer l'analyse en arrière-plan (202), puis consulter l'état
+POST {{baseUrl}}/meetings/COLLE_MEETING_ID_ICI/analyze
+Authorization: Bearer {{token}}
+
+###
+GET {{baseUrl}}/meetings/COLLE_MEETING_ID_ICI/analysis
 Authorization: Bearer {{token}}

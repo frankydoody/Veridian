@@ -6,13 +6,6 @@ import { api } from '../services/api.js'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// Convertit le statut DB → label filtre
-function statusToFilter(status) {
-  if (status === 'done')       return 'terminées'
-  if (status === 'in_progress') return 'en cours'
-  return 'en cours'  // todo → "en cours" (pas encore commencé)
-}
-
 const PRIORITY_STYLE = {
   haute:   { color: '#FF6B6B', bg: 'rgba(255,107,107,0.12)' },
   moyenne: { color: '#FFD93D', bg: 'rgba(255,217,61,0.12)'  },

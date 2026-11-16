@@ -277,11 +277,20 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 |---|---|---|---|
 | 10 | Frontend Auth | ✅ Done | Pages connexion/inscription, token JWT côté client |
 | 11 | Frontend Dashboard | ✅ Done | Pages Projets, Réunions, Tâches, Mémoire (statique) |
-| 12 | Frontend API Connect | Todo | Connexion à l'API réelle, données dynamiques |
+| 12 | Frontend API Connect | ✅ Done | Toutes les pages lisent l'API (états chargement / vide / erreur), session expirée (401) renvoyée vers la connexion avec un message, durées relatives passé/futur, statuts réels de la base, pastilles d'état réelles (clé Gemini, SMTP) |
 | 13 | Frontend Formulaires | Todo | Formulaires création projet/réunion/tâche + validation |
 | 14 | Frontend Réunion Détaillée | Todo | Lecteur audio, transcription, décisions liées |
 | 15 | Frontend Décisions & Contradictions | ✅ Done | Page `/decisions` : décisions du projet filtrables, alertes de contradiction à résoudre, bouton d'export PDF |
 | 16 | Frontend Calendrier de projet | Todo | Vue calendrier mensuel, navigation |
+
+### Pipeline IA de bout en bout (extension du plan)
+
+| Bloc | Titre | Statut | Description |
+|---|---|---|---|
+| 19 | Pipeline IA & courriels | ✅ Done (à tester) | Une réunion transcrite est analysée : projets détectés (existants réutilisés, nouveaux créés), décisions, tâches liées à un acteur avec date de fin estimée, contradictions, risques, courriel par acteur et résumé de l'organisateur (`POST /api/meetings/:id/analyze`, `GET /api/meetings/:id/analysis`, `POST /api/transcriptions/text`) |
+| 20 | Frontend Enregistrement | Todo | Enregistrement audio dans le navigateur, téléversement, suivi de l'analyse |
+| 21 | Frontend Réunion & Tâches liées | Todo | Page de détail d'une réunion (décisions, tâches, acteurs, risques), « Mes tâches » |
+| 22 | Jeu de données de scénario & tests d'intégration | Todo | Transcriptions de démonstration en plusieurs réunions, tests sur vraie base |
 
 ### Qualité et livraison
 
@@ -337,8 +346,27 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `src/services/pdf.service.js` | Génère le rapport PDF d'un projet (résumé, réunions, décisions, tâches, alertes) avec `pdfkit` |
 | `src/controllers/export.controller.js` | `GET /api/projects/:id/export/pdf` (téléchargement du rapport) |
 | `database/migrations/009_chat_conversations.sql` | Tables `mtg_chat_conversations` et `mtg_chat_messages` |
+| `src/services/meeting-pipeline.service.js` | Orchestre l'analyse d'une réunion : IA → enregistrement → mémoire → contradictions → risques → courriels (bloc 19) |
+| `src/utils/analysis.utils.js` | Fonctions pures : correspondance des noms (acteurs, projets), priorités, dates estimées, nettoyage de la réponse de l'IA |
+| `src/models/pipeline.model.js` | Enregistrement atomique de l'analyse (projets, décisions, tâches), risques, journal des courriels |
+| `src/services/notification.service.js` | Construction des courriels (un par acteur + résumé) et envoi SMTP ; sans `SMTP_HOST`, mode console |
+| `src/controllers/analysis.controller.js` | `POST /api/meetings/:id/analyze[?wait=true&notify=false]`, `GET /api/meetings/:id/analysis` |
+| `database/migrations/010_pipeline_reunion.sql` | `tasks.assignee_id`, état d'analyse des réunions, tables `mtg_risks` et `mtg_notifications` |
+| `tests/integration/pipeline.it.mjs` | Scénario complet sur une vraie base avec une IA simulée (voir l'en-tête du fichier) |
 | `src/utils/jwt.utils.js` | Génération et vérification des tokens JWT |
 | `src/utils/hash.utils.js` | Hachage bcrypt |
+
+### Fichiers clés du frontend
+
+| Fichier | Rôle |
+|---|---|
+| `src/api/client.js` | Jeton dans `localStorage` et appels de connexion / inscription (un 401 = mauvais mot de passe) |
+| `src/services/api.js` | Client des pages protégées : URL relatives `/api`, envoi de fichiers (`FormData`), téléchargement binaire, 401 = session expirée → page de connexion avec message |
+| `src/components/SessionNotice.jsx` | Bandeau « session expirée » affiché une fois sur la page de connexion |
+| `src/components/ServiceStatus.jsx` | Pastilles d'état réelles de l'en-tête (`GET /api/health` : clé Gemini, SMTP ou courriels simulés) |
+| `src/utils/dates.js` | Durées relatives passé/futur, dates, échéances lues en UTC, tâche en retard |
+| `src/utils/labels.js` | Libellés et couleurs des statuts, priorités et gravités (mêmes clés que la base) |
+| `src/utils/dates.test.js` | Tests des dates (`npm test` dans `Projet/Frontend`, testeur intégré à Node) |
 
 ---
 
@@ -356,11 +384,14 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | Branches | Statut |
 |---|---|
 | `main` | Active — base de production |
-| `bloc-01` à `bloc-07`, `bloc-10`, `bloc-11`, `fix/securite-et-installation` | Fusionnées |
-| `bloc-08-contradictions` | En revue (PR) |
-| `bloc-09-chat-export` | En test |
-| `bloc-15-frontend-decisions` | En test |
-| `bloc-12` à `bloc-14`, `bloc-16` à `bloc-18` | À faire |
+| `bloc-01` à `bloc-11`, `bloc-15-frontend-decisions`, `fix/securite-et-installation` | Fusionnées |
+| `fix/installation-linux` (PR #30) | PR ouverte, à tester |
+| `bloc-19-pipeline-ia` (PR #31) | PR ouverte, à tester |
+| `chore/hygiene-depot` (PR #32) | PR ouverte — empilée sur `bloc-19-pipeline-ia` |
+| `bloc-12-frontend-api` | PR ouverte — empilée sur `chore/hygiene-depot` |
+| `bloc-13`, `bloc-14`, `bloc-16` à `bloc-18`, `bloc-20` à `bloc-22` | À faire |
+
+Une branche « empilée » part d'une branche pas encore fusionnée : fusionner les PR dans l'ordre du tableau. Après chaque fusion, la PR suivante ne montre plus que ses propres commits.
 
 ---
 
@@ -368,7 +399,7 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `PORT` | `3000` | Port Express — **doit rester 3000** (le frontend appelle `http://localhost:3000`) |
+| `PORT` | `3000` | Port Express — **doit rester 3000** (le serveur de développement Vite transmet `/api` à `http://localhost:3000`, voir `Projet/Frontend/vite.config.js`) |
 | `DB_HOST` | `localhost` | Hôte PostgreSQL |
 | `DB_PORT` | `5432` | Port PostgreSQL |
 | `DB_NAME` | `veridian` | Nom de la base |
@@ -382,6 +413,11 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `WHISPER_MODE` | `local` | Mode Whisper |
 | `WHISPER_MODEL` | `small` | Modèle Whisper (`tiny`/`small`/`medium`) |
 | `WHISPER_LANGUAGE` | `fr` | Langue de transcription |
+| `SMTP_HOST` | vide | Serveur SMTP. Vide = mode console : les courriels sont affichés dans le terminal du backend, rien n'est envoyé |
+| `SMTP_PORT` | `587` | Port SMTP |
+| `SMTP_SECURE` | `false` | `true` pour TLS direct (port 465) |
+| `SMTP_USER` / `SMTP_PASSWORD` | vide | Identifiants SMTP (Gmail : mot de passe d'application) |
+| `MAIL_FROM` | `Veridian <no-reply@veridian.local>` | Expéditeur des courriels |
 
 Les valeurs `DB_*` correspondent à `docker-compose.yml` : ne pas les changer sans modifier aussi ce fichier.
 

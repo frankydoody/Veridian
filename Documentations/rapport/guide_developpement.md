@@ -15,6 +15,7 @@
 6. [Connexion à PostgreSQL](#6-connexion-à-postgresql)
 7. [Schéma SQL — Modélisation de la base de données](#7-schéma-sql--modélisation-de-la-base-de-données)
 8. [Utilitaires de sécurité](#8-utilitaires-de-sécurité)
+9. [Décisions de conception par bloc](#9-décisions-de-conception-par-bloc)
 
 ---
 
@@ -31,8 +32,8 @@ Les outils actuels de transcription automatique, tels qu'Otter.ai et Fireflies.a
 Veridian est une application web complète qui permet aux équipes d'entreprise de :
 
 - Enregistrer automatiquement les réunions directement depuis le navigateur
-- Transcrire l'audio via l'API OpenAI Whisper
-- Extraire les décisions structurées via l'API Anthropic Claude
+- Transcrire l'audio avec Whisper, exécuté localement (aucune donnée envoyée à un service externe)
+- Extraire les décisions, les tâches et les acteurs avec l'API Google Gemini
 - Maintenir une mémoire organisationnelle vectorielle persistante (RAG + pgvector)
 - Détecter automatiquement les contradictions entre décisions
 - Interroger l'historique en langage naturel via un chat IA
@@ -58,7 +59,7 @@ Veridian suit une architecture **client-serveur en trois couches** :
 ```
 
 - **Frontend (React/Vite)** : Interface utilisateur exécutée dans le navigateur. Gère l'enregistrement audio, l'affichage des décisions, le chat et la gestion des projets.
-- **Backend (Node.js/Express)** : Serveur API REST qui traite les requêtes du frontend, appelle les APIs externes (Whisper, Claude) et gère la base de données.
+- **Backend (Node.js/Express)** : Serveur API REST qui traite les requêtes du frontend, lance Whisper en local, appelle l'API Gemini et gère la base de données.
 - **Base de données (PostgreSQL + pgvector)** : Stocke les données relationnelles (utilisateurs, projets, décisions) et les vecteurs d'embeddings pour la recherche sémantique.
 
 ### 1.4 Structure du dépôt
@@ -345,7 +346,7 @@ Desktop.ini
 **Explication des exclusions critiques :**
 
 - **`node_modules/`** : Dossier contenant les dépendances npm téléchargées. Peut contenir plus de 50 000 fichiers et peser plusieurs centaines de Mo. Ce dossier est régénéré par `npm install` et ne doit jamais être versionné.
-- **`.env`** : Contient les clés API (OpenAI, Anthropic) et les mots de passe de base de données. Si ce fichier est commité sur GitHub, ces informations sensibles sont exposées publiquement. C'est la règle de sécurité la plus importante du projet.
+- **`.env`** : Contient la clé API Gemini, le secret JWT, les identifiants SMTP et les mots de passe de base de données. Si ce fichier est commité sur GitHub, ces informations sensibles sont exposées publiquement. C'est la règle de sécurité la plus importante du projet.
 - **`uploads/`** : Fichiers audio temporaires uploadés par les utilisateurs. Ces fichiers sont traités puis supprimés — ils n'ont pas de valeur permanente.
 
 **Règles de syntaxe `.gitignore` :**
@@ -1014,6 +1015,34 @@ Contrairement aux sessions côté serveur (qui nécessitent un stockage partagé
 **`jwt.sign(payload, secret, options)`** : Génère un token signé. Le payload est encodé (Base64URL) mais non chiffré — il est lisible par décodage. Ne jamais y inclure de données sensibles (mot de passe, numéro de carte de crédit).
 
 **`jwt.verify(token, secret)`** : Valide l'authenticité (signature HMAC) et la validité temporelle (expiration). Lève `JsonWebTokenError` si la signature est invalide, `TokenExpiredError` si le token est expiré.
+
+
+---
+
+## 9. Décisions de conception par bloc
+
+Cette section explique, bloc par bloc, les choix faits et leur justification. Les bugs rencontrés sont détaillés dans `journal_bugs.md`.
+
+### 9.1 Hygiène du dépôt (avant le bloc 12)
+
+- **`.gitattributes` plutôt que `core.autocrlf`.** `core.autocrlf` est un réglage de chaque poste : deux machines configurées différemment produisent de faux fichiers modifiés. Un `.gitattributes` est versionné, donc la même règle s'applique partout : texte en LF, scripts Windows (`.bat`, `.cmd`, `.ps1`) en CRLF, binaires sans conversion.
+- **Renormalisation ciblée.** Seuls quatre fichiers étaient stockés en CRLF. Ils ont été renormalisés en les nommant un par un (`git add --renormalize -- <fichiers>`), dans un commit séparé de la règle. Un `git add --renormalize .` aurait aussi pris des fichiers modifiés sans rapport.
+- **`npm test` portable.** Le script appelle `node_modules/jest/bin/jest.js`, le vrai fichier JavaScript de Jest, plutôt que le raccourci `node_modules/.bin/jest`, qui dépend du système.
+
+### 9.2 Bloc 12 — Frontend branché à l'API
+
+- **Deux clients HTTP, deux rôles.** `api/client.js` sert à la connexion et à l'inscription : un 401 y signifie « mauvais mot de passe » et s'affiche dans le formulaire. `services/api.js` sert aux pages protégées : un 401 y signifie « jeton expiré ou invalide ». Le client efface alors le jeton, range un message dans `sessionStorage` et renvoie vers `/login`, où le composant `SessionNotice` l'affiche une seule fois. `sessionStorage` disparaît à la fermeture de l'onglet : un vieux message ne réapparaît pas.
+- **URL relatives (`/api/...`).** Le proxy de Vite (`vite.config.js`) transmet `/api` au backend. Le navigateur ne voit qu'une origine (`localhost:5173`), il n'y a donc pas de requête cross-origin et le frontend ne dépend plus d'une adresse de backend codée en dur.
+- **Envoi de fichiers.** Avec un `FormData`, le client ne fixe **pas** `Content-Type` : le navigateur doit l'écrire lui-même avec la « boundary » qui sépare les parties du multipart. Le fixer à la main casse l'envoi.
+- **Une seule source pour les statuts.** `utils/labels.js` reprend exactement les valeurs permises par les contraintes `CHECK` de la base (`planned`, `processing`, `done`...). Avant, chaque page avait sa propre liste, et celle de la page Réunions utilisait des valeurs inexistantes.
+- **Fonctions pures testées sans dépendance.** Les calculs de dates (`utils/dates.js`) ne dépendent pas de React. Ils sont testés avec le testeur intégré à Node (`node --test`, script `npm test` du frontend), ce qui évite d'ajouter un outil de test au projet. L'heure courante est un paramètre (`now`), pour que les tests ne dépendent pas du moment où ils tournent.
+- **Échéances lues en UTC.** Le backend fixe une date sans heure à 17 h UTC (BUG-03). Le frontend l'affiche donc avec `timeZone: 'UTC'`, ce qui garde le bon jour quel que soit le fuseau du navigateur.
+- **Vérifier les variables CSS.** Une variable inexistante ne produit aucune erreur. Cette commande (Git Bash, depuis `Projet/Frontend`) liste les `var(--…)` utilisées dans `src` mais absentes d'`index.css` ; seules celles de l'ancien `App.css`, qui n'est plus importé, doivent rester :
+
+  ```bash
+  for v in $(grep -rhoE "var\(--[a-z0-9-]+" src | sed 's/var(//' | sort -u); do grep -q -- "$v:" src/index.css || echo "$v"; done
+  ```
+- **Pastilles d'état réelles.** `GET /api/health` renvoie `services.ai` (une clé Gemini est-elle configurée ?) et `services.email` (`smtp` ou `console`). Ce sont des indicateurs, jamais des secrets. L'en-tête affiche « IA non configurée » ou « Courriels simulés » au lieu d'une pastille « IA active » codée en dur.
 
 ---
 
