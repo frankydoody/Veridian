@@ -47,6 +47,25 @@ const run = (command, args, { timeoutMs } = {}) => new Promise((resolve, reject)
 // Dernière ligne utile de la sortie d'erreur (souvent la vraie cause)
 const lastLine = (text) => text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).pop() || '';
 
+// Sur du silence ou du bruit, Whisper « invente » des phrases fréquentes dans ses données
+// d'entraînement (sous-titres de vidéos). Une transcription ENTIÈRE réduite à l'une d'elles
+// est traitée comme « aucune parole ». On compare toute la transcription, jamais un fragment :
+// une vraie réunion qui contient « merci » n'est pas touchée.
+const SILENCE_HALLUCINATIONS = [
+  'merci', 'merci beaucoup', 'merci d\'avoir regardé', 'merci de votre attention', 'au revoir',
+  'sous-titres réalisés par la communauté d\'amara.org', 'sous-titrage st\' 501', 'sous-titrage société radio-canada',
+  'thank you', 'thanks for watching', 'thank you for watching', 'bye', 'you',
+];
+
+const normalizeForCheck = (text) => text.toLowerCase().replace(/[’`]/g, '\'')
+  .replace(/[.!?…,\s]+/g, ' ').trim();
+
+export const isLikelySilenceHallucination = (text) => {
+  const normalized = normalizeForCheck(String(text ?? ''));
+  if (!normalized) return true;
+  return SILENCE_HALLUCINATIONS.some((phrase) => normalized === normalizeForCheck(phrase));
+};
+
 let ffmpegChecked = false;
 export const checkFfmpeg = async () => {
   if (ffmpegChecked) return;
@@ -108,7 +127,9 @@ export const transcribeAudio = async (audioPath) => {
     }
 
     const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-    return String(data.text ?? '').trim();
+    const text = String(data.text ?? '').trim();
+    // Silence « transcrit » en phrase inventée → texte vide (l'appelant signale « aucune parole »)
+    return isLikelySilenceHallucination(text) ? '' : text;
   } finally {
     // Nettoyage dans tous les cas (succès, erreur, délai dépassé)
     fs.rmSync(jsonPath, { force: true });

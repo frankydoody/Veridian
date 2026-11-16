@@ -26,7 +26,7 @@ const spawn = jest.fn((command, args) => {
 });
 jest.unstable_mockModule('child_process', () => ({ spawn }));
 
-const { transcribeAudio, resetFfmpegCheck } = await import('../../src/services/whisper.service.js');
+const { transcribeAudio, resetFfmpegCheck, isLikelySilenceHallucination } = await import('../../src/services/whisper.service.js');
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'veridian-whisper-'));
 const audio = path.join(dir, 'reunion.webm');
@@ -40,6 +40,19 @@ beforeEach(() => {
   fs.rmSync(json, { force: true });
 });
 afterEach(() => { delete process.env.WHISPER_TIMEOUT_MIN; });
+
+describe('isLikelySilenceHallucination', () => {
+  test('phrases inventées par Whisper sur du silence', () => {
+    expect(isLikelySilenceHallucination('Merci.')).toBe(true);
+    expect(isLikelySilenceHallucination(' Sous-titres réalisés par la communauté d’Amara.org ')).toBe(true);
+    expect(isLikelySilenceHallucination('Thank you.')).toBe(true);
+    expect(isLikelySilenceHallucination('')).toBe(true);
+  });
+  test('une vraie réunion contenant « merci » n\'est jamais rejetée', () => {
+    expect(isLikelySilenceHallucination('Merci. Marie prépare les maquettes pour vendredi.')).toBe(false);
+    expect(isLikelySilenceHallucination('On a décidé d\'utiliser React.')).toBe(false);
+  });
+});
 
 describe('transcribeAudio', () => {
   test('succès : renvoie le texte et supprime le JSON temporaire', async () => {
@@ -72,6 +85,11 @@ describe('transcribeAudio', () => {
     scenarios.push({ code: 0 }, { hang: true });
     await expect(transcribeAudio(audio)).rejects.toThrow(/dépassé.*WHISPER_TIMEOUT_MIN/);
     expect(spawned[1].proc.kill).toHaveBeenCalled();
+  });
+
+  test('silence « transcrit » en phrase inventée (régression BUG-24) → texte vide', async () => {
+    scenarios.push({ code: 0 }, { code: 0, writeJson: { path: json, content: { text: ' Thank you.' } } });
+    await expect(transcribeAudio(audio)).resolves.toBe('');
   });
 
   test('ffmpeg n\'est vérifié qu\'une fois tant qu\'il est trouvé', async () => {
