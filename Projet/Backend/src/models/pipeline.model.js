@@ -78,9 +78,9 @@ export const persistAnalysis = async (meeting, userId, normalized) => {
         continue;
       }
       const created = await client.query(
-        `INSERT INTO projects (name, description, owner_id)
-         VALUES ($1, $2, $3) RETURNING id, name`,
-        [ref.name, ref.description || 'Projet créé automatiquement à partir d\'une réunion.', userId]
+        `INSERT INTO projects (name, description, owner_id, source_meeting_id)
+         VALUES ($1, $2, $3, $4) RETURNING id, name`,
+        [ref.name, ref.description || 'Projet créé automatiquement à partir d\'une réunion.', userId, meeting.id]
       );
       await client.query(
         `INSERT INTO project_members (project_id, user_id, role) VALUES ($1, $2, 'owner')`,

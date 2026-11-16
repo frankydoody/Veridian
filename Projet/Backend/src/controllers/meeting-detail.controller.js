@@ -29,7 +29,7 @@ export const getMeetingDetailsHandler = async (req, res, next) => {
     const meeting = await loadMeeting(req, res);
     if (!meeting) return;
 
-    const details = await findMeetingDetails(meeting.id);
+    const details = await findMeetingDetails(meeting.id, req.user.id);
     // Le nom du fichier sur le disque ne regarde pas le client : seulement « y a-t-il un audio ? »
     const { audio_path: audioPath, ...publicMeeting } = meeting;
 
