@@ -3,6 +3,10 @@
 @token = COLLE_TON_TOKEN_ICI
 
 ### Health Check
+# Bloc 12 : renvoie aussi l'état des services, sans aucun secret :
+# { "status": "ok", "services": { "ai": true, "email": "console" } }
+#   ai    : une clé GEMINI_API_KEY est configurée
+#   email : "smtp" (courriels réellement envoyés) ou "console" (affichés dans le terminal du backend)
 GET {{baseUrl}}/health
 
 ### Inscription

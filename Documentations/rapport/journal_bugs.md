@@ -80,3 +80,43 @@ test (comment on s'assure qu'il ne revient pas) → leçon.
 - **Correction** : textes corrigés (Gemini pour l'analyse, Whisper exécuté localement pour la transcription).
 - **Test** : `git grep -n -i "api_key"` ne montre que `GEMINI_API_KEY`.
 - **Leçon** : la documentation fait partie du code. Elle se met à jour dans le même bloc que le changement qu'elle décrit.
+
+### BUG-10 — « il y a -2880 min » pour une réunion future
+- **Bloc** : 12
+- **Symptôme** : dans l'activité récente du tableau de bord, la réunion planifiée affichait « il y a -2880 min ».
+- **Cause** : `formatRelative` calculait `maintenant - date` sans prévoir le futur. Pour une réunion prévue dans 2 jours, la différence est négative (−2 880 minutes), donc inférieure à 60, et la fonction tombait dans la branche « minutes ».
+- **Correction** : `formatRelative` déplacée dans `Frontend/src/utils/dates.js`. Elle travaille sur la valeur absolue de l'écart et choisit « il y a … » ou « dans … » selon le signe.
+- **Test** : `src/utils/dates.test.js`, test « formatRelative : futur » (`npm test` dans `Projet/Frontend`) : une date dans 2 jours donne « dans 2 jours » et ne contient jamais de signe moins.
+- **Leçon** : une durée calculée par soustraction peut être négative. Il faut traiter les deux signes, ou les refuser explicitement.
+
+### BUG-11 — Filtres de la page Réunions toujours vides
+- **Bloc** : 12
+- **Symptôme** : les onglets « En cours » et « Terminées » de la page Réunions n'affichaient jamais rien, et les badges de statut étaient sans couleur.
+- **Cause** : la page filtrait sur `in_progress` et `completed`, des valeurs qui n'existent pas dans la base. La contrainte `CHECK` de `meetings.status` n'accepte que `planned`, `active`, `processing`, `done` et `cancelled`. Chaque page tenait sa propre liste de statuts.
+- **Correction** : `Frontend/src/utils/labels.js` regroupe les statuts (réunion, analyse, tâche, priorité, gravité) avec les clés exactes de la base. Les pages Réunions et Tableau de bord l'utilisent.
+- **Test** : avec les données de test, l'onglet « Terminées » affiche les réunions terminées et « Planifiées » la réunion à venir.
+- **Leçon** : une valeur qui vient de la base doit être recopiée depuis la base (contrainte `CHECK`), pas devinée. Une seule liste partagée évite que les pages divergent.
+
+### BUG-12 — Couleurs absentes (variables CSS non définies)
+- **Bloc** : 12
+- **Symptôme** : badges sans fond, sous-titres de la même couleur que les titres, messages d'erreur sans couleur rouge.
+- **Cause** : plusieurs pages utilisaient `var(--color-text-1)`, `var(--color-text-2)`, `var(--color-ai-muted)`, `var(--color-success-muted)`, `var(--color-danger)` et `var(--color-danger-muted)`, qui n'étaient définies nulle part. Le navigateur ignore silencieusement une variable inexistante.
+- **Correction** : ces noms sont définis dans `Frontend/src/index.css`, comme alias des couleurs existantes de la palette.
+- **Test** : `npm run build`, puis rechercher `--color-text-2` dans `dist/assets/*.css`. Une commande compare la liste des `var(--…)` utilisées dans `src` à celles définies dans `index.css` (voir le guide de développement, bloc 12).
+- **Leçon** : une faute de frappe dans une variable CSS ne produit aucune erreur. Il faut la vérifier par une recherche plutôt que d'attendre de la voir à l'écran.
+
+### BUG-13 — Erreurs de chargement invisibles
+- **Bloc** : 12
+- **Symptôme** : si le backend était arrêté, le tableau de bord affichait « Aucune activité récente » et la page Mémoire une liste de projets vide, comme si tout allait bien.
+- **Cause** : les erreurs étaient avalées : `console.error` seulement dans le tableau de bord, `.catch(() => {})` vide dans la page Mémoire.
+- **Correction** : état d'erreur affiché dans ces deux pages ; le client API transforme une panne réseau en message clair (« Serveur injoignable… »).
+- **Test** : arrêter le backend, recharger la page : le message d'erreur s'affiche.
+- **Leçon** : un `catch` vide transforme une panne en donnée fausse (« rien à afficher »). Chaque page distingue trois états : chargement, vide et erreur.
+
+### BUG-14 — Données codées en dur dans l'interface
+- **Bloc** : 12
+- **Symptôme** : « Bonjour, Francis » pour un utilisateur sans nom, et une pastille « IA active » toujours affichée, même sans clé Gemini.
+- **Cause** : valeurs écrites directement dans `DashboardPage.jsx` et `Layout.jsx` pendant la maquette.
+- **Correction** : le prénom vient uniquement de l'utilisateur connecté. Le composant `ServiceStatus` lit l'état réel des services dans `GET /api/health`.
+- **Test** : retirer `GEMINI_API_KEY` du `.env` et relancer le backend : la pastille devient « IA non configurée ».
+- **Leçon** : une maquette qui ment (« IA active ») est pire que pas d'indicateur. Elle cache précisément la panne qu'on cherche.
