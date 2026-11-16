@@ -90,6 +90,41 @@ async function request(method, path, body = null, { as = 'json', signal } = {}) 
   return res.json().catch(() => ({}))
 }
 
+/**
+ * Envoi d'un fichier AVEC progression (bloc 20). fetch ne sait pas mesurer la progression
+ * d'un envoi : XMLHttpRequest, oui (xhr.upload.onprogress).
+ * @param onProgress  appelée avec un nombre de 0 à 100
+ * @returns la réponse JSON du serveur
+ */
+export function uploadWithProgress(path, formData, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', `${BASE_URL}${path}`)
+    const token = getToken()
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100))
+    }
+    xhr.onerror = () => reject(new ApiError(
+      'Connexion perdue pendant l\'envoi. L\'enregistrement est conservé : vous pouvez réessayer.', 0))
+    xhr.onload = () => {
+      let data = {}
+      try { data = JSON.parse(xhr.responseText || '{}') } catch { /* réponse non JSON */ }
+      if (xhr.status === 401) {
+        handleUnauthorized()
+        reject(new ApiError(SESSION_EXPIRED_MESSAGE, 401))
+      } else if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(data)
+      } else {
+        const fallback = xhr.status === 413 ? 'Fichier trop volumineux.' : `Erreur serveur (${xhr.status})`
+        reject(new ApiError(data.message || fallback, xhr.status, data))
+      }
+    }
+    xhr.send(formData)
+  })
+}
+
 export const api = {
   get:    (path, opts)       => request('GET',    path, null, opts),
   post:   (path, body, opts) => request('POST',   path, body, opts),
