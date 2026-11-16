@@ -22,7 +22,7 @@ describe('GET /api/health', () => {
     const res = await request(app).get('/api/health');
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: 'ok', services: { ai: true, email: 'smtp' } });
+    expect(res.body).toEqual({ status: 'ok', services: { ai: true, email: 'smtp' }, limits: { audioMb: 200 } });
     expect(JSON.stringify(res.body)).not.toContain('AIza');
     expect(JSON.stringify(res.body)).not.toContain('smtp.exemple.com');
   });
