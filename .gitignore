@@ -9,7 +9,7 @@ node_modules/
 # ========================
 # VARIABLES D'ENVIRONNEMENT
 # ========================
-# Ces fichiers contiennent tes clés API (OpenAI, Anthropic) et
+# Ces fichiers contiennent la clé API Gemini, le secret JWT et les
 # mots de passe de base de données. JAMAIS dans Git.
 .env
 .env.local

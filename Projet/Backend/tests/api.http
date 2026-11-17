@@ -3,6 +3,10 @@
 @token = COLLE_TON_TOKEN_ICI
 
 ### Health Check
+# Bloc 12 : renvoie aussi l'état des services, sans aucun secret :
+# { "status": "ok", "services": { "ai": true, "email": "console" } }
+#   ai    : une clé GEMINI_API_KEY est configurée
+#   email : "smtp" (courriels réellement envoyés) ou "console" (affichés dans le terminal du backend)
 GET {{baseUrl}}/health
 
 ### Inscription
@@ -126,4 +130,162 @@ Authorization: Bearer {{token}}
 
 ### ─── Bloc 09 : export PDF du projet ─────────────────────────────────────
 GET {{baseUrl}}/projects/COLLE_PROJECT_ID_ICI/export/pdf
+Authorization: Bearer {{token}}
+
+### ─── Bloc 19 : pipeline IA (projets, décisions, tâches, courriels) ──────
+### 1. Transcription fournie en texte (remplace audio + Whisper) ; lance l'analyse automatiquement
+POST {{baseUrl}}/transcriptions/text
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "meetingId": "COLLE_MEETING_ID_ICI",
+  "rawText": "Marie configurera Cloudflare Pages avant le 12 novembre. Samuel fera les maquettes du nouveau portail fournisseurs. On a décidé de construire le portail avec React.",
+  "autoAnalyze": false
+}
+
+### 2. Lancer l'analyse et attendre le résultat (?notify=false pour ne pas envoyer de courriels)
+POST {{baseUrl}}/meetings/COLLE_MEETING_ID_ICI/analyze?wait=true
+Authorization: Bearer {{token}}
+
+### 3. Lancer l'analyse en arrière-plan (202), puis consulter l'état
+POST {{baseUrl}}/meetings/COLLE_MEETING_ID_ICI/analyze
+Authorization: Bearer {{token}}
+
+###
+GET {{baseUrl}}/meetings/COLLE_MEETING_ID_ICI/analysis
+Authorization: Bearer {{token}}
+
+### ─── Bloc 13 : membres d'un projet ─────────────────────────────────────
+### Lister les membres (tout membre du projet ; un non-membre reçoit 404)
+GET {{baseUrl}}/projects/COLLE_PROJECT_ID_ICI/members
+Authorization: Bearer {{token}}
+
+### Ajouter un membre : courriel EXACT d'un compte existant (propriétaire seulement)
+# 201 ajouté · 400 courriel invalide · 403 pas propriétaire · 404 aucun compte · 409 déjà membre
+POST {{baseUrl}}/projects/COLLE_PROJECT_ID_ICI/members
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "email": "marie.tremblay@example.com"
+}
+
+### Retirer un membre (retrait logique ; jamais le propriétaire → 400)
+DELETE {{baseUrl}}/projects/COLLE_PROJECT_ID_ICI/members/COLLE_USER_ID_ICI
+Authorization: Bearer {{token}}
+
+### ─── Bloc 13 : tâches ──────────────────────────────────────────────────
+### Créer une tâche : l'acteur (assignee_id) doit être membre du projet, sinon 400
+# due_date « AAAA-MM-JJ » est enregistrée à 17 h UTC (même jour dans tous les fuseaux)
+POST {{baseUrl}}/tasks
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "Préparer les maquettes du portail",
+  "description": "Pages d'accueil et de commande",
+  "priority": "haute",
+  "project_id": "COLLE_PROJECT_ID_ICI",
+  "assignee_id": "COLLE_USER_ID_ICI",
+  "due_date": "2026-12-04"
+}
+
+### Modifier une tâche : seuls les champs envoyés changent (assignee_id: null retire l'acteur)
+PUT {{baseUrl}}/tasks/COLLE_TASK_ID_ICI
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "priority": "basse",
+  "status": "in_progress",
+  "assignee_id": null
+}
+
+### Supprimer une tâche (suppression logique ; créateur ou propriétaire du projet)
+DELETE {{baseUrl}}/tasks/COLLE_TASK_ID_ICI
+Authorization: Bearer {{token}}
+
+### Identifiant mal formé → 400 (et non plus 500)
+GET {{baseUrl}}/projects/pas-un-uuid
+Authorization: Bearer {{token}}
+
+### ─── Bloc 14 : page de détail d'une réunion ────────────────────────────
+### Tout le détail en un appel : réunion (has_audio), transcription, décisions, tâches,
+### contradictions, risques, courriels. Non-membre → 404.
+GET {{baseUrl}}/meetings/COLLE_MEETING_ID_ICI/details
+Authorization: Bearer {{token}}
+
+### Audio de la réunion (après vérification d'appartenance) ; 404 s'il n'y en a pas
+GET {{baseUrl}}/meetings/COLLE_MEETING_ID_ICI/audio
+Authorization: Bearer {{token}}
+
+### Audio : lecture partielle (le lecteur l'utilise pour avancer) → 206 Partial Content
+GET {{baseUrl}}/meetings/COLLE_MEETING_ID_ICI/audio
+Authorization: Bearer {{token}}
+Range: bytes=0-1023
+
+### ─── Bloc 20 : envoyer un enregistrement ────────────────────────────────
+### Envoi d'un fichier audio : répond 202 TOUT DE SUITE, Whisper tourne en arrière-plan.
+# 400 sans fichier · 404 non-membre · 409 transcription déjà en cours · 413 trop gros · 415 type refusé
+# Mettre un vrai fichier audio à côté de ce fichier (ex. reunion.mp3) ; autoAnalyze=false = transcription seule
+POST {{baseUrl}}/transcriptions/upload
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=VeridianBoundary
+
+--VeridianBoundary
+Content-Disposition: form-data; name="meetingId"
+
+COLLE_MEETING_ID_ICI
+--VeridianBoundary
+Content-Disposition: form-data; name="autoAnalyze"
+
+true
+--VeridianBoundary
+Content-Disposition: form-data; name="audio"; filename="reunion.mp3"
+Content-Type: audio/mpeg
+
+< ./reunion.mp3
+--VeridianBoundary--
+
+### Suivre le traitement : transcription_status puis analysis_status (none | processing | done | error)
+GET {{baseUrl}}/meetings/COLLE_MEETING_ID_ICI/analysis
+Authorization: Bearer {{token}}
+
+### ─── Bloc 21 : résultats, relance, tableau de bord ──────────────────────
+### Relancer l'analyse d'une réunion : 202, puis suivre analysis_status avec /analysis
+# 409 si une transcription ou une analyse est déjà en cours ; 404 sans transcription
+POST {{baseUrl}}/meetings/COLLE_MEETING_ID_ICI/analyze
+Authorization: Bearer {{token}}
+
+### Détail : « projects » indique pour chaque projet s'il a été créé par cette réunion (is_new)
+GET {{baseUrl}}/meetings/COLLE_MEETING_ID_ICI/details
+Authorization: Bearer {{token}}
+
+### Tableau de bord : compteurs réels de l'utilisateur connecté et prochaines échéances
+GET {{baseUrl}}/dashboard
+Authorization: Bearer {{token}}
+
+### ─── Bloc 16 : calendrier ──────────────────────────────────────────────
+### Créer une réunion avec une date prévue (instant ISO ; le navigateur convertit l'heure locale)
+POST {{baseUrl}}/meetings
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "projectId": "COLLE_PROJECT_ID_ICI",
+  "title": "Planification",
+  "scheduledAt": "2026-12-05T19:30:00.000Z"
+}
+
+### Calendrier de tous mes projets : réunions et échéances entre deux jours (bornes incluses, 92 jours au plus)
+GET {{baseUrl}}/calendar?from=2026-11-30&to=2027-01-10
+Authorization: Bearer {{token}}
+
+### Calendrier d'un seul projet (404 si je n'en suis pas membre)
+GET {{baseUrl}}/calendar?from=2026-11-30&to=2027-01-10&projectId=COLLE_PROJECT_ID_ICI
+Authorization: Bearer {{token}}
+
+### Plage invalide → 400
+GET {{baseUrl}}/calendar?from=2026-01-01&to=2026-12-31
 Authorization: Bearer {{token}}

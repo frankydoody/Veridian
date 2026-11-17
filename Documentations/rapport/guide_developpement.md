@@ -15,6 +15,7 @@
 6. [Connexion à PostgreSQL](#6-connexion-à-postgresql)
 7. [Schéma SQL — Modélisation de la base de données](#7-schéma-sql--modélisation-de-la-base-de-données)
 8. [Utilitaires de sécurité](#8-utilitaires-de-sécurité)
+9. [Décisions de conception par bloc](#9-décisions-de-conception-par-bloc)
 
 ---
 
@@ -31,8 +32,8 @@ Les outils actuels de transcription automatique, tels qu'Otter.ai et Fireflies.a
 Veridian est une application web complète qui permet aux équipes d'entreprise de :
 
 - Enregistrer automatiquement les réunions directement depuis le navigateur
-- Transcrire l'audio via l'API OpenAI Whisper
-- Extraire les décisions structurées via l'API Anthropic Claude
+- Transcrire l'audio avec Whisper, exécuté localement (aucune donnée envoyée à un service externe)
+- Extraire les décisions, les tâches et les acteurs avec l'API Google Gemini
 - Maintenir une mémoire organisationnelle vectorielle persistante (RAG + pgvector)
 - Détecter automatiquement les contradictions entre décisions
 - Interroger l'historique en langage naturel via un chat IA
@@ -58,7 +59,7 @@ Veridian suit une architecture **client-serveur en trois couches** :
 ```
 
 - **Frontend (React/Vite)** : Interface utilisateur exécutée dans le navigateur. Gère l'enregistrement audio, l'affichage des décisions, le chat et la gestion des projets.
-- **Backend (Node.js/Express)** : Serveur API REST qui traite les requêtes du frontend, appelle les APIs externes (Whisper, Claude) et gère la base de données.
+- **Backend (Node.js/Express)** : Serveur API REST qui traite les requêtes du frontend, lance Whisper en local, appelle l'API Gemini et gère la base de données.
 - **Base de données (PostgreSQL + pgvector)** : Stocke les données relationnelles (utilisateurs, projets, décisions) et les vecteurs d'embeddings pour la recherche sémantique.
 
 ### 1.4 Structure du dépôt
@@ -345,7 +346,7 @@ Desktop.ini
 **Explication des exclusions critiques :**
 
 - **`node_modules/`** : Dossier contenant les dépendances npm téléchargées. Peut contenir plus de 50 000 fichiers et peser plusieurs centaines de Mo. Ce dossier est régénéré par `npm install` et ne doit jamais être versionné.
-- **`.env`** : Contient les clés API (OpenAI, Anthropic) et les mots de passe de base de données. Si ce fichier est commité sur GitHub, ces informations sensibles sont exposées publiquement. C'est la règle de sécurité la plus importante du projet.
+- **`.env`** : Contient la clé API Gemini, le secret JWT, les identifiants SMTP et les mots de passe de base de données. Si ce fichier est commité sur GitHub, ces informations sensibles sont exposées publiquement. C'est la règle de sécurité la plus importante du projet.
 - **`uploads/`** : Fichiers audio temporaires uploadés par les utilisateurs. Ces fichiers sont traités puis supprimés — ils n'ont pas de valeur permanente.
 
 **Règles de syntaxe `.gitignore` :**
@@ -1014,6 +1015,97 @@ Contrairement aux sessions côté serveur (qui nécessitent un stockage partagé
 **`jwt.sign(payload, secret, options)`** : Génère un token signé. Le payload est encodé (Base64URL) mais non chiffré — il est lisible par décodage. Ne jamais y inclure de données sensibles (mot de passe, numéro de carte de crédit).
 
 **`jwt.verify(token, secret)`** : Valide l'authenticité (signature HMAC) et la validité temporelle (expiration). Lève `JsonWebTokenError` si la signature est invalide, `TokenExpiredError` si le token est expiré.
+
+
+---
+
+## 9. Décisions de conception par bloc
+
+Cette section explique, bloc par bloc, les choix faits et leur justification. Les bugs rencontrés sont détaillés dans `journal_bugs.md`.
+
+### 9.1 Hygiène du dépôt (avant le bloc 12)
+
+- **`.gitattributes` plutôt que `core.autocrlf`.** `core.autocrlf` est un réglage de chaque poste : deux machines configurées différemment produisent de faux fichiers modifiés. Un `.gitattributes` est versionné, donc la même règle s'applique partout : texte en LF, scripts Windows (`.bat`, `.cmd`, `.ps1`) en CRLF, binaires sans conversion.
+- **Renormalisation ciblée.** Seuls quatre fichiers étaient stockés en CRLF. Ils ont été renormalisés en les nommant un par un (`git add --renormalize -- <fichiers>`), dans un commit séparé de la règle. Un `git add --renormalize .` aurait aussi pris des fichiers modifiés sans rapport.
+- **`npm test` portable.** Le script appelle `node_modules/jest/bin/jest.js`, le vrai fichier JavaScript de Jest, plutôt que le raccourci `node_modules/.bin/jest`, qui dépend du système.
+
+### 9.2 Bloc 12 — Frontend branché à l'API
+
+- **Deux clients HTTP, deux rôles.** `api/client.js` sert à la connexion et à l'inscription : un 401 y signifie « mauvais mot de passe » et s'affiche dans le formulaire. `services/api.js` sert aux pages protégées : un 401 y signifie « jeton expiré ou invalide ». Le client efface alors le jeton, range un message dans `sessionStorage` et renvoie vers `/login`, où le composant `SessionNotice` l'affiche une seule fois. `sessionStorage` disparaît à la fermeture de l'onglet : un vieux message ne réapparaît pas.
+- **URL relatives (`/api/...`).** Le proxy de Vite (`vite.config.js`) transmet `/api` au backend. Le navigateur ne voit qu'une origine (`localhost:5173`), il n'y a donc pas de requête cross-origin et le frontend ne dépend plus d'une adresse de backend codée en dur.
+- **Envoi de fichiers.** Avec un `FormData`, le client ne fixe **pas** `Content-Type` : le navigateur doit l'écrire lui-même avec la « boundary » qui sépare les parties du multipart. Le fixer à la main casse l'envoi.
+- **Une seule source pour les statuts.** `utils/labels.js` reprend exactement les valeurs permises par les contraintes `CHECK` de la base (`planned`, `processing`, `done`...). Avant, chaque page avait sa propre liste, et celle de la page Réunions utilisait des valeurs inexistantes.
+- **Fonctions pures testées sans dépendance.** Les calculs de dates (`utils/dates.js`) ne dépendent pas de React. Ils sont testés avec le testeur intégré à Node (`node --test`, script `npm test` du frontend), ce qui évite d'ajouter un outil de test au projet. L'heure courante est un paramètre (`now`), pour que les tests ne dépendent pas du moment où ils tournent.
+- **Échéances lues en UTC.** Le backend fixe une date sans heure à 17 h UTC (BUG-03). Le frontend l'affiche donc avec `timeZone: 'UTC'`, ce qui garde le bon jour quel que soit le fuseau du navigateur.
+- **Vérifier les variables CSS.** Une variable inexistante ne produit aucune erreur. Cette commande (Git Bash, depuis `Projet/Frontend`) liste les `var(--…)` utilisées dans `src` mais absentes d'`index.css` ; seules celles de l'ancien `App.css`, qui n'est plus importé, doivent rester :
+
+  ```bash
+  for v in $(grep -rhoE "var\(--[a-z0-9-]+" src | sed 's/var(//' | sort -u); do grep -q -- "$v:" src/index.css || echo "$v"; done
+  ```
+- **Pastilles d'état réelles.** `GET /api/health` renvoie `services.ai` (une clé Gemini est-elle configurée ?) et `services.email` (`smtp` ou `console`). Ce sont des indicateurs, jamais des secrets. L'en-tête affiche « IA non configurée » ou « Courriels simulés » au lieu d'une pastille « IA active » codée en dur.
+
+
+### 9.3 Bloc 13 — Formulaires et membres
+
+- **Ajouter un membre par courriel exact, sans route de recherche.** Une route `GET /api/users?search=` permettrait de parcourir la liste des comptes. L'ajout se fait plutôt avec le courriel **complet** d'un compte existant (`POST /api/projects/:id/members`), et seul le propriétaire du projet peut le faire. La réponse ne contient jamais `password_hash`.
+- **404 ou 403 ?** Une personne qui n'est pas membre d'un projet reçoit toujours 404, comme si le projet n'existait pas : on ne lui révèle rien. Un membre qui tente une action réservée au propriétaire (ajouter ou retirer un membre, supprimer la tâche d'un autre) reçoit 403 : il connaît déjà le projet, donc le 403 ne révèle rien de plus et lui explique pourquoi l'action est refusée. C'est la même règle que la modification d'un projet (bloc 03).
+- **Réactiver plutôt que dupliquer.** La clé primaire de `project_members` est `(user_id, project_id)`. Comme un membre retiré garde sa ligne (`is_active = false`), le réajouter avec un simple `INSERT` violerait la clé. On utilise `INSERT … ON CONFLICT DO UPDATE SET is_active = true WHERE project_members.is_active = false` : une seule requête crée ou réactive la ligne. Si rien n'est renvoyé, la personne était déjà membre (409).
+- **L'acteur d'une tâche est un membre du projet.** Le serveur vérifie `isActiveMember` à la création et à la modification (400 sinon). Le formulaire ne propose de toute façon que les membres du projet choisi. Les deux contrôles sont nécessaires : le second guide l'utilisateur, le premier protège contre un appel direct à l'API.
+- **Modification partielle sans injection SQL.** `PUT /api/tasks/:id` ne modifie que les champs envoyés. La requête est construite à partir d'une **liste fixe** de colonnes autorisées ; les valeurs passent toutes par des paramètres `$1, $2…`. Aucun texte venant de la requête n'est collé dans le SQL.
+- **Suppression logique des tâches.** Comme pour les autres tables, une tâche supprimée garde sa ligne (`is_active = false`, migration 011). L'historique reste disponible pour l'analyse des risques et le rapport.
+- **Validation à deux niveaux.** `Frontend/src/utils/validation.js` reprend les limites du serveur (`Backend/src/utils/validation.utils.js`) : 150 caractères pour un nom de projet, 200 pour un titre, 2000 pour une description. Le client affiche l'erreur à côté du champ sans appel réseau, et le serveur reste la vraie protection.
+- **Formulaires accessibles.** Chaque champ a une étiquette reliée (`htmlFor`/`id`), et les erreurs sont annoncées (`role="alert"`). La fenêtre de dialogue se ferme avec Échap et place le focus sur le premier champ.
+- **Tests sur vraie base.** `tests/integration/formulaires.it.mjs` traverse les vraies routes (`supertest`) avec PostgreSQL : il vérifie les codes d'accès (404 pour un externe, 403 pour un membre non propriétaire), la réactivation d'un membre et la suppression logique.
+
+
+### 9.4 Bloc 14 — Page de détail d'une réunion
+
+- **Une route agrégée.** `GET /api/meetings/:id/details` fait **une** vérification d'appartenance, puis lance six requêtes indépendantes en parallèle (`Promise.all`) : transcription, décisions, tâches, contradictions, risques, courriels. Appeler six routes depuis la page aurait demandé six allers-retours et six vérifications d'accès.
+- **Toutes les tâches de la réunion.** La page montre les tâches extraites par l'analyse **et** celles ajoutées à la main (`meeting_id`), sauf les tâches supprimées. `GET /api/meetings/:id/analysis` (bloc 19) ne montre que le résultat de l'analyse.
+- **Contradictions dans les deux sens.** Une alerte s'affiche sur la réunion de la nouvelle décision **et** sur celle de la décision contredite (`nd.meeting_id = $1 OR cd.meeting_id = $1`).
+- **Audio protégé.** Une balise `<audio src="/api/...">` ne peut pas envoyer l'en-tête `Authorization`. Rendre la route publique permettrait à quiconque connaît l'adresse d'écouter la réunion. La page télécharge donc le fichier avec le jeton (`api.blob`), crée une adresse locale (`URL.createObjectURL`) et la libère en quittant la page (`URL.revokeObjectURL`). Le serveur répond avec `res.sendFile`, qui gère l'en-tête `Range` (réponse 206) : le lecteur peut avancer sans tout retélécharger.
+- **Chemin de fichier sûr.** Seul le **nom** du fichier est gardé en base. `resolveAudioPath` refuse un nom qui contient un dossier (`../`), un chemin absolu, ou qui sortirait du dossier d'envoi. Même une base modifiée ne permettrait pas de lire `.env`. Le client ne reçoit jamais ce nom, seulement `has_audio`.
+- **Transcription modifiable.** La correction passe par `PUT /api/transcriptions/:id` (bloc 05), qui ré-indexe la mémoire. La page affiche le résultat réel de cette ré-indexation : un échec (clé invalide, quota) est montré, pas caché.
+
+
+### 9.5 Bloc 20 — Enregistrer une réunion
+
+- **Traitement en arrière-plan.** Une transcription Whisper sur processeur dure à peu près la durée de l'enregistrement. L'envoi répond donc `202 Accepted` (« reçu, traitement en cours ») dès que le fichier est enregistré. Le traitement (`transcribeMeetingAudioSafely`) est lancé **sans `await`** : la requête se termine, le travail continue dans le processus Node. La variante `…Safely` ne lance jamais d'erreur, ce qui évite une promesse rejetée que personne n'attend ; l'échec est enregistré en base.
+- **Un état consultable.** `meetings.transcription_status` (`none`, `processing`, `done`, `error`) et son message (migration 012) s'ajoutent à `analysis_status` (bloc 19). La page interroge `GET /api/meetings/:id/analysis` toutes les 3 s tant qu'un traitement est en cours. Elle utilise un `setTimeout` relancé après chaque réponse, et non un `setInterval` : si le serveur est lent, les requêtes ne s'empilent pas.
+- **Redémarrage pendant un traitement.** Le travail vivait dans le processus arrêté : il est perdu. Au démarrage, `resetInterruptedProcessing` passe ces réunions en `error` (« Le serveur a redémarré pendant le traitement. Relancez-le. »). Sinon, elles resteraient « en cours » pour toujours. Une file de travaux persistante (par exemple une table de tâches relue au démarrage) serait l'étape suivante, mais elle n'est pas nécessaire pour un seul serveur.
+- **Un seul traitement à la fois par réunion.** Un nouvel envoi pendant une transcription en cours reçoit 409 : deux Whisper sur la même réunion écriraient la même transcription en concurrence.
+- **Audio adopté seulement en cas de succès.** Le nouvel enregistrement ne remplace l'ancien qu'après une transcription réussie. En cas d'échec, l'ancien audio et l'ancienne transcription restent cohérents entre eux.
+- **Enregistrement dans le navigateur.** `getUserMedia({ audio: true })` donne le flux du micro, et `MediaRecorder` l'encode. Le format est choisi avec `MediaRecorder.isTypeSupported` (`audio/webm;codecs=opus` pour Chrome, Edge et Firefox, `audio/mp4` pour Safari). `recorder.start(1000)` remet les données chaque seconde, ce qui évite de tout perdre si un problème survient en cours de route. Le micro est libéré (`track.stop()`) à l'arrêt et en quittant la page. Un indicateur de niveau (`AnalyserNode`) montre que le micro capte bien quelque chose.
+- **`getUserMedia` exige une origine sécurisée** (`https://` ou `http://localhost`). L'application tourne sur `http://localhost:5173`, ce qui convient. Ouverte par l'adresse IP du poste (`http://192.168…`), elle ne pourrait pas enregistrer ; la page l'explique au lieu d'échouer en silence.
+- **Envoi avec progression.** `fetch` ne mesure pas la progression d'un **envoi**, alors que `XMLHttpRequest` le fait (`xhr.upload.onprogress`) : d'où `uploadWithProgress`. Si la connexion est perdue, l'enregistrement reste en mémoire dans la page, avec un bouton « Réessayer l'envoi ».
+- **Extension tirée du type vérifié.** Le serveur nomme le fichier `audio_<horodatage>_<16 caractères aléatoires>.<extension du type>`. Le nom choisi par l'utilisateur n'est jamais utilisé : on ne peut ni deviner l'adresse d'un autre enregistrement ni déposer un fichier `.html`.
+- **Whisper : erreurs actionnables.** ffmpeg est vérifié avant Whisper ; s'il manque, le message donne la commande d'installation. `WHISPER_COMMAND` et `FFMPEG_COMMAND` permettent d'indiquer un chemin complet. Le délai maximal (`WHISPER_TIMEOUT_MIN`) arrête un traitement bloqué. Le fichier JSON temporaire est supprimé dans un `finally`, donc dans tous les cas.
+- **Silence et phrases inventées.** Sur du silence, Whisper produit des phrases de sous-titres (« Merci. », « Thank you. »). Une transcription entière réduite à l'une d'elles est traitée comme « aucune parole » (BUG-24).
+- **Vérification réelle.** `tests/integration/enregistrement.it.mjs` utilise le vrai ffmpeg et le vrai Whisper (seul Gemini est remplacé). Avec un fichier et un mot attendu en arguments, il vérifie aussi le contenu transcrit.
+
+
+### 9.6 Bloc 21 — Résultats de l'analyse, Mes tâches, tableau de bord
+
+- **Projet nouveau ou existant.** La migration 013 ajoute `projects.source_meeting_id`, rempli quand l'analyse crée un projet. On ne déduit rien de la description par défaut, que l'utilisateur peut modifier. Si l'analyse est relancée, l'IA retrouve ce projet comme « existant » et ne le recrée pas, mais la page l'affiche toujours « nouveau, créé par cette réunion ».
+- **Ne pas révéler un projet inaccessible.** La liste des projets d'une réunion est limitée à ceux dont l'utilisateur est membre. Une personne retirée d'un projet créé par la réunion n'en voit plus le nom.
+- **Suivi en direct partagé.** L'état du traitement est détenu par `MeetingView` et transmis à la section Enregistrement et à la section Analyse. Le bouton « Relancer l'analyse » met l'état à `processing`, et le même suivi (toutes les 3 s) prend le relais. Les hooks React ne pouvant pas être appelés après un `return` conditionnel (« Chargement… »), ce rendu est un sous-composant affiché une fois les données chargées.
+- **État écrit avant de répondre.** Un travail lancé en arrière-plan doit avoir son état « en cours » enregistré **avant** la réponse HTTP (BUG-28). Sinon, le client peut lire un état périmé et arrêter le suivi.
+- **Tâches regroupées par acteur.** `groupByActor` crée un groupe par compte. Un nom cité dans la réunion mais sans compte membre du projet forme son propre groupe, marqué « non lié à un compte » : l'analyse ne donne jamais accès à un projet existant (bloc 19).
+- **Mes tâches.** Le filtre « Acteur : Moi » est appliqué par défaut. Le tri par échéance place les tâches sans échéance puis les tâches terminées à la fin. Le statut se change par un menu (à faire, en cours, terminée), plus clair qu'une case à cocher à deux états. Filtres et tri sont des fonctions pures (`utils/tasks.js`), testées sans navigateur.
+- **Compteurs calculés en SQL.** `GET /api/dashboard` compte en base (tâches ouvertes, en retard, alertes ouvertes, réunions du mois) au lieu de télécharger toutes les listes pour les compter dans le navigateur. « En retard » a la même définition côté serveur (`date UTC de l'échéance < date UTC du jour`) et côté client (`isOverdue`), sinon le compteur et la liste ne seraient pas d'accord. `COUNT(*)` renvoie un `bigint`, que le pilote `pg` transmet sous forme de texte : on le convertit en nombre.
+- **Une échéance passée n'est pas acceptée de l'IA.** L'analyse remplace une date déjà passée par une date estimée selon la priorité (`resolveDueDate`, bloc 19) : une tâche qui vient d'être créée ne peut pas déjà être en retard.
+
+### 9.7 Bloc 16 — Calendrier de projet
+
+- **Une date prévue pour la réunion.** Sans elle, le calendrier ne pourrait montrer que la date de création, ce qui ne sert pas à planifier. La migration 014 ajoute `meetings.scheduled_at` (facultative). Le calendrier place une réunion à sa date prévue, sinon à son début réel (`started_at`), sinon à sa création : `COALESCE(scheduled_at, started_at, created_at)`.
+- **L'heure saisie est locale, l'instant enregistré est UTC.** Le champ `datetime-local` donne une heure sans fuseau (« AAAA-MM-JJTHH:MM »). Le navigateur, qui connaît le fuseau de l'utilisateur, la convertit en instant ISO (`toISOString()`) avant l'envoi. Le serveur n'a jamais à deviner un fuseau.
+- **Deux règles de jour.** Une réunion est un **instant** : elle est placée dans le jour **local**. Une échéance de tâche est un **jour** (fixé à 17 h UTC, BUG-03) : elle est placée selon son jour **UTC**. Sinon, une tâche du 5 pourrait apparaître le 4 ou le 6 selon le fuseau.
+- **Plage élargie côté serveur.** Le serveur ne connaît pas le fuseau du navigateur. Pour les réunions, il élargit donc la plage demandée d'un jour de chaque côté, et le frontend ne garde que ce qui tombe dans sa grille. Pour les tâches, la plage est exacte, bornes incluses (jour UTC).
+- **Une route dédiée plutôt que les listes existantes.** `GET /api/calendar?from&to&projectId` ne renvoie que la plage affichée (au plus 92 jours, 400 au-delà), au lieu de télécharger toutes les réunions et toutes les tâches. Le contrôle d'accès est fait dans la requête SQL (membre actif du projet, même règle de visibilité des tâches que `task.model.js`). Avec `projectId`, l'appartenance est vérifiée **avant** toute lecture (404 sinon).
+- **Grille fixe de 42 cases.** Six semaines, du lundi au dimanche (usage au Québec), quel que soit le mois : la hauteur de la page ne change pas d'un mois à l'autre. Les dates locales sont créées à **midi** : un changement d'heure (été/hiver) ne fait jamais glisser un jour sur le précédent. Les tests passent dans quatre fuseaux (`TZ=America/Toronto`, `Asia/Tokyo`, `Pacific/Honolulu`, UTC).
+- **État dans l'URL.** Le mois, le projet et le filtre « mes tâches » sont dans l'adresse (`?mois=AAAA-MM&projet=…&miennes=1`) : un lien « Voir le calendrier du projet » est possible, et le bouton Précédent du navigateur fonctionne.
+- **Accessibilité.** La grille suit le modèle « grid » de WAI-ARIA : un tableau `role="grid"`, une seule case atteignable par Tab (tabindex itinérant), les flèches changent de jour, Début/Fin vont au début/à la fin de la semaine, Page préc./suiv. change de mois. Chaque case a une étiquette lisible (nom du jour, date complète et nombre d'événements). Les couleurs sont doublées d'une légende et du libellé dans la liste du jour : l'information ne repose jamais sur la couleur seule.
+- **« Chargement » dérivé, pas stocké.** La page garde le résultat de la dernière requête avec sa clé (plage + projet). Elle est « en chargement » quand cette clé diffère de celle demandée. On évite ainsi un `setState` synchrone dans un effet, et une réponse arrivée après un changement de mois est ignorée.
 
 ---
 
