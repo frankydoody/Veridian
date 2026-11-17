@@ -12,6 +12,7 @@ import MemoryPage     from './pages/MemoryPage'
 import DecisionsPage  from './pages/DecisionsPage'
 import ProjectDetailPage from './pages/ProjectDetailPage'
 import MeetingDetailPage from './pages/MeetingDetailPage'
+import CalendarPage from './pages/CalendarPage'
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
           <Route path="projects"   element={<ProjectsPage />} />
           <Route path="projects/:id" element={<ProjectDetailPage />} />
           <Route path="tasks"      element={<TasksPage />} />
+          <Route path="calendar"   element={<CalendarPage />} />
           <Route path="decisions"  element={<DecisionsPage />} />
           <Route path="memory"     element={<MemoryPage />} />
         </Route>

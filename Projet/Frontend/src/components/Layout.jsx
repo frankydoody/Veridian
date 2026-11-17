@@ -48,6 +48,16 @@ const NAV_ITEMS = [
     ),
   },
   {
+    to: '/calendar',
+    label: 'Calendrier',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
+        <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="1.75"/>
+        <path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
+      </svg>
+    ),
+  },
+  {
     to: '/decisions',
     label: 'Décisions',
     icon: (
