@@ -1,1 +1,21 @@
-*.sh text eol=lf
+# Fins de ligne : le depot stocke tout en LF (Unix).
+# Sans cette regle, core.autocrlf=true sous Windows fait apparaitre de faux
+# fichiers modifies (seule la fin de ligne differe).
+* text=auto eol=lf
+
+# Scripts Windows : CRLF obligatoire pour cmd.exe et PowerShell 5.1
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Scripts Linux : LF obligatoire (sinon « /bin/bash^M: bad interpreter »)
+*.sh  text eol=lf
+
+# Fichiers binaires : jamais de conversion
+*.png binary
+*.jpg binary
+*.pdf binary
+*.zip binary
+*.mp3 binary
+*.wav binary
+*.webm binary

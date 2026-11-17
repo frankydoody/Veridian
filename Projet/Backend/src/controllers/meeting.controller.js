@@ -6,17 +6,23 @@ import {
   findAllMeetings,  
 } from '../models/meeting.model.js';
 import { findProjectById } from '../models/project.model.js';
+import { isUuid, cleanText, parseScheduledAt } from '../utils/validation.utils.js';
 
 
 export const createMeetingHandler = async (req, res, next) => {
   try {
-    const { projectId, title, description } = req.body;
+    const { projectId } = req.body ?? {};
+    if (!projectId) return res.status(400).json({ message: 'Le projet est obligatoire' });
+    if (!isUuid(projectId)) return res.status(400).json({ message: 'Identifiant de projet invalide' });
 
-    if (!projectId || !title) {
-      return res.status(400).json({
-        message: 'Le projet et le titre sont obligatoires'
-      });
-    }
+    const titleField = cleanText(req.body.title, { label: 'Le titre', max: 200, required: true });
+    if (titleField.error) return res.status(400).json({ message: titleField.error });
+    const descriptionField = cleanText(req.body.description, { label: 'La description', max: 2000 });
+    if (descriptionField.error) return res.status(400).json({ message: descriptionField.error });
+    const scheduledField = parseScheduledAt(req.body.scheduledAt);
+    if (scheduledField.error) return res.status(400).json({ message: scheduledField.error });
+    const title = titleField.value;
+    const description = descriptionField.value;
 
     const project = await findProjectById(projectId, req.user.id);
 
@@ -30,7 +36,8 @@ export const createMeetingHandler = async (req, res, next) => {
       projectId,
       title,
       description,
-      req.user.id
+      req.user.id,
+      scheduledField.value
     );
 
     return res.status(201).json({
@@ -61,6 +68,7 @@ export const getAllMeetingsHandler = async (req, res, next) => {
 export const getMeetingsByProjectHandler = async (req, res, next) => {
   try {
     const { projectId } = req.params;
+    if (!isUuid(projectId)) return res.status(400).json({ message: 'Identifiant de projet invalide' });
 
     const project = await findProjectById(projectId, req.user.id);
 
@@ -86,6 +94,7 @@ export const getMeetingsByProjectHandler = async (req, res, next) => {
 export const getMeetingByIdHandler = async (req, res, next) => {
   try {
     const { id } = req.params;
+    if (!isUuid(id)) return res.status(400).json({ message: 'Identifiant de réunion invalide' });
 
     const meeting = await findMeetingById(id, req.user.id);
 
@@ -108,6 +117,7 @@ export const getMeetingByIdHandler = async (req, res, next) => {
 export const updateMeetingStatusHandler = async (req, res, next) => {
   try {
     const { id } = req.params;
+    if (!isUuid(id)) return res.status(400).json({ message: 'Identifiant de réunion invalide' });
     const { status } = req.body;
 
     const validStatuses = ['planned', 'active', 'processing', 'done', 'cancelled'];

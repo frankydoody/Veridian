@@ -28,12 +28,12 @@ const makeRes = () => {
   res.json = jest.fn().mockReturnValue(res);
   return res;
 };
-const req = { params: { meetingId: 'm-2' }, user: { id: 'u1' } };
+const req = { params: { meetingId: '22222222-2222-4222-8222-000000000002' }, user: { id: 'u1' } };
 
 describe('extractDecisionsHandler (bloc 08)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    findMeetingById.mockResolvedValue({ id: 'm-2', project_id: 'p-1' });
+    findMeetingById.mockResolvedValue({ id: '22222222-2222-4222-8222-000000000002', project_id: 'p-1' });
     findTranscriptionByMeeting.mockResolvedValue({ raw_text: 'texte' });
   });
 
@@ -47,7 +47,7 @@ describe('extractDecisionsHandler (bloc 08)', () => {
     const res = makeRes();
     await extractDecisionsHandler(req, res, jest.fn());
 
-    expect(checkContradictionsSafely).toHaveBeenCalledWith('m-2', 'p-1', decisions);
+    expect(checkContradictionsSafely).toHaveBeenCalledWith('22222222-2222-4222-8222-000000000002', 'p-1', decisions);
     expect(res.status).toHaveBeenCalledWith(201);
     expect(res.json.mock.calls[0][0].contradictions).toEqual({ checked: true, count: 1, alerts: [{ id: 'a-1' }] });
   });

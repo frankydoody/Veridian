@@ -5,6 +5,7 @@ import {
   uploadAndTranscribeHandler,
   getTranscriptionHandler,
   updateTranscriptionHandler,
+  submitTextHandler,
 } from '../controllers/transcription.controller.js';
 
 const router = Router();
@@ -12,6 +13,7 @@ const router = Router();
 router.use(authMiddleware);
 
 router.post('/upload', uploadAudio, uploadAndTranscribeHandler);
+router.post('/text', submitTextHandler);
 router.get('/meeting/:meetingId', getTranscriptionHandler);
 router.put('/:id', updateTranscriptionHandler);
 

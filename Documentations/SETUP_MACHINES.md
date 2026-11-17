@@ -155,8 +155,7 @@ cp .env.example .env
 ```
 
 Ouvrir `.env` et remplir :
-- `OPENAI_API_KEY` → ta clé OpenAI (https://platform.openai.com/api-keys)
-- `ANTHROPIC_API_KEY` → ta clé Anthropic (https://console.anthropic.com/)
+- `GEMINI_API_KEY` → ta clé Gemini (https://aistudio.google.com/apikey)
 - `JWT_SECRET` → une chaîne aléatoire longue (ex: générer avec `openssl rand -hex 64`)
 
 ### Installer les dépendances frontend

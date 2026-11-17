@@ -4,13 +4,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const { Pool } = pg;
-console.log('DB dans db.js:', {
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  database: process.env.DB_NAME,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-});
+// Jamais le mot de passe dans la console (il finirait dans les journaux et les captures d'écran)
+console.log(`Base de données : ${process.env.DB_USER}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`);
 
 const pool = new Pool({
   host:     process.env.DB_HOST,

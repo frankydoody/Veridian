@@ -1,182 +1,136 @@
-// src/pages/DashboardPage.jsx
+// src/pages/DashboardPage.jsx — tableau de bord (blocs 12 et 21)
+// Compteurs réels (GET /api/dashboard), prochaines échéances et activité récente (GET /api/meetings).
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../services/api'
+import { formatRelative, formatDueDate } from '../utils/dates'
+import { MEETING_STATUS, PRIORITY, labelOf } from '../utils/labels'
 
-// ─── StatCard ─────────────────────────────────────────────────────────────────
-function StatCard({ label, value, color }) {
+const panel = {
+  background: 'var(--color-surface-1)', border: '1px solid var(--color-border)',
+  borderRadius: 'var(--radius-lg)', padding: '1.5rem',
+}
+
+function StatCard({ label, value, color, to, hint }) {
   return (
-    <div style={{
-      background: 'var(--color-surface-1)',
-      border: '1px solid var(--color-border)',
-      borderRadius: 'var(--radius-lg)',
-      padding: '1.5rem',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '0.5rem',
+    <Link to={to} title={hint} style={{
+      ...panel, padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', textDecoration: 'none',
     }}>
-      <span style={{
-        fontSize: '2rem',
-        fontWeight: '700',
-        color: color || 'var(--color-text-1)',
-        lineHeight: 1,
-      }}>
-        {value}
-      </span>
-      <span style={{ fontSize: '13px', color: 'var(--color-text-2)' }}>
-        {label}
-      </span>
-    </div>
+      <span style={{ fontSize: '2rem', fontWeight: 700, color: color || 'var(--color-text)', lineHeight: 1 }}>{value}</span>
+      <span style={{ fontSize: '13px', color: 'var(--color-text-muted)' }}>{label}</span>
+    </Link>
   )
 }
 
-// ─── RecentItem ───────────────────────────────────────────────────────────────
-function RecentItem({ title, subtitle, dot }) {
+function RecentItem({ title, subtitle, dot, to }) {
   return (
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: '0.75rem',
-      padding: '0.75rem 0',
-      borderBottom: '1px solid var(--color-border)',
+    <Link to={to} style={{
+      textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.75rem',
+      padding: '0.75rem 0', borderBottom: '1px solid var(--color-border)',
     }}>
-      <div style={{
-        width: '8px', height: '8px',
-        borderRadius: '50%',
-        background: dot || 'var(--color-ai)',
-        flexShrink: 0,
-      }} />
+      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: dot, flexShrink: 0 }} />
       <div>
-        <div style={{ fontSize: '13px', fontWeight: '500', color: 'var(--color-text-1)' }}>
-          {title}
-        </div>
-        <div style={{ fontSize: '12px', color: 'var(--color-text-2)' }}>
-          {subtitle}
-        </div>
+        <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text)' }}>{title}</div>
+        <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>{subtitle}</div>
       </div>
-    </div>
+    </Link>
   )
 }
 
-function formatRelative(dateStr) {
-  if (!dateStr) return ''
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 60) return `il y a ${minutes} min`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `il y a ${hours}h`
-  const days = Math.floor(hours / 24)
-  return `il y a ${days} jour${days > 1 ? 's' : ''}`
-}
+const Muted = ({ children }) => <p style={{ color: 'var(--color-text-muted)', fontSize: '13px', marginTop: '1rem' }}>{children}</p>
 
-const STATUS_DOT = {
-  completed:   '#6BCB77',
-  in_progress: 'var(--color-ai)',
-  planned:     '#4D96FF',
-}
-
-// ─── Page principale ──────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { user } = useAuth()
-  const [projects, setProjects]   = useState([])
-  const [meetings, setMeetings]   = useState([])
-  const [loading, setLoading]     = useState(true)
+  const [summary, setSummary] = useState(null)
+  const [meetings, setMeetings] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    async function fetchAll() {
-      try {
-        // Deux appels en parallèle
-        const [projData, meetData] = await Promise.all([
-          api.get('/projects'),
-          api.get('/meetings'),
-        ])
-        setProjects(projData.projects ?? [])
-        setMeetings(meetData.meetings ?? [])
-      } catch (err) {
-        console.error('Dashboard fetch error:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchAll()
+    Promise.all([api.get('/dashboard'), api.get('/meetings')])
+      .then(([s, m]) => {
+        setSummary(s)
+        setMeetings(m.meetings ?? [])
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false))
   }, [])
 
-  // Stats calculées depuis les vraies données
-  const now = new Date()
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-
-  const meetingsThisMonth = meetings.filter(
-    m => new Date(m.created_at) >= startOfMonth
-  ).length
-
-  const activeProjects = projects.filter(p => p.status === 'active').length
-
+  const v = (key) => (loading || !summary ? '…' : summary[key])
   const stats = [
-    { label: 'Réunions ce mois', value: loading ? '…' : meetingsThisMonth, color: 'var(--color-ai)' },
-    { label: 'Réunions totales', value: loading ? '…' : meetings.length,   color: '#6BCB77' },
-    { label: 'Projets actifs',   value: loading ? '…' : activeProjects,    color: '#4D96FF' },
-    { label: 'Projets totaux',   value: loading ? '…' : projects.length,   color: '#FFD93D' },
+    { label: 'Mes tâches ouvertes', key: 'my_open_tasks', color: 'var(--color-ai)', to: '/tasks' },
+    {
+      label: 'Mes tâches en retard', key: 'my_overdue_tasks', to: '/tasks',
+      color: summary?.my_overdue_tasks ? 'var(--color-danger)' : 'var(--color-success)',
+      hint: `Dans tous vos projets : ${summary?.project_overdue_tasks ?? '…'} tâche(s) en retard`,
+    },
+    {
+      label: 'Alertes ouvertes', key: 'open_alerts', to: '/decisions',
+      color: summary?.open_alerts ? 'var(--color-amber)' : 'var(--color-success)',
+      hint: 'Contradictions non résolues dans vos projets',
+    },
+    { label: 'Réunions ce mois', key: 'meetings_this_month', color: '#4D96FF', to: '/meetings' },
+    { label: 'Projets actifs', key: 'active_projects', color: '#FFD93D', to: '/projects' },
   ]
 
-  // Activité récente = 5 dernières réunions
-  const recent = meetings.slice(0, 5).map(m => ({
+  const recent = meetings.slice(0, 5).map((m) => ({
+    id: m.id,
+    to: `/meetings/${m.id}`,
     title: m.title,
-    subtitle: `${m.project_name ?? 'Projet'} · ${formatRelative(m.created_at)}`,
-    dot: STATUS_DOT[m.status] ?? 'var(--color-ai)',
+    subtitle: `${m.project_name ?? 'Projet'} · ${labelOf(MEETING_STATUS, m.status).label} · ${formatRelative(m.created_at)}`,
+    dot: labelOf(MEETING_STATUS, m.status).color,
   }))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-
-      {/* En-tête */}
       <div>
-        <h1 style={{ fontSize: '1.375rem', fontWeight: '600', color: 'var(--color-text-1)' }}>
-          Bonjour, {user?.name?.split(' ')[0] || 'Francis'} 👋
+        <h1 style={{ fontSize: '1.375rem', fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>
+          Bonjour{user?.name ? `, ${user.name.split(' ')[0]}` : ''} 👋
         </h1>
-        <p style={{ fontSize: '13px', color: 'var(--color-text-2)', marginTop: '0.25rem' }}>
-          Voici un résumé de l'activité de ton organisation.
+        <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+          Voici où en sont vos projets.
+          {summary?.meetings_processing > 0 && ` ${summary.meetings_processing} réunion(s) en cours de traitement.`}
         </p>
       </div>
 
-      {/* Grille stats */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-        gap: '1rem',
-      }}>
-        {stats.map((s) => (
-          <StatCard key={s.label} {...s} />
-        ))}
+      {error && <p role="alert" style={{ color: 'var(--color-danger)', fontSize: '13px', margin: 0 }}>Impossible de charger le tableau de bord : {error}</p>}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '1rem' }}>
+        {stats.map((s) => <StatCard key={s.key} label={s.label} value={v(s.key)} color={s.color} to={s.to} hint={s.hint} />)}
       </div>
 
-      {/* Activité récente */}
-      <div style={{
-        background: 'var(--color-surface-1)',
-        border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius-lg)',
-        padding: '1.5rem',
-      }}>
-        <h2 style={{ fontSize: '14px', fontWeight: '600', color: 'var(--color-text-1)', marginBottom: '0.25rem' }}>
-          Activité récente
-        </h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem', alignItems: 'start' }}>
+        <section style={panel} aria-labelledby="upcoming-title">
+          <h2 id="upcoming-title" style={{ fontSize: '14px', fontWeight: 600, margin: 0 }}>Mes prochaines échéances</h2>
+          {loading && <Muted>Chargement…</Muted>}
+          {!loading && !error && summary?.upcoming_tasks.length === 0 && <Muted>Aucune tâche à venir ne vous est assignée.</Muted>}
+          {summary?.upcoming_tasks.map((t) => (
+            <Link key={t.id} to={t.meeting_id ? `/meetings/${t.meeting_id}` : '/tasks'} style={{
+              display: 'flex', justifyContent: 'space-between', gap: '0.75rem', padding: '0.7rem 0',
+              borderBottom: '1px solid var(--color-border)', textDecoration: 'none',
+            }}>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text)' }}>{t.title}</div>
+                <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
+                  {t.project_name ?? 'Sans projet'} · <span style={{ color: labelOf(PRIORITY, t.priority).color }}>{labelOf(PRIORITY, t.priority).label}</span>
+                </div>
+              </div>
+              <div style={{ fontSize: '12px', textAlign: 'right', whiteSpace: 'nowrap', color: t.overdue ? 'var(--color-danger)' : 'var(--color-text-muted)' }}>
+                {formatDueDate(t.due_date)}{t.due_estimated ? ' (estimée)' : ''}
+                {t.overdue && <div style={{ fontWeight: 600 }}>En retard</div>}
+              </div>
+            </Link>
+          ))}
+        </section>
 
-        {loading && (
-          <p style={{ color: 'var(--color-text-2)', fontSize: '13px', marginTop: '1rem' }}>
-            Chargement…
-          </p>
-        )}
-
-        {!loading && recent.length === 0 && (
-          <p style={{ color: 'var(--color-text-2)', fontSize: '13px', marginTop: '1rem' }}>
-            Aucune activité récente.
-          </p>
-        )}
-
-        {!loading && recent.map((r) => (
-          <RecentItem key={r.title} {...r} />
-        ))}
+        <section style={panel} aria-labelledby="recent-title">
+          <h2 id="recent-title" style={{ fontSize: '14px', fontWeight: 600, margin: 0 }}>Activité récente</h2>
+          {loading && <Muted>Chargement…</Muted>}
+          {!loading && !error && recent.length === 0 && <Muted>Aucune réunion pour l'instant.</Muted>}
+          {recent.map((r) => <RecentItem key={r.id} {...r} />)}
+        </section>
       </div>
-
     </div>
   )
 }
