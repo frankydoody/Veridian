@@ -305,3 +305,19 @@ test (comment on s'assure qu'il ne revient pas) → leçon.
 - **Correction** : `tests/setup-env.js` donne des valeurs par défaut aux tests unitaires, et `dotenv-cli` est retiré. Les tests d'API forcent la base `veridian_test` (`tests/api/setup-env.js`), quel que soit le contenu de `.env` ou `.env.test`.
 - **Test** : `npm test` passe sans `.env.test`.
 - **Leçon** : un test ne doit dépendre que de ce qui est dans le dépôt. Sinon il passe sur la machine du développeur et échoue partout ailleurs.
+
+### BUG-38 — Les tâches des données de test n'apparaissaient nulle part
+- **Bloc** : 22
+- **Symptôme** : connecté avec un compte de test, « Mes tâches » était vide, le tableau de bord affichait 0 tâche, et la section Analyse des réunions n'avait aucune tâche, alors que la base en contenait 13.
+- **Cause** : le jeu de données datait d'avant le bloc 19. Ses tâches liaient la personne par le champ texte `assignee` et par `user_id` (le créateur), sans `assignee_id`, et gardaient la valeur par défaut `source = 'manual'`. Or « Mes tâches » et le tableau de bord filtrent sur `assignee_id`, et l'analyse d'une réunion n'affiche que `source = 'ai'`. Les réunions restaient aussi « Non analysées ».
+- **Correction** : `seed.js` écrit les tâches comme `pipeline.model.js` (`assignee_id`, `source = 'ai'`, `user_id` = organisateur, échéance à 17 h UTC, `due_estimated`). Les réunions sont marquées `transcription_status` et `analysis_status = 'done'`, avec leurs risques et leurs courriels.
+- **Test** : `tests/api/seed.api.test.js` insère les données dans `veridian_test` et vérifie, par les routes, « Mes tâches » de Marie, le détail d'une réunion, le tableau de bord et le calendrier.
+- **Leçon** : un jeu de données doit évoluer avec le schéma. S'il n'est relu par aucun test, il se périme sans que personne ne le remarque.
+
+### BUG-39 — Le projet des données de test cachait un « nouveau projet » des scénarios
+- **Bloc** : 22
+- **Symptôme** : après l'ajout des données de test, le scénario `pipeline.it.mjs` ne créait plus « Portail fournisseurs ». L'analyse le retrouvait comme projet **existant**, et l'ajoutait au mauvais propriétaire.
+- **Cause** : la première version du nouveau jeu de données créait un projet portant ce même nom, que le scénario (et le test réel à la voix) utilise pour vérifier la **création** d'un projet par une réunion.
+- **Correction** : le projet créé par la réunion des données de test s'appelle « Boutique en ligne ».
+- **Test** : `pipeline.it.mjs` lancé sur une base peuplée par `seed.js` affiche à nouveau « Portail fournisseurs (nouveau) », avec Admin propriétaire et Samuel membre.
+- **Leçon** : les données de test et les scénarios partagent la même base. Leurs noms ne doivent pas se recouvrir quand un test dépend de l'*absence* d'une donnée.
