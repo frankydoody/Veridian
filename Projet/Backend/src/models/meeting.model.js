@@ -1,11 +1,12 @@
 import { query, withTransaction } from '../config/db.js';
 
-const createMeeting = async (client, projectId, title, description) => {
+// Bloc 16 : scheduledAt = date prévue (facultative), utilisée par le calendrier
+const createMeeting = async (client, projectId, title, description, scheduledAt = null) => {
   const result = await client.query(
-    `INSERT INTO meetings (project_id, title, description)
-     VALUES ($1, $2, $3)
-     RETURNING id, project_id, title, description, status, is_active, created_at`,
-    [projectId, title, description]
+    `INSERT INTO meetings (project_id, title, description, scheduled_at)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id, project_id, title, description, status, is_active, scheduled_at, created_at`,
+    [projectId, title, description, scheduledAt]
   );
   return result.rows[0];
 };
@@ -20,9 +21,9 @@ const addMeetingParticipant = async (client, meetingId, userId, role = 'host') =
   );
 };
 
-export const createMeetingWithHost = async (projectId, title, description, userId) => {
+export const createMeetingWithHost = async (projectId, title, description, userId, scheduledAt = null) => {
   return withTransaction(async (client) => {
-    const meeting = await createMeeting(client, projectId, title, description);
+    const meeting = await createMeeting(client, projectId, title, description, scheduledAt);
     await addMeetingParticipant(client, meeting.id, userId, 'host');
     return meeting;
   });
@@ -33,7 +34,7 @@ export const findAllMeetings = async (userId) => {
   const result = await query(
     `SELECT m.id, m.project_id, m.title, m.description,
             m.status, m.is_active, m.audio_path,
-            m.started_at, m.ended_at, m.created_at, m.analysis_status, m.transcription_status,
+            m.scheduled_at, m.started_at, m.ended_at, m.created_at, m.analysis_status, m.transcription_status,
             p.name AS project_name
      FROM meetings m
      INNER JOIN project_members pm ON m.project_id = pm.project_id
@@ -51,7 +52,7 @@ export const findMeetingsByProject = async (projectId, userId) => {
   const result = await query(
     `SELECT m.id, m.project_id, m.title, m.description,
             m.status, m.is_active, m.audio_path,
-            m.started_at, m.ended_at, m.created_at, m.analysis_status, m.transcription_status
+            m.scheduled_at, m.started_at, m.ended_at, m.created_at, m.analysis_status, m.transcription_status
      FROM meetings m
      INNER JOIN project_members pm ON m.project_id = pm.project_id
      WHERE m.project_id = $1
@@ -69,7 +70,7 @@ export const findMeetingById = async (id, userId) => {
   const result = await query(
     `SELECT m.id, m.project_id, m.title, m.description,
             m.status, m.is_active, m.audio_path,
-            m.started_at, m.ended_at, m.created_at,
+            m.scheduled_at, m.started_at, m.ended_at, m.created_at,
             m.analysis_status, m.analysis_error, m.analyzed_at,
             m.transcription_status, m.transcription_error,
             p.name AS project_name

@@ -9,6 +9,7 @@ import taskRoutes from './src/routes/task.routes.js';
 import alertRoutes from './src/routes/alert.routes.js';
 import chatRoutes from './src/routes/chat.routes.js';
 import dashboardRoutes from './src/routes/dashboard.routes.js';
+import calendarRoutes from './src/routes/calendar.routes.js';
 import { errorMiddleware } from './src/middlewares/error.middleware.js';
 import { maxAudioBytes } from './src/middlewares/upload.middleware.js';
 
@@ -39,6 +40,7 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/calendar', calendarRoutes);
 
 // État du serveur et des services configurés. Ne renvoie que des indicateurs, JAMAIS de secret.
 app.get('/api/health', (req, res) => {

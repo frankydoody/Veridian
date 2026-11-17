@@ -96,8 +96,28 @@ describe('Créer une réunion', () => {
     createMeetingWithHost.mockResolvedValue({ id: 'm-1', title: 'Revue de sprint' });
     const res = makeRes();
     await createMeetingHandler(req({ projectId: PROJECT, title: ' Revue de sprint ' }), res, jest.fn());
-    expect(createMeetingWithHost).toHaveBeenCalledWith(PROJECT, 'Revue de sprint', null, USER);
+    expect(createMeetingWithHost).toHaveBeenCalledWith(PROJECT, 'Revue de sprint', null, USER, null);
     expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  // Bloc 16 : date prévue, utilisée par le calendrier
+  test('date prévue valide → transmise au modèle en Date', async () => {
+    findProjectById.mockResolvedValue({ id: PROJECT });
+    createMeetingWithHost.mockResolvedValue({ id: 'm-2' });
+    const res = makeRes();
+    await createMeetingHandler(req({ projectId: PROJECT, title: 'Planif', scheduledAt: '2026-12-05T19:30:00.000Z' }), res, jest.fn());
+    const scheduled = createMeetingWithHost.mock.calls[0][4];
+    expect(scheduled).toBeInstanceOf(Date);
+    expect(scheduled.toISOString()).toBe('2026-12-05T19:30:00.000Z');
+    expect(res.status).toHaveBeenCalledWith(201);
+  });
+
+  test('date prévue invalide → 400, rien n\'est créé', async () => {
+    const res = makeRes();
+    await createMeetingHandler(req({ projectId: PROJECT, title: 'Planif', scheduledAt: 'demain' }), res, jest.fn());
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ message: 'Date de réunion invalide' });
+    expect(createMeetingWithHost).not.toHaveBeenCalled();
   });
 
   test('lecture avec un identifiant invalide → 400', async () => {
