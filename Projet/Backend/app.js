@@ -1,4 +1,5 @@
 import express from 'express';
+import helmet from 'helmet';
 import authRoutes from './src/routes/auth.routes.js';
 import projectRoutes from './src/routes/project.routes.js';
 import meetingRoutes from './src/routes/meeting.routes.js';
@@ -12,20 +13,24 @@ import dashboardRoutes from './src/routes/dashboard.routes.js';
 import calendarRoutes from './src/routes/calendar.routes.js';
 import { errorMiddleware } from './src/middlewares/error.middleware.js';
 import { maxAudioBytes } from './src/middlewares/upload.middleware.js';
+import { corsMiddleware, createAuthLimiter } from './src/config/security.js';
 
 const app = express();
 
-// ─── CORS ────────────────────────────────────────────────────────────────────
-// Autorise le frontend (Vite sur :5173) à appeler le backend (:3000)
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', 'http://localhost:5173');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  // Le frontend lit le nom du fichier PDF dans Content-Disposition
-  res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
-  if (req.method === 'OPTIONS') return res.sendStatus(204);
-  next();
-});
+// ─── Sécurité (bloc 17) ──────────────────────────────────────────────────────
+// En-têtes de sécurité (nosniff, interdiction d'affichage dans un cadre, etc.) et retrait de
+// « X-Powered-By: Express », qui annonce la technologie du serveur.
+// « same-site » : le frontend (localhost:5173) peut lire l'audio et le PDF du backend (localhost:3000).
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'same-site' } }));
+
+// CORS : seules les origines de FRONTEND_URL (par défaut http://localhost:5173)
+app.use(corsMiddleware());
+
+// Limitation de débit : empêche d'essayer des mots de passe en rafale (AUTH_RATE_LIMIT).
+// Placée avant la lecture du corps : une requête refusée n'est même pas analysée.
+const authLimiter = createAuthLimiter();
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
 
 // 1 Mo : une transcription collée d'une longue réunion dépasse la limite par défaut (100 Ko)
 app.use(express.json({ limit: '1mb' }));

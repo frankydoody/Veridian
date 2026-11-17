@@ -89,3 +89,30 @@ export const parseCalendarRange = (from, to) => {
   if (days > CALENDAR_MAX_DAYS) return { from: null, to: null, error: `Plage trop longue (${CALENDAR_MAX_DAYS} jours au maximum)` };
   return { from, to, error: null };
 };
+
+// ─── Bloc 17 : inscription ───────────────────────────────────────────────────
+export const PASSWORD_MIN_LENGTH = 8;
+// bcrypt n'utilise que les 72 premiers OCTETS du mot de passe : au-delà, la fin serait ignorée
+// sans que l'utilisateur le sache. On refuse plutôt que d'accepter un mot de passe tronqué.
+export const PASSWORD_MAX_BYTES = 72;
+
+/**
+ * Valide les champs d'inscription ; le courriel est rendu en minuscules.
+ * @returns {{ value: { name, email, password }|null, error: string|null }}
+ */
+export const validateRegistration = ({ name, email, password } = {}) => {
+  if (!name || !email || !password) {
+    return { value: null, error: 'Tous les champs sont obligatoires (name, email, password)' };
+  }
+  const nameField = cleanText(name, { label: 'Le nom', max: 100, required: true });
+  if (nameField.error) return { value: null, error: nameField.error };
+  if (!isEmail(email)) return { value: null, error: 'Adresse courriel invalide' };
+  if (typeof password !== 'string') return { value: null, error: 'Le mot de passe doit être du texte' };
+  if (password.length < PASSWORD_MIN_LENGTH) {
+    return { value: null, error: `Le mot de passe doit contenir au moins ${PASSWORD_MIN_LENGTH} caractères` };
+  }
+  if (Buffer.byteLength(password, 'utf8') > PASSWORD_MAX_BYTES) {
+    return { value: null, error: `Le mot de passe est trop long (${PASSWORD_MAX_BYTES} octets au maximum)` };
+  }
+  return { value: { name: nameField.value, email: normalizeEmail(email), password }, error: null };
+};
