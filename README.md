@@ -296,7 +296,7 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 
 | Bloc | Titre | Statut | Description |
 |---|---|---|---|
-| 17 | Tests d'intégration & Qualité | Todo | Suite Jest : auth, transcription, mémoire RAG |
+| 17 | Tests d'intégration & Qualité | ✅ Done | Tests d'API (Jest + supertest) sur une vraie base de test `veridian_test` recréée à chaque exécution : authentification, CRUD, contrôle d'accès (404 partout pour un non-membre), chaîne d'analyse avec IA simulée, mémoire vectorielle, chat, PDF ; couverture des lignes ≈ 92 % ; sécurité : `helmet`, CORS configurable (`FRONTEND_URL`), limitation de débit sur la connexion, mot de passe de 8 caractères minimum, courriel unique sans tenir compte de la casse (migration 015), JWT en HS256 imposé, refus de démarrer sans secret JWT solide |
 | 18 | Déploiement & Documentation finale | Todo | Guide déploiement, variables documentées, TN4 |
 
 ---
@@ -377,6 +377,10 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `src/controllers/calendar.controller.js` | `GET /api/calendar` : plage validée (92 jours au plus), filtre par projet avec contrôle d'appartenance (bloc 16) |
 | `database/migrations/014_reunion_date_prevue.sql` | `meetings.scheduled_at` : date prévue d'une réunion |
 | `tests/integration/calendrier.it.mjs` | Calendrier sur une vraie base : bornes de la plage, filtre par projet, accès (bloc 16) |
+| `src/config/security.js` | CORS (`FRONTEND_URL`), limitation de débit de la connexion, vérification du secret JWT au démarrage (bloc 17) |
+| `database/preparer-base-test.mjs` | Recrée la base de test `veridian_test` (schéma + migrations) ; refuse tout nom sans `_test` (bloc 17) |
+| `database/migrations/015_courriel_unique_insensible_casse.sql` | Un seul compte par courriel, sans tenir compte de la casse |
+| `tests/api/` | Tests d'API sur vraie base : `auth`, `crud`, `acces`, `pipeline` (`*.api.test.js`) ; `helpers.js` simule l'IA (bloc 17) |
 | `src/utils/jwt.utils.js` | Génération et vérification des tokens JWT |
 | `src/utils/hash.utils.js` | Hachage bcrypt |
 
@@ -429,10 +433,30 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `bloc-14-detail-reunion` (PR #35) | PR ouverte — empilée sur `bloc-13-formulaires` |
 | `bloc-20-enregistrement` (PR #36) | PR ouverte — empilée sur `bloc-14-detail-reunion` |
 | `bloc-21-resultats-taches` (PR #37) | PR ouverte — empilée sur `bloc-20-enregistrement` |
-| `bloc-16-calendrier` | PR ouverte — empilée sur `bloc-21-resultats-taches` |
-| `bloc-17`, `bloc-18`, `bloc-22` | À faire |
+| `bloc-16-calendrier` (PR #38) | PR ouverte — empilée sur `bloc-21-resultats-taches` |
+| `bloc-17-tests-securite` | PR ouverte — empilée sur `bloc-16-calendrier` |
+| `bloc-18`, `bloc-22` | À faire |
 
 Une branche « empilée » part d'une branche pas encore fusionnée : fusionner les PR dans l'ordre du tableau. Après chaque fusion, la PR suivante ne montre plus que ses propres commits.
+
+---
+
+## Tests
+
+Tout se lance depuis `Projet/Backend` (base PostgreSQL démarrée pour les tests d'API).
+
+| Commande | Ce qu'elle fait | Base utilisée |
+|---|---|---|
+| `npm test` | Tests unitaires (base et IA simulées), rapides | aucune |
+| `npm run test:api` | Tests d'API par les vraies routes HTTP | `veridian_test`, **recréée** à chaque exécution |
+| `npm run test:all` | Les deux | `veridian_test` |
+| `npm run test:coverage` | Les deux, avec le rapport de couverture (`coverage/index.html`) | `veridian_test` |
+| `npm run test:db` | Recrée seulement la base de test | `veridian_test` |
+
+- **La base de développement `veridian` n'est jamais touchée** : la base de test doit avoir un nom en `_test`, sinon le script refuse de s'exécuter.
+- Dans les tests d'API, **seule l'IA est simulée** (réponses prévues et vecteurs calculés à partir des mots). La base, les contrôles d'accès, pgvector, le PDF et les courriels sont réels. Aucun courriel ne part : les tests forcent le mode console.
+- Les scénarios `tests/integration/*.it.mjs` (blocs 13 à 21) restent disponibles : `node tests/integration/<nom>.it.mjs`. Celui du bloc 20 utilise le vrai Whisper.
+- Frontend : `npm test` (fonctions pures, testeur intégré à Node) et `npm run build` dans `Projet/Frontend`.
 
 ---
 
@@ -447,7 +471,7 @@ Une branche « empilée » part d'une branche pas encore fusionnée : fusionner 
 | `DB_NAME` | `veridian` | Nom de la base |
 | `DB_USER` | `veridian_user` | Utilisateur PostgreSQL |
 | `DB_PASSWORD` | `veridian_pass` | Mot de passe PostgreSQL |
-| `JWT_SECRET` | généré par le script | Secret de signature des tokens (obligatoire ; ne jamais le partager) |
+| `JWT_SECRET` | généré par le script | Secret de signature des tokens (obligatoire, **32 caractères au minimum** : sinon le serveur refuse de démarrer ; ne jamais le partager) |
 | `JWT_EXPIRES_IN` | `7d` | Durée de vie du token |
 | `AI_PROVIDER` | `gemini` | Fournisseur IA |
 | `AI_MODEL` | `gemini-2.5-flash` | Modèle IA (les anciens `gemini-1.5-*` sont retirés par Google ; le script les remplace) |
@@ -462,6 +486,9 @@ Une branche « empilée » part d'une branche pas encore fusionnée : fusionner 
 | `SMTP_PORT` | `587` | Port SMTP |
 | `SMTP_SECURE` | `false` | `true` pour TLS direct (port 465) |
 | `SMTP_USER` / `SMTP_PASSWORD` | vide | Identifiants SMTP (Gmail : mot de passe d'application) |
+| `FRONTEND_URL` | `http://localhost:5173` | Origine(s) autorisée(s) à appeler l'API depuis un navigateur (CORS), séparées par des virgules |
+| `AUTH_RATE_LIMIT` | `20` | Essais de connexion ou d'inscription permis par adresse IP et par fenêtre ; au-delà : 429 |
+| `AUTH_RATE_WINDOW_MIN` | `15` | Durée de la fenêtre de limitation, en minutes |
 | `MAIL_FROM` | `Veridian <no-reply@veridian.local>` | Expéditeur des courriels |
 
 Les valeurs `DB_*` correspondent à `docker-compose.yml` : ne pas les changer sans modifier aussi ce fichier.

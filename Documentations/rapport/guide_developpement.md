@@ -1107,6 +1107,28 @@ Cette section explique, bloc par bloc, les choix faits et leur justification. Le
 - **Accessibilité.** La grille suit le modèle « grid » de WAI-ARIA : un tableau `role="grid"`, une seule case atteignable par Tab (tabindex itinérant), les flèches changent de jour, Début/Fin vont au début/à la fin de la semaine, Page préc./suiv. change de mois. Chaque case a une étiquette lisible (nom du jour, date complète et nombre d'événements). Les couleurs sont doublées d'une légende et du libellé dans la liste du jour : l'information ne repose jamais sur la couleur seule.
 - **« Chargement » dérivé, pas stocké.** La page garde le résultat de la dernière requête avec sa clé (plage + projet). Elle est « en chargement » quand cette clé diffère de celle demandée. On évite ainsi un `setState` synchrone dans un effet, et une réponse arrivée après un changement de mois est ignorée.
 
+### 9.8 Bloc 17 — Tests d'intégration et sécurité
+
+**Tests**
+
+- **Deux familles de tests, deux projets Jest.** Les tests `unit` simulent la base et l'IA : rapides, sans dépendance, ils tournent sur un clone neuf (`npm test`). Les tests `api` passent par les vraies routes HTTP (supertest) sur une vraie base. Seule l'IA y est simulée, parce qu'elle coûte, varie d'une fois à l'autre et dépend du réseau. Les mocks ne voient pas les erreurs SQL : c'est ce qui justifie la seconde famille (BUG-02).
+- **Une base de test jetable.** `preparer-base-test.mjs` supprime et recrée `veridian_test` avant chaque exécution, puis applique le schéma et **toutes** les migrations, comme les scripts de démarrage. Chaque exécution part donc du même état, et une migration cassée fait échouer les tests. Le nom doit finir par `_test` : une faute de frappe ne peut pas effacer la base de développement. Les variables du test (base, SMTP vide, clé factice) sont posées **avant** l'import de l'application, et `dotenv` ne remplace jamais une variable déjà définie.
+- **Une IA simulée mais réaliste.** Les réponses dépendent du type de requête (analyse, contradiction, risques, chat). Les embeddings sont des vecteurs calculés à partir des mots du texte : la recherche pgvector (`<=>`) trouve vraiment les extraits proches. Le chat et la mémoire sont donc testés de bout en bout.
+- **Le contrôle d'accès testé route par route.** Un utilisateur B, non membre, essaie toutes les lectures et écritures sur le projet de A. Le test vérifie la réponse (404, jamais 403) **et** l'état de la base après coup : rien n'a changé.
+- **Couverture : environ 92 % des lignes** (unitaires + API), au-delà de l'objectif de 60 %. Rapport HTML : `coverage/index.html`.
+
+**Sécurité**
+
+- **En-têtes (`helmet`).** `nosniff`, interdiction d'afficher l'API dans un cadre, retrait de `X-Powered-By`. La politique `Cross-Origin-Resource-Policy` est `same-site`, pour que le frontend (port 5173) puisse lire l'audio et le PDF du backend (port 3000).
+- **CORS configurable.** `FRONTEND_URL` liste les origines permises. L'en-tête `Access-Control-Allow-Origin` n'est renvoyé qu'à une origine connue ; une pré-vérification d'une autre origine reçoit 403. Le CORS ne protège que contre un **navigateur** piloté par un autre site. L'authentification reste la vraie protection.
+- **Limitation de débit** sur `/api/auth/login` et `/api/auth/register` (20 essais / 15 min / IP par défaut), placée **avant** la lecture du corps de la requête. En développement, toutes les requêtes passent par le proxy de Vite et partagent donc la même adresse : la limite est assez large pour ne pas gêner.
+- **Inscription validée côté serveur.** Courriel valide et enregistré en minuscules, nom de 100 caractères au plus, mot de passe de 8 caractères au moins. Le maximum est de 72 **octets**, parce que bcrypt ignore silencieusement la suite. La validation du navigateur (`minLength`) se contourne en appelant l'API directement.
+- **Connexion qui ne révèle rien.** Même message et même code (401) pour un courriel inconnu et un mauvais mot de passe. Pour un courriel inconnu, le serveur fait quand même une comparaison bcrypt (empreinte factice), donc la durée de la réponse ne trahit pas l'existence d'un compte. « Compte désactivé » (403) n'est dit qu'après un mot de passe correct.
+- **JWT.** L'algorithme HS256 est imposé à la signature et à la vérification (refus de `alg: none` et des jetons signés avec une autre clé). Le serveur refuse de démarrer si `JWT_SECRET` est vide ou fait moins de 32 caractères. Les scripts de démarrage en génèrent un de 64.
+- **SQL.** Toutes les valeurs sont passées en paramètres (`$1`, `$2`…). Les seules parties assemblées sont des fragments constants du code (sous-requêtes partagées, liste blanche de colonnes). Un identifiant mal formé donne 400 : validation explicite dans chaque contrôleur, plus un filet de sécurité (`22P02` → 400) dans le gestionnaire d'erreurs.
+- **Erreurs.** Le client ne reçoit jamais le message interne (SQL, chemin de fichier) ni la trace d'exécution, sauf avec `NODE_ENV=development`. La trace complète reste dans la console du serveur.
+- **Déjà en place et vérifiés par les tests** : échappement HTML des courriels (`escapeHtml`), aucune route ne renvoie `password_hash`, type et taille des fichiers audio contrôlés, chemin du fichier audio jamais exposé.
+
 ---
 
 *Guide de développement Veridian — INF4018 — Francis Côté*

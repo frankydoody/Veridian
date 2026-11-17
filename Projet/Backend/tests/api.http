@@ -289,3 +289,29 @@ Authorization: Bearer {{token}}
 ### Plage invalide → 400
 GET {{baseUrl}}/calendar?from=2026-01-01&to=2026-12-31
 Authorization: Bearer {{token}}
+
+### ─── Bloc 17 : sécurité ────────────────────────────────────────────────
+### Inscription refusée : mot de passe trop court (8 caractères au minimum) → 400
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Test",
+  "email": "test@example.com",
+  "password": "court"
+}
+
+### Connexion : le courriel est accepté quelle que soit sa casse
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "ADMIN@EXAMPLE.COM",
+  "password": "12345678"
+}
+
+### Identifiant mal formé → 400 (et non 500)
+GET {{baseUrl}}/decisions/project/pas-un-uuid
+Authorization: Bearer {{token}}
+
+### Au-delà de AUTH_RATE_LIMIT essais en AUTH_RATE_WINDOW_MIN minutes : 429 « Trop de tentatives »

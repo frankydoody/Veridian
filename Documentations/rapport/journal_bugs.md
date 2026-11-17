@@ -273,3 +273,35 @@ test (comment on s'assure qu'il ne revient pas) → leçon.
 - **Correction** : les lignes ajoutées par erreur ont été retirées par leurs identifiants, dans une transaction. `vite.config.js` lit maintenant `BACKEND_URL`, et une seconde instance se lance sur d'autres ports (backend `PORT=3001 DB_NAME=veridian_verif`, Vite `--port 5174 --strictPort` avec `BACKEND_URL=http://localhost:3001`).
 - **Test** : la vérification du calendrier a été refaite sur les ports 3001/5174 ; `/api/health` répond par le proxy de Vite.
 - **Leçon** : avant de lancer un serveur de test, vérifier que le port est libre, et utiliser `--strictPort` pour qu'un port occupé soit une erreur visible. Après un changement de branche, relancer `start.ps1` pour appliquer les migrations : le code d'une branche suppose que ses migrations sont appliquées.
+
+### BUG-34 — Erreur 500 sur un identifiant mal formé (décisions, mémoire)
+- **Bloc** : 17
+- **Symptôme** : `GET /api/decisions/project/abc`, `GET /api/memory/chunks/abc` et `POST /api/memory/chat` avec `projectId: "abc"` répondaient `500 Erreur interne du serveur`.
+- **Cause** : ces contrôleurs (blocs 06 à 08) passaient l'identifiant tel quel à PostgreSQL, qui le refuse (`invalid input syntax for type uuid`, code `22P02`). Les autres contrôleurs le validaient déjà avec `isUuid` depuis le bloc 13.
+- **Correction** : `isUuid` dans `decision.controller.js` (3 routes) et `memory.controller.js` (3 routes). Filet de sécurité dans `error.middleware.js` : le code `22P02` donne 400.
+- **Test** : `tests/api/acces.api.test.js` envoie un identifiant mal formé à dix routes et exige 400 ; `security.test.js` teste le filet de sécurité.
+- **Leçon** : une règle appliquée à la main dans chaque contrôleur finit par être oubliée quelque part. Un test qui parcourt **toutes** les routes la fait respecter.
+
+### BUG-35 — La connexion révélait qu'un compte désactivé existait
+- **Bloc** : 17
+- **Symptôme** : avec n'importe quel mot de passe, un courriel de compte désactivé recevait `403 Ce compte a été désactivé`, et un courriel inconnu `401`. On pouvait donc savoir quels courriels étaient inscrits.
+- **Cause** : `login` testait `is_active` **avant** de vérifier le mot de passe.
+- **Correction** : `auth.controller.js` vérifie d'abord le mot de passe (401 identique dans tous les cas d'échec), puis seulement l'état du compte. Pour un courriel inconnu, une comparaison bcrypt avec une empreinte factice égalise aussi la durée de la réponse.
+- **Test** : `auth.api.test.js` : compte désactivé + mauvais mot de passe → 401 ; + bon mot de passe → 403 ; mauvais mot de passe et courriel inconnu → réponses identiques.
+- **Leçon** : chaque réponse différente (code, message, durée) est une information. Avant authentification, toutes les erreurs doivent se ressembler.
+
+### BUG-36 — Deux comptes pour le même courriel (casse différente)
+- **Bloc** : 17
+- **Symptôme** : on pouvait s'inscrire avec `Julie@exemple.ca` puis avec `julie@exemple.ca`. La connexion dépendait de la casse saisie.
+- **Cause** : la contrainte `UNIQUE` de PostgreSQL et la recherche `WHERE email = $1` distinguent les majuscules.
+- **Correction** : courriel enregistré en minuscules (`validateRegistration`), recherche en `LOWER(email) = LOWER($1)` (`user.model.js`), index unique `users_email_lower` (migration 015). La migration ne crée pas l'index si des doublons existent déjà, et le signale.
+- **Test** : `auth.api.test.js` : inscription en majuscules → 409 ; connexion en majuscules → 200.
+- **Leçon** : une adresse courriel se compare sans tenir compte de la casse. La règle doit être appliquée dans la base, pas seulement dans le code.
+
+### BUG-37 — `npm test` échouait sur un clone neuf
+- **Bloc** : 17
+- **Symptôme** : sans le fichier `.env.test` (ignoré par Git, donc absent d'un clone), 5 tests de `jwt.utils.test.js` échouaient : `secretOrPrivateKey must have a value`.
+- **Cause** : le script `npm test` chargeait `.env.test` avec `dotenv-cli`, et les tests unitaires dépendaient de son `JWT_SECRET`. Ce fichier pointait en plus vers la base de **développement** (`DB_NAME=veridian`).
+- **Correction** : `tests/setup-env.js` donne des valeurs par défaut aux tests unitaires, et `dotenv-cli` est retiré. Les tests d'API forcent la base `veridian_test` (`tests/api/setup-env.js`), quel que soit le contenu de `.env` ou `.env.test`.
+- **Test** : `npm test` passe sans `.env.test`.
+- **Leçon** : un test ne doit dépendre que de ce qui est dans le dépôt. Sinon il passe sur la machine du développeur et échoue partout ailleurs.
