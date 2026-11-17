@@ -5,6 +5,7 @@ import { findTranscriptionByMeeting } from '../models/transcription.model.js';
 import { findChunksByMeeting } from '../models/memory.model.js';
 import { indexTranscription, retrieveChunks } from '../services/memory.service.js';
 import { chatWithMemory } from '../services/ia.service.js';
+import { isUuid } from '../utils/validation.utils.js';
 
 /**
  * POST /api/memory/chat
@@ -25,6 +26,11 @@ export const chatHandler = async (req, res, next) => {
       return res.status(400).json({
         message: 'projectId ou meetingId est obligatoire'
       });
+    }
+
+    // Bloc 17 : identifiants mal formés → 400 (et non une erreur 500 de PostgreSQL)
+    if ((meetingId && !isUuid(meetingId)) || (projectId && !isUuid(projectId))) {
+      return res.status(400).json({ message: 'Identifiant invalide' });
     }
 
     // La recherche est toujours limitée à ce que l'utilisateur a le droit de voir
@@ -87,6 +93,8 @@ export const chatHandler = async (req, res, next) => {
 export const reindexMeetingHandler = async (req, res, next) => {
   try {
     const { meetingId } = req.params;
+    // Bloc 17 : identifiant mal formé → 400 (sinon PostgreSQL lève une erreur et on répond 500)
+    if (!isUuid(meetingId)) return res.status(400).json({ message: 'Identifiant de réunion invalide' });
 
     const meeting = await findMeetingById(meetingId, req.user.id);
     if (!meeting) {
@@ -126,6 +134,8 @@ export const reindexMeetingHandler = async (req, res, next) => {
 export const getChunksHandler = async (req, res, next) => {
   try {
     const { meetingId } = req.params;
+    // Bloc 17 : identifiant mal formé → 400 (sinon PostgreSQL lève une erreur et on répond 500)
+    if (!isUuid(meetingId)) return res.status(400).json({ message: 'Identifiant de réunion invalide' });
 
     const meeting = await findMeetingById(meetingId, req.user.id);
     if (!meeting) {

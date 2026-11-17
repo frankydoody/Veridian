@@ -83,6 +83,7 @@ export default function MemoryPage() {
   const [projectId,  setProjectId]  = useState('')
   const [meetingId,  setMeetingId]  = useState('')   // optionnel — affine la recherche
   const [scopeLoading, setScopeLoading] = useState(true)
+  const [scopeError,   setScopeError]   = useState(null)
 
   const bottomRef = useRef(null)
 
@@ -99,7 +100,7 @@ export default function MemoryPage() {
         setProjects(actifs)
         if (actifs.length === 1) setProjectId(actifs[0].id)  // sélection auto si un seul projet
       })
-      .catch(() => {}) // silencieux — on affiche juste le sélecteur vide
+      .catch((err) => setScopeError(`Impossible de charger les projets : ${err.message}`))
       .finally(() => setScopeLoading(false))
   }, [])
 
@@ -108,12 +109,10 @@ export default function MemoryPage() {
     setMeetingId('')
     setMeetings([])
     if (!projectId) return
-    api.get('/meetings')
-      .then((data) => {
-        const filtered = (data.meetings || []).filter((m) => m.project_id === projectId)
-        setMeetings(filtered)
-      })
-      .catch(() => {})
+    // Route dédiée : le serveur ne renvoie que les réunions de ce projet (et vérifie l'accès)
+    api.get(`/meetings/project/${projectId}`)
+      .then((data) => setMeetings(data.meetings || []))
+      .catch((err) => setScopeError(`Impossible de charger les réunions : ${err.message}`))
   }, [projectId])
 
   // ─── Envoi ─────────────────────────────────────────────────────────────────
@@ -182,6 +181,16 @@ export default function MemoryPage() {
             <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
               Interroge l'historique de tes réunions en langage naturel
             </p>
+            {scopeError && (
+              <p role="alert" style={{ fontSize: '13px', color: 'var(--color-danger)', marginTop: '0.5rem' }}>
+                {scopeError}
+              </p>
+            )}
+            {!scopeLoading && !scopeError && projects.length === 0 && (
+              <p style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
+                Aucun projet actif : créez d'abord un projet et une réunion.
+              </p>
+            )}
           </div>
 
           {/* Sélecteurs de scope */}

@@ -9,10 +9,13 @@ import { findTranscriptionByMeeting } from '../models/transcription.model.js';
 import { extractDecisions } from '../services/ia.service.js';
 import { indexDecisionsSafely } from '../services/memory.service.js';
 import { checkContradictionsSafely } from '../services/contradiction.service.js';
+import { isUuid } from '../utils/validation.utils.js';
 
 export const extractDecisionsHandler = async (req, res, next) => {
   try {
     const { meetingId } = req.params;
+    // Bloc 17 : identifiant mal formé → 400 (sinon PostgreSQL lève une erreur et on répond 500)
+    if (!isUuid(meetingId)) return res.status(400).json({ message: 'Identifiant de réunion invalide' });
 
     const meeting = await findMeetingById(meetingId, req.user.id);
     if (!meeting) {
@@ -61,6 +64,8 @@ export const extractDecisionsHandler = async (req, res, next) => {
 export const getDecisionsByMeetingHandler = async (req, res, next) => {
   try {
     const { meetingId } = req.params;
+    // Bloc 17 : identifiant mal formé → 400 (sinon PostgreSQL lève une erreur et on répond 500)
+    if (!isUuid(meetingId)) return res.status(400).json({ message: 'Identifiant de réunion invalide' });
 
     const meeting = await findMeetingById(meetingId, req.user.id);
     if (!meeting) {
@@ -85,6 +90,7 @@ export const getDecisionsByMeetingHandler = async (req, res, next) => {
 export const getDecisionsByProjectHandler = async (req, res, next) => {
   try {
     const { projectId } = req.params;
+    if (!isUuid(projectId)) return res.status(400).json({ message: 'Identifiant de projet invalide' });
 
     const project = await findProjectById(projectId, req.user.id);
     if (!project) {

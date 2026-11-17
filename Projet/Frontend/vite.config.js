@@ -9,7 +9,8 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      '/api': 'http://localhost:3000',
+      // Adresse du backend ; BACKEND_URL permet d'en lancer un second (ex. sur une base de test)
+      '/api': process.env.BACKEND_URL || 'http://localhost:3000',
     },
   },
 })

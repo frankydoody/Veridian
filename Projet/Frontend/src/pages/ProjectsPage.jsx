@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../services/api'
+import ProjectFormModal from '../components/ProjectFormModal.jsx'
 
 const STATUS_LABELS = {
   active: 'Actif',
@@ -42,9 +44,15 @@ function StatusBadge({ status }) {
   )
 }
 
-function ProjectCard({ project, color }) {
+function ProjectCard({ project, color, onOpen }) {
   return (
-    <div style={{
+    <div
+      role="link"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === 'Enter') onOpen() }}
+      aria-label={`Ouvrir le projet ${project.name}`}
+      style={{
       background: 'var(--color-surface-1)',
       border: '1px solid var(--color-border)',
       borderTop: `3px solid ${color}`,
@@ -101,6 +109,8 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [filter, setFilter] = useState('all')
+  const [showForm, setShowForm] = useState(false)
+  const navigate = useNavigate()
 
   useEffect(() => {
     async function fetchProjects() {
@@ -139,7 +149,7 @@ export default function ProjectsPage() {
             {loading ? '...' : `${projects.length} projet${projects.length !== 1 ? 's' : ''} au total`}
           </p>
         </div>
-        <button style={{
+        <button onClick={() => setShowForm(true)} style={{
           padding: '8px 18px',
           background: 'var(--color-ai)',
           color: '#fff',
@@ -214,9 +224,17 @@ export default function ProjectsPage() {
               key={project.id}
               project={project}
               color={PROJECT_COLORS[i % PROJECT_COLORS.length]}
+              onOpen={() => navigate(`/projects/${project.id}`)}
             />
           ))}
         </div>
+      )}
+
+      {showForm && (
+        <ProjectFormModal
+          onClose={() => setShowForm(false)}
+          onCreated={(project) => navigate(`/projects/${project.id}`)}
+        />
       )}
     </div>
   )

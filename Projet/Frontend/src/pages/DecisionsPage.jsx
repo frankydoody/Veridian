@@ -4,6 +4,7 @@
 // PATCH /api/alerts/:id/resolve, GET /api/projects/:id/export/pdf
 
 import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../services/api.js'
 import { getToken } from '../api/client.js'
 
@@ -122,7 +123,7 @@ function DecisionRow({ decision }) {
         <p style={{ margin: 0, fontSize: '12px', lineHeight: 1.55, color: 'var(--color-text-muted)' }}>{decision.context}</p>
       )}
       <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '11px', color: 'var(--color-text-faint)' }}>
-        <span>Réunion : {decision.meeting_title}</span>
+        <span>Réunion : <Link to={`/meetings/${decision.meeting_id}`} style={{ color: 'var(--color-ai)' }}>{decision.meeting_title}</Link></span>
         {decision.responsible && <span>Responsable : {decision.responsible}</span>}
         <span>Confiance : {decision.confidence}%</span>
         <span>{formatDate(decision.created_at)}</span>
