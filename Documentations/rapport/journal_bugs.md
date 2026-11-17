@@ -255,15 +255,15 @@ test (comment on s'assure qu'il ne revient pas) → leçon.
 - **Symptôme** : dans le calendrier, la touche Page suivante affichait bien le mois suivant, mais plus aucune case n'avait le focus (`document.activeElement` = la page). L'utilisateur au clavier devait recommencer avec Tab.
 - **Cause** : le jour actif (état React) et le mois (paramètre d'URL) changent dans **deux rendus successifs**. Au premier rendu, le jour visé n'est pas encore dans la grille : la page retombait sur « aujourd'hui », lui donnait le focus, puis cette case disparaissait au second rendu.
 - **Correction** : `CalendarPage.jsx` garde la demande de focus tant que la case **visée** (`activeKey`) n'existe pas, et ne la donne qu'à elle.
-- **Test** : dans le navigateur, 17 nov. → Page suivante → 17 déc. → Flèche bas → 24 déc. → Page précédente ×2 → 24 oct. : le focus suit à chaque étape.
+- **Test** : dans le navigateur, depuis le jour courant : Page suivante (même jour, mois suivant), Flèche bas (semaine suivante), puis Page précédente deux fois : le focus suit la bonne case à chaque étape, y compris d'un mois à l'autre.
 - **Leçon** : un état réparti entre React et l'URL ne se met pas à jour d'un seul coup. Une action qui dépend des deux doit attendre que les deux soient à jour.
 
-### BUG-32 — « Mardi 17 Novembre » : majuscules à tous les mots
+### BUG-32 — Majuscule au nom du mois dans le calendrier
 - **Bloc** : 16
-- **Symptôme** : les titres du calendrier affichaient « Mardi 17 Novembre 2026 ».
+- **Symptôme** : les titres du calendrier mettaient une majuscule au jour **et** au mois (« Mardi … Novembre … »).
 - **Cause** : la propriété CSS `text-transform: capitalize` met une majuscule à **chaque mot**. C'est l'usage anglais, pas le français.
 - **Correction** : la majuscule est ajoutée à la première lettre seulement, dans `monthLabel` et `dayLabel` (`utils/calendar.js`) ; la règle CSS est retirée.
-- **Test** : `calendar.test.js` vérifie « Décembre 2026 » et « Jeudi 3 décembre 2026 ».
+- **Test** : `calendar.test.js` vérifie que seule la première lettre du titre du mois et du titre du jour est en majuscule.
 - **Leçon** : les outils de mise en forme suivent souvent les règles typographiques anglaises. En français, la majuscule ne va qu'au début de la phrase et aux noms propres.
 
 ### BUG-33 — Une vérification a écrit dans la base de développement
