@@ -281,7 +281,7 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | 13 | Frontend Formulaires | ✅ Done | Formulaires Créer un projet / une réunion / une tâche (et modification de tâche), validation client et serveur ; page d'un projet avec gestion des membres (`/api/projects/:id/members`) ; acteur d'une tâche choisi parmi les membres ; suppression logique des tâches (migration 011) |
 | 14 | Frontend Réunion Détaillée | ✅ Done | Page `/meetings/:id` : lecteur audio (route protégée, `Range`), transcription modifiable (mémoire ré-indexée), décisions, tâches (acteur, échéance), contradictions, risques, courriels ; liens depuis les autres pages (`GET /api/meetings/:id/details`, `GET /api/meetings/:id/audio`) |
 | 15 | Frontend Décisions & Contradictions | ✅ Done | Page `/decisions` : décisions du projet filtrables, alertes de contradiction à résoudre, bouton d'export PDF |
-| 16 | Frontend Calendrier de projet | Todo | Vue calendrier mensuel, navigation |
+| 16 | Frontend Calendrier de projet | ✅ Done | Page `/calendar` : vue mensuelle (semaines du lundi au dimanche), mois précédent/suivant et « Aujourd'hui », réunions et échéances de tâches en couleur avec légende, filtre par projet et « Seulement mes tâches », liste du jour, navigation au clavier ; date prévue d'une réunion (migration 014) ; `GET /api/calendar?from&to&projectId` |
 
 ### Pipeline IA de bout en bout (extension du plan)
 
@@ -373,6 +373,10 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `src/controllers/dashboard.controller.js` | `GET /api/dashboard` (bloc 21) |
 | `database/migrations/013_projet_reunion_source.sql` | `projects.source_meeting_id` : réunion dont l'analyse a créé le projet |
 | `tests/integration/resultats.it.mjs` | Analyse (IA simulée), projet nouveau, relance sans doublon, compteurs du tableau de bord (bloc 21) |
+| `src/models/calendar.model.js` | Réunions et échéances d'une plage de jours, accès vérifié dans la requête (bloc 16) |
+| `src/controllers/calendar.controller.js` | `GET /api/calendar` : plage validée (92 jours au plus), filtre par projet avec contrôle d'appartenance (bloc 16) |
+| `database/migrations/014_reunion_date_prevue.sql` | `meetings.scheduled_at` : date prévue d'une réunion |
+| `tests/integration/calendrier.it.mjs` | Calendrier sur une vraie base : bornes de la plage, filtre par projet, accès (bloc 16) |
 | `src/utils/jwt.utils.js` | Génération et vérification des tokens JWT |
 | `src/utils/hash.utils.js` | Hachage bcrypt |
 
@@ -396,6 +400,8 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `src/utils/recording.js` | Format d'enregistrement, messages d'erreur du micro, vérification d'un fichier (testé dans `recording.test.js`) |
 | `src/pages/TasksPage.jsx` | « Mes tâches » : filtres (statut, retard, projet, acteur), tri par échéance, changement de statut |
 | `src/utils/tasks.js` | Filtres, tri par échéance et regroupement par acteur (testés dans `tasks.test.js`) |
+| `src/pages/CalendarPage.jsx` | Calendrier mensuel : grille accessible au clavier, légende, filtre par projet, liste du jour (bloc 16) |
+| `src/utils/calendar.js` | Grille du mois, jours locaux et UTC, regroupement des événements, navigation au clavier (testés dans `calendar.test.js`) |
 | `src/utils/validation.js` | Validation côté client, mêmes règles que le serveur (testée dans `validation.test.js`) |
 
 ---
@@ -422,8 +428,9 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `bloc-13-formulaires` (PR #34) | PR ouverte — empilée sur `bloc-12-frontend-api` |
 | `bloc-14-detail-reunion` (PR #35) | PR ouverte — empilée sur `bloc-13-formulaires` |
 | `bloc-20-enregistrement` (PR #36) | PR ouverte — empilée sur `bloc-14-detail-reunion` |
-| `bloc-21-resultats-taches` | PR ouverte — empilée sur `bloc-20-enregistrement` |
-| `bloc-16` à `bloc-18`, `bloc-22` | À faire |
+| `bloc-21-resultats-taches` (PR #37) | PR ouverte — empilée sur `bloc-20-enregistrement` |
+| `bloc-16-calendrier` | PR ouverte — empilée sur `bloc-21-resultats-taches` |
+| `bloc-17`, `bloc-18`, `bloc-22` | À faire |
 
 Une branche « empilée » part d'une branche pas encore fusionnée : fusionner les PR dans l'ordre du tableau. Après chaque fusion, la PR suivante ne montre plus que ses propres commits.
 
@@ -433,7 +440,8 @@ Une branche « empilée » part d'une branche pas encore fusionnée : fusionner 
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `PORT` | `3000` | Port Express — **doit rester 3000** (le serveur de développement Vite transmet `/api` à `http://localhost:3000`, voir `Projet/Frontend/vite.config.js`) |
+| `PORT` | `3000` | Port Express. Le serveur de développement Vite transmet `/api` à `http://localhost:3000` ; pour un autre port, lancer Vite avec `BACKEND_URL` (ci-dessous) |
+| `BACKEND_URL` | `http://localhost:3000` | **Variable du frontend** (lue par `vite.config.js` au lancement de Vite, pas dans `.env`) : adresse du backend. Sert à lancer une seconde instance, par exemple sur une base de test |
 | `DB_HOST` | `localhost` | Hôte PostgreSQL |
 | `DB_PORT` | `5432` | Port PostgreSQL |
 | `DB_NAME` | `veridian` | Nom de la base |
