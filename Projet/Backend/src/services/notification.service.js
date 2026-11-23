@@ -98,8 +98,8 @@ export const buildEmails = ({ meeting, organizer, projects, decisions, tasks, al
   return emails;
 };
 
-// Transport SMTP créé à la demande ; null = mode console
-const createTransport = () => {
+// Transport SMTP créé à la demande ; null = mode console (aussi utilisé par « npm run verifier »)
+export const createTransport = () => {
   if (!process.env.SMTP_HOST) return null;
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST,

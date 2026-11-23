@@ -3,6 +3,7 @@ import app from './app.js';
 import { testConnection } from './src/config/db.js';
 import { resetInterruptedProcessing } from './src/models/processing.model.js';
 import { checkSecurityConfig } from './src/config/security.js';
+import { startupNotices } from './src/services/verification.service.js';
 
 const PORT = process.env.PORT || 3000;
 
@@ -28,6 +29,8 @@ const startServer = async () => {
   
   app.listen(PORT, () => {
     console.log(`🚀 Serveur Veridian démarré sur http://localhost:${PORT}`);
+    // Bloc 18 : modes dégradés annoncés dès le démarrage
+    startupNotices().forEach((notice) => console.log(notice));
   });
 };
 

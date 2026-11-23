@@ -15,7 +15,8 @@
     "test:all": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --coverage",
     "test:db": "node database/preparer-base-test.mjs",
-    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --watch --selectProjects unit"
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --watch --selectProjects unit",
+    "verifier": "node scripts/verifier.js"
   },
   "jest": {
     "verbose": true,
