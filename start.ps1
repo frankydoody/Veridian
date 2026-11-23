@@ -79,7 +79,7 @@ $EnvDefaults = [ordered]@{
   DB_PASSWORD      = 'veridian_pass'
   JWT_EXPIRES_IN   = '7d'
   AI_PROVIDER      = 'gemini'
-  AI_MODEL         = 'gemini-2.5-flash'
+  AI_MODEL         = 'gemini-3.5-flash'
   WHISPER_MODE     = 'local'
   WHISPER_MODEL    = 'small'
   WHISPER_LANGUAGE = 'fr'
@@ -260,9 +260,10 @@ function Initialize-EnvFile {
 
   # Anciens modeles Gemini retires : remplaces par le modele par defaut
   $cur = Read-EnvFile $EnvFile
-  if ($cur.ContainsKey('AI_MODEL') -and $cur['AI_MODEL'] -match '^gemini-1\.') {
+  # Modeles retires par Google, ou fermes aux nouveaux comptes (gemini-2.0 et 2.5 : voir BUG-40)
+  if ($cur.ContainsKey('AI_MODEL') -and $cur['AI_MODEL'] -match '^gemini-(1\.|2\.0|2\.5)') {
     Set-EnvKey $EnvFile 'AI_MODEL' $EnvDefaults['AI_MODEL'] | Out-Null
-    Warn "Modele $($cur['AI_MODEL']) retire par Google : remplace par $($EnvDefaults['AI_MODEL'])."
+    Warn "Modele $($cur['AI_MODEL']) retire par Google (ou ferme aux nouveaux comptes) : remplace par $($EnvDefaults['AI_MODEL'])."
   }
 
   # Cle Gemini : indispensable pour l'IA (decisions, memoire, chat). Demandee une seule fois.

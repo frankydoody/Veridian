@@ -127,9 +127,13 @@ export const sendMessageHandler = async (req, res, next) => {
       result = await askInConversation(conversation, question.trim());
     } catch (error) {
       // Panne de l'IA (clé absente, quota, réseau) : rien n'a été enregistré
-      console.error('[Chat] Réponse impossible :', error.message);
+      console.error('[Chat] Réponse impossible :', error.message, error.cause?.message ?? '');
+      // Une erreur Gemini déjà expliquée (clé refusée, modèle indisponible…) est montrée telle
+      // quelle : elle dit quoi faire et ne contient aucun secret. Sinon, message générique.
       return res.status(502).json({
-        message: "Le service d'IA est indisponible. Réessayez dans un instant."
+        message: error.name === 'GeminiError'
+          ? error.message
+          : "Le service d'IA est indisponible. Réessayez dans un instant."
       });
     }
 

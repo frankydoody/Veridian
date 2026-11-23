@@ -160,6 +160,17 @@ describe('sendMessageHandler', () => {
     await sendMessageHandler({ params: { id: UUID }, body: { question: 'Salut ?' }, user }, res, next);
     expect(res.status).toHaveBeenCalledWith(502);
     expect(next).not.toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith({ message: "Le service d'IA est indisponible. Réessayez dans un instant." });
+  });
+
+  test('502 avec le message clair d\'une erreur Gemini expliquée (ex. clé refusée)', async () => {
+    findConversationById.mockResolvedValue({ id: UUID });
+    const error = Object.assign(new Error('Clé Gemini refusée par Google : vérifiez GEMINI_API_KEY'), { name: 'GeminiError' });
+    askInConversation.mockRejectedValue(error);
+    const res = makeRes();
+    await sendMessageHandler({ params: { id: UUID }, body: { question: 'Salut ?' }, user }, res, jest.fn());
+    expect(res.status).toHaveBeenCalledWith(502);
+    expect(res.json).toHaveBeenCalledWith({ message: 'Clé Gemini refusée par Google : vérifiez GEMINI_API_KEY' });
   });
 });
 
