@@ -2,7 +2,7 @@
 # =============================================================================
 # start.sh — Installe, vérifie et démarre Veridian sur Linux
 #
-# Usage :   ./start.sh [--skip-whisper] [--install-only] [--no-seed] [--stop]
+# Usage :   ./start.sh [--skip-whisper] [--install-only] [--donnees-test] [--verifier] [--stop]
 #
 # Fonctionne sur un PC vierge (seulement le clone du dépôt) comme sur un PC où
 # l'application est déjà installée : chaque étape vérifie d'abord ce qui existe
@@ -15,13 +15,16 @@
 #   3. Node.js 20+, Docker (+ compose), Python/ffmpeg/Whisper : installés si absents
 #   4. Dépendances npm (backend et frontend) : installées ou mises à jour
 #   5. Base PostgreSQL (Docker) : démarrage, schéma, migrations non appliquées
-#   6. Données de démonstration (seulement si la base n'a aucun utilisateur)
-#   7. Backend et frontend dans deux terminaux (ou en arrière-plan sans écran)
+#   6. Données de test : seulement avec --donnees-test (la base reste vide sinon)
+#   7. Vérification rapide de l'installation (npm run verifier -- --sans-ia)
+#   8. Backend et frontend dans deux terminaux (ou en arrière-plan sans écran)
 #
 # Options :
 #   --skip-whisper  ne pas installer Python/ffmpeg/Whisper (pas de transcription)
 #   --install-only  tout installer et préparer, sans lancer les serveurs
-#   --no-seed       ne pas ajouter les données de démonstration (NO_SEED=1 aussi)
+#   --donnees-test  ajouter les données de test (3 comptes fictifs, mot de passe 12345678)
+#   --verifier      seulement vérifier l'installation (base, migrations, clé Gemini,
+#                   Whisper, ffmpeg, SMTP, ports), sans rien installer ni démarrer
 #   --stop          arrêter les serveurs lancés en arrière-plan et la base
 # =============================================================================
 set -uo pipefail
@@ -41,14 +44,17 @@ WHISPER_VENV="$HOME/.veridian/whisper-venv"
 
 SKIP_WHISPER="${SKIP_WHISPER:-0}"
 INSTALL_ONLY=0
-NO_SEED="${NO_SEED:-0}"
+DONNEES_TEST="${DONNEES_TEST:-0}"
+VERIFY_ONLY=0
 STOP_ONLY=0
 
 for arg in "$@"; do
   case "$arg" in
     --skip-whisper) SKIP_WHISPER=1 ;;
     --install-only) INSTALL_ONLY=1 ;;
-    --no-seed)      NO_SEED=1 ;;
+    --donnees-test) DONNEES_TEST=1 ;;
+    --verifier)     VERIFY_ONLY=1 ;;
+    --no-seed)      ;; # ancienne option : la base est maintenant vide par défaut
     --stop)         STOP_ONLY=1 ;;
     -h|--help)      awk 'NR>1 && /^# =+$/ {c++; if (c==2) exit} NR>1 {sub(/^# ?/, ""); print}' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) echo "Option inconnue : $arg (voir --help)" >&2; exit 2 ;;
@@ -508,19 +514,35 @@ initialize_database() {
   else ok "Base de données à jour (aucune migration à appliquer)."; fi
 }
 
-# Données de démonstration : seulement si la base ne contient AUCUN utilisateur
+# Données de test : seulement sur demande (--donnees-test). seed.js ne fait rien si elles
+# existent déjà (compte admin@example.com présent) : relancer l'option est sans danger.
 initialize_seed() {
-  if [ "$NO_SEED" = "1" ]; then warn "Données de démonstration non ajoutées (--no-seed)."; return; fi
-  local count; count="$(sql "SELECT COUNT(*) FROM users;")"
-  if [ "$count" != "0" ]; then ok "La base contient déjà des utilisateurs : données de démonstration non ajoutées."; return; fi
-
-  info "Ajout des données de démonstration (3 comptes, 3 projets, réunions, décisions, tâches)..."
+  if [ "$DONNEES_TEST" != "1" ]; then
+    ok "Aucune donnée de test ajoutée (option --donnees-test pour en ajouter)."
+    return
+  fi
+  info "Ajout des données de test (3 comptes fictifs, 4 projets, réunions analysées, tâches)..."
   [ -f "$BACKEND/database/seed.js" ] || { warn "seed.js introuvable."; return; }
   if (cd "$BACKEND" && node database/seed.js); then
-    ok "Données de démonstration ajoutées : admin@example.com / mot de passe 12345678"
+    ok "Données de test prêtes : admin@example.com / mot de passe 12345678"
   else
-    warn "Les données de démonstration n'ont pas pu être ajoutées (l'application fonctionne quand même)."
+    warn "Les données de test n'ont pas pu être ajoutées (l'application fonctionne quand même)."
   fi
+}
+
+# Vérification de l'installation (scripts/verifier.js). Ne bloque jamais le démarrage :
+# elle affiche ce qui manque et comment le corriger.
+run_verifier() {
+  (cd "$BACKEND" && node scripts/verifier.js "$@")
+}
+
+# --verifier : contrôle seul, sans rien installer ni démarrer
+verify_only() {
+  case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
+  has node || fail "Node.js est introuvable : lance d'abord ./start.sh pour installer Veridian."
+  [ -d "$BACKEND/node_modules" ] || fail "Dépendances absentes : lance d'abord ./start.sh pour installer Veridian."
+  run_verifier
+  exit $?
 }
 
 # ─── Lancement des serveurs ──────────────────────────────────────────────────
@@ -589,6 +611,7 @@ start_servers() {
 
 main() {
   [ "$STOP_ONLY" -eq 1 ] && stop_everything
+  [ "$VERIFY_ONLY" -eq 1 ] && verify_only
 
   echo
   info "Veridian - installation et démarrage (Linux)"
@@ -616,6 +639,10 @@ main() {
   initialize_database
   initialize_seed
 
+  info "Vérification de l'installation (sans appel à Gemini ; complète : ./start.sh --verifier)..."
+  local verify_args=(--sans-ia); [ "$SKIP_WHISPER" = "1" ] && verify_args+=(--sans-whisper)
+  run_verifier "${verify_args[@]}" || warn "Des problèmes sont signalés ci-dessus : l'application démarre quand même, mais certaines fonctions peuvent échouer."
+
   if [ "$INSTALL_ONLY" -eq 1 ]; then
     echo
     ok "Installation terminée (--install-only : les serveurs ne sont pas lancés)."
@@ -631,7 +658,11 @@ main() {
   ok "  Frontend : http://localhost:5173"
   ok "  Backend  : http://localhost:3000"
   ok "  BD       : localhost:5432 (via Docker)"
-  ok "  Compte   : admin@example.com / 12345678 (données de démonstration)"
+  if [ "$DONNEES_TEST" = "1" ]; then
+    ok "  Compte   : admin@example.com / 12345678 (données de test)"
+  else
+    ok "  Compte   : créez le vôtre avec « S'inscrire »"
+  fi
   ok "============================================================"
   echo
   info "Pour tout arrêter : ./start.sh --stop   (ou Ctrl+C dans chaque terminal, puis docker compose down)"
