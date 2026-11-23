@@ -186,7 +186,7 @@ initialize_env_file() {
 
   local added=() fixed=() pair key value
   for pair in PORT=3000 DB_HOST=localhost DB_PORT=5432 DB_NAME=veridian DB_USER=veridian_user \
-              DB_PASSWORD=veridian_pass JWT_EXPIRES_IN=7d AI_PROVIDER=gemini AI_MODEL=gemini-2.5-flash \
+              DB_PASSWORD=veridian_pass JWT_EXPIRES_IN=7d AI_PROVIDER=gemini AI_MODEL=gemini-3.5-flash \
               WHISPER_MODE=local WHISPER_MODEL=small WHISPER_LANGUAGE=fr; do
     key="${pair%%=*}"; value="${pair#*=}"
     env_set_if_missing "$key" "$value" && added+=("$key")
@@ -200,11 +200,11 @@ initialize_env_file() {
   done
   [ "${#fixed[@]}" -gt 0 ] && warn "Valeurs corrigées dans .env pour correspondre à Docker/frontend : ${fixed[*]}"
 
-  # Anciens modèles Gemini retirés par Google
+  # Modèles Gemini retirés par Google, ou fermés aux nouveaux comptes (gemini-2.0 et 2.5)
   local model; model="$(env_get AI_MODEL)"
-  if [[ "$model" =~ ^gemini-1\. ]]; then
-    env_set AI_MODEL gemini-2.5-flash >/dev/null
-    warn "Modèle $model retiré par Google : remplacé par gemini-2.5-flash."
+  if [[ "$model" =~ ^gemini-(1\.|2\.0|2\.5) ]]; then
+    env_set AI_MODEL gemini-3.5-flash >/dev/null
+    warn "Modèle $model retiré par Google (ou fermé aux nouveaux comptes) : remplacé par gemini-3.5-flash."
   fi
 
   # Clé Gemini : indispensable pour l'IA. Demandée une seule fois, en mode interactif.
