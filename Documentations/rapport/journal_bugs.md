@@ -321,3 +321,20 @@ test (comment on s'assure qu'il ne revient pas) → leçon.
 - **Correction** : le projet créé par la réunion des données de test s'appelle « Boutique en ligne ».
 - **Test** : `pipeline.it.mjs` lancé sur une base peuplée par `seed.js` affiche à nouveau « Portail fournisseurs (nouveau) », avec Admin propriétaire et Samuel membre.
 - **Leçon** : les données de test et les scénarios partagent la même base. Leurs noms ne doivent pas se recouvrir quand un test dépend de l'*absence* d'une donnée.
+
+### BUG-40 — Analyse impossible avec une clé Gemini neuve
+- **Bloc** : correctif après le bloc 22
+- **Symptôme** : avec une clé Gemini valide créée récemment, l'analyse échouait. La page affichait le message brut de Google, illisible pour un utilisateur, par exemple `[GoogleGenerativeAI Error]: Error fetching from https://generativelanguage.googleapis.com/... [400 Bad Request] API key not valid...`. Avec la bonne clé, on obtenait ensuite `Tous les modèles Gemini sont indisponibles`.
+- **Cause** : deux problèmes distincts.
+  - **Modèles** : Google ne donne plus accès à `gemini-2.5-flash` ni à `gemini-2.5-flash-lite` aux **nouveaux** comptes (`404 … is no longer available to new users`). Le troisième modèle de secours (`gemini-3.1-flash-lite`) était surchargé (503). Ces noms étaient figés dans `gemini.js`, `.env.example` et `start.ps1` : un compte ancien fonctionnait, un compte récent (celui du professeur, par exemple) échouait.
+  - **Messages** : l'erreur de Google était enregistrée telle quelle dans `analysis_error`. Une clé refusée était aussi essayée inutilement sur chaque modèle de secours.
+- **Correction** :
+  - `src/config/gemini.js` :
+    - modèle par défaut `gemini-3.5-flash` ;
+    - secours sur les alias `gemini-flash-latest` et `gemini-flash-lite-latest`, que Google tient à jour ;
+    - erreurs classées (`classifyGeminiError`) et expliquées en français (`GeminiError`) : clé absente, clé refusée (arrêt immédiat), aucun modèle disponible (avec la liste des modèles essayés et le conseil de changer `AI_MODEL`), surcharge ou quota (réessayer plus tard). Le message brut reste dans `cause`, pour la console.
+  - Le chat affiche ce message clair au lieu de « service indisponible ».
+  - `start.ps1` remplace aussi les modèles `gemini-2.0` et `2.5`.
+  - `.env.example` est mis à jour.
+- **Test** : `tests/unit/gemini.test.js`, avec les messages réels de l'API (clé refusée, modèle fermé, surcharge, clé absente). Vérifié aussi avec une vraie clé neuve : `gemini-3.5-flash` produit une analyse complète (projets existant et nouveau, décision, tâches avec dates), et les embeddings ont 768 dimensions.
+- **Leçon** : un service externe change sans prévenir. Il ne faut pas figer un numéro de version comme seul choix : prévoir des secours durables (alias), et traduire chaque type d'erreur en action à faire pour l'utilisateur.

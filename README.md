@@ -481,7 +481,7 @@ Tout se lance depuis `Projet/Backend` (base PostgreSQL démarrée pour les tests
 | `JWT_SECRET` | généré par le script | Secret de signature des tokens (obligatoire, **32 caractères au minimum** : sinon le serveur refuse de démarrer ; ne jamais le partager) |
 | `JWT_EXPIRES_IN` | `7d` | Durée de vie du token |
 | `AI_PROVIDER` | `gemini` | Fournisseur IA |
-| `AI_MODEL` | `gemini-2.5-flash` | Modèle IA (les anciens `gemini-1.5-*` sont retirés par Google ; le script les remplace) |
+| `AI_MODEL` | `gemini-3.5-flash` | Modèle Gemini principal. S'il est indisponible, l'application essaie `gemini-flash-latest` puis `gemini-flash-lite-latest`. Les modèles `gemini-1.*`, `2.0` et `2.5` sont retirés par Google ou fermés aux nouveaux comptes : le script de démarrage les remplace |
 | `GEMINI_API_KEY` | — | Clé Google AI Studio (obligatoire pour l'IA) |
 | `WHISPER_MODE` | `local` | Mode Whisper |
 | `WHISPER_MODEL` | `small` | Modèle Whisper (`tiny`/`small`/`medium`) |
