@@ -1154,6 +1154,15 @@ Cette section explique, bloc par bloc, les choix faits et leur justification. Le
 - **Un message qui dit quoi faire.** Le message enregistré dans `analysis_error` est affiché dans la page. Il nomme donc le fichier et la variable à corriger, sans jamais contenir la clé. Le détail technique de Google reste dans `error.cause` et dans la console du serveur.
 - **Durée.** Une analyse réelle a pris environ 50 s avec `gemini-3.5-flash`. C'est acceptable parce qu'elle tourne en arrière-plan (réponse 202 et suivi en direct, bloc 20).
 
+### 9.11 Bloc 18 — Installation et vérification
+
+- **Une seule vérification, écrite en Node.** `npm run verifier` contrôle tout ce dont l'application a besoin : `.env`, base, extension `vector`, migrations, clé Gemini, Whisper, ffmpeg, SMTP et ports. Les deux installateurs l'appellent (`-Verifier`, `--verifier`). Ainsi, la logique n'est écrite qu'une fois, au lieu de deux fois en PowerShell et en Bash, et elle réutilise le code de l'application : `generateWithFallback`, `embedText`, le transport SMTP de `notification.service.js`, la commande Whisper de `.env`. Ce qui est vérifié est donc exactement ce que l'application utilisera.
+- **Dépendances injectées.** `verification.service.js` ne touche ni au réseau ni au disque. Le script lui passe la base, Gemini, les commandes et le SMTP. Les tests unitaires simulent chaque panne, un test d'API vérifie les vraies requêtes SQL sur `veridian_test`.
+- **Vérifier sans effet de bord.** Le SMTP est contrôlé par `transport.verify()` : connexion et authentification, sans envoyer de courriel. Gemini reçoit un appel d'une ligne. Aucun secret n'est affiché, et un test le vérifie.
+- **Ne pas bloquer le démarrage.** À chaque lancement, l'installateur fait la vérification rapide (`--sans-ia`, environ 3 s), affiche les problèmes et démarre quand même : une transcription en panne ne doit pas empêcher de consulter ses projets. La vérification complète, avec l'appel à Gemini, se fait sur demande.
+- **Une base vide par défaut.** Le professeur doit partir d'une application réelle, sans faux comptes. Les données de test deviennent une option explicite (`-DonneesTest`, `--donnees-test`). L'ancienne option `-NoSeed` est encore acceptée, sans effet, pour ne pas casser une commande déjà notée.
+- **Les modes dégradés annoncés.** Au démarrage, le backend dit si les courriels sont simulés (pas de `SMTP_HOST`) ou si la clé Gemini est vide, au lieu de laisser l'utilisateur le découvrir après une analyse.
+
 ---
 
 *Guide de développement Veridian — INF4018 — Francis Côté*

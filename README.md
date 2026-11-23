@@ -122,8 +122,9 @@ Le script (`start.ps1`) est un installateur : chaque étape vérifie d'abord son
 | 4 | Installe **Node.js LTS**, **Docker Desktop**, **Python 3.12**, **ffmpeg** et **Whisper** (avec son modèle) — seulement ceux qui manquent |
 | 5 | `npm install` du backend et du frontend (premier clone ou après un `git pull`) |
 | 6 | Démarre Docker Desktop, puis **PostgreSQL 16 + pgvector** (`docker compose`) |
-| 7 | Crée le schéma (`schema.sql`) puis applique les **migrations** non encore appliquées (suivies dans la table `schema_migrations`), puis ajoute les **données de démonstration** si la base n'a aucun utilisateur |
-| 8 | Ouvre deux fenêtres, **Veridian - Backend** et **Veridian - Frontend**, qui exécutent chacune `npm run dev`, puis ouvre le navigateur |
+| 7 | Crée le schéma (`schema.sql`) puis applique les **migrations** non encore appliquées (suivies dans la table `schema_migrations`). La base reste **vide** : les données de test ne sont ajoutées qu'avec `-DonneesTest` |
+| 8 | **Vérifie l'installation** (`npm run verifier -- --sans-ia`) et affiche ce qui manque, avec la façon de le corriger ; le démarrage continue même si un point est signalé |
+| 9 | Ouvre deux fenêtres, **Veridian - Backend** et **Veridian - Frontend**, qui exécutent chacune `npm run dev`, puis ouvre le navigateur |
 
 À savoir :
 
@@ -133,13 +134,44 @@ Le script (`start.ps1`) est un installateur : chaque étape vérifie d'abord son
 - Les lancements suivants prennent quelques secondes : le script ne fait que démarrer.
 - Garder les deux fenêtres « Backend » et « Frontend » ouvertes tant qu'on utilise l'application.
 
-Options (ligne de commande) : `-SkipWhisper` (ne pas installer la transcription audio locale), `-InstallOnly` (tout installer et préparer, sans lancer les serveurs) et `-NoSeed` (ne pas ajouter les données de démonstration) :
+Options (ligne de commande) :
+
+| Option | Effet |
+|---|---|
+| `-SkipWhisper` | Ne pas installer la transcription audio locale |
+| `-InstallOnly` | Tout installer et préparer, sans lancer les serveurs |
+| `-DonneesTest` | Ajouter les données de test (voir « Données de test » ci-dessous) |
+| `-Verifier` | Seulement vérifier l'installation, sans rien installer ni démarrer (voir ci-dessous) |
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\start.ps1 -InstallOnly
+powershell -ExecutionPolicy Bypass -File .\start.ps1 -DonneesTest
 ```
 
 ### Vérifier que tout fonctionne
+
+Une commande contrôle toute l'installation et dit, pour chaque problème, comment le corriger :
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\start.ps1 -Verifier   # Windows
+```
+
+```bash
+./start.sh --verifier                                          # Linux
+cd Projet/Backend && npm run verifier                          # équivalent, partout
+```
+
+| Contrôle | Ce qui est vérifié |
+|---|---|
+| Fichier `.env` | Présent, secret JWT d'au moins 32 caractères |
+| Base de données | Connexion avec les valeurs `DB_*` |
+| Extension `vector` | pgvector installé dans la base |
+| Migrations | Chaque fichier de `database/migrations` est inscrit dans `schema_migrations` |
+| Clé Gemini | Un très court appel réel (génération, puis embedding de 768 dimensions) |
+| ffmpeg, Whisper | Les commandes répondent (chemins de `FFMPEG_COMMAND` / `WHISPER_COMMAND` si renseignés) |
+| Courriels | Connexion et authentification au serveur SMTP, **sans envoyer** de courriel ; sans `SMTP_HOST` : avertissement « courriels simulés » |
+| Ports 3000 et 5173 | Libres, ou déjà utilisés par Veridian |
+
+Options : `--sans-ia` (ne pas appeler Gemini), `--sans-whisper`. Code de sortie 0 si rien n'est bloquant, 1 sinon. Aucun secret n'est affiché.
 
 | Service | Adresse |
 |---|---|
@@ -151,7 +183,7 @@ Se connecter avec un compte de test (voir « Données de test » ci-dessous), ou
 
 ### Données de test (facultatif)
 
-Un jeu de **données de test** (comptes et projets fictifs) permet d'essayer l'application ou de la présenter sans tout saisir. Il imite exactement le résultat de la vraie chaîne d'analyse : réunions transcrites et analysées, tâches liées à leurs acteurs avec des échéances, alertes, risques, journal des courriels. Pour l'instant, les scripts de démarrage l'ajoutent sur une base vide (désactivable avec `-NoSeed`, ou `NO_SEED=1` sous Ubuntu). Le bloc 18 le rendra entièrement facultatif. **Mot de passe de tous les comptes : `12345678`**
+Un jeu de **données de test** (comptes et projets fictifs) permet d'essayer l'application ou de la présenter sans tout saisir. Il imite exactement le résultat de la vraie chaîne d'analyse : réunions transcrites et analysées, tâches liées à leurs acteurs avec des échéances, alertes, risques, journal des courriels. Par défaut, la base est **vide** (aucun compte) : on crée le sien avec « S'inscrire ». Les données de test s'ajoutent seulement sur demande : `.\start.ps1 -DonneesTest` (Windows) ou `./start.sh --donnees-test` (Linux). Relancer l'option est sans danger : rien n'est ajouté si les données existent déjà. **Mot de passe de tous les comptes : `12345678`**
 
 | Compte | Rôle | Projets accessibles |
 |---|---|---|
@@ -180,7 +212,7 @@ node database/seed.js                  # ajoute les données de test si elles n'
 node database/seed.js --no-embeddings  # idem, sans appeler Gemini
 ```
 
-Partir d'une base entièrement vide : `docker compose down -v`, puis relancer `Demarrer.bat`. Ne pas ajouter les données de démonstration : `powershell -ExecutionPolicy Bypass -File .\start.ps1 -NoSeed` (Linux : `./start.sh --no-seed`).
+Partir d'une base entièrement vide : `docker compose down -v`, puis relancer `Demarrer.bat` (ou `./start.sh`).
 
 ### Mettre à jour le projet
 
@@ -231,10 +263,11 @@ Le mot de passe administrateur (`sudo`) est demandé seulement pour installer ce
 | 5. Transcription | Installe Python 3, `ffmpeg` et Whisper (dans `~/.veridian/whisper-venv`, commande `~/.local/bin/whisper`), puis télécharge le modèle une fois |
 | 6. Dépendances | `npm install` du backend et du frontend si absentes ou si `package-lock.json` a changé |
 | 7. Base de données | Démarre PostgreSQL (Docker), crée le schéma si la base est vide, applique les migrations pas encore appliquées (table `schema_migrations`) |
-| 8. Données de démonstration | Ajoute les 3 comptes et les données d'exemple seulement si la base n'a aucun utilisateur |
-| 9. Serveurs | Ouvre les terminaux **Veridian - Backend** et **Veridian - Frontend** (ou les lance en arrière-plan, journaux dans `.veridian-logs/`, si aucun écran n'est disponible) puis ouvre le navigateur |
+| 8. Données de test | Seulement avec `--donnees-test` (la base reste vide sinon) |
+| 9. Vérification | `npm run verifier -- --sans-ia` : affiche ce qui manque et comment le corriger |
+| 10. Serveurs | Ouvre les terminaux **Veridian - Backend** et **Veridian - Frontend** (ou les lance en arrière-plan, journaux dans `.veridian-logs/`, si aucun écran n'est disponible) puis ouvre le navigateur |
 
-Options : `./start.sh --skip-whisper` (sans transcription audio), `--install-only` (tout préparer sans lancer les serveurs), `--no-seed` (sans données de démonstration), `--stop` (arrête les serveurs lancés en arrière-plan et la base), `--help`.
+Options : `./start.sh --skip-whisper` (sans transcription audio), `--install-only` (tout préparer sans lancer les serveurs), `--donnees-test` (ajouter les données de test), `--verifier` (seulement vérifier l'installation), `--stop` (arrête les serveurs lancés en arrière-plan et la base), `--help`.
 
 Si le script vient d'ajouter l'utilisateur au groupe `docker`, fermer puis rouvrir la session permet d'utiliser `docker` sans `sudo` (le script fonctionne dans les deux cas).
 
@@ -310,7 +343,7 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | Bloc | Titre | Statut | Description |
 |---|---|---|---|
 | 17 | Tests d'intégration & Qualité | ✅ Done | Tests d'API (Jest + supertest) sur une vraie base de test `veridian_test` recréée à chaque exécution : authentification, CRUD, contrôle d'accès (404 partout pour un non-membre), chaîne d'analyse avec IA simulée, mémoire vectorielle, chat, PDF ; couverture des lignes ≈ 92 % ; sécurité : `helmet`, CORS configurable (`FRONTEND_URL`), limitation de débit sur la connexion, mot de passe de 8 caractères minimum, courriel unique sans tenir compte de la casse (migration 015), JWT en HS256 imposé, refus de démarrer sans secret JWT solide |
-| 18 | Déploiement & Documentation finale | Todo | Guide déploiement, variables documentées, TN4 |
+| 18 | Déploiement & Documentation finale | En cours | Installation : données de test facultatives (`-DonneesTest`, `--donnees-test`), vérification complète de l'installation (`npm run verifier`, `-Verifier`, `--verifier`), `.env.example` entièrement commenté, courriels simulés annoncés au démarrage. Reste : documentation finale (README, UML, guide, rapport TN4, captures) |
 
 ---
 
@@ -339,7 +372,7 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 - **Soft delete** — flag `is_active`, jamais de `DELETE` SQL applicatif
 - **Transactions dans le modèle** — `withTransaction` dans `models/` seulement
 - **Séparation des couches** — model : SQL ; controller : logique métier ; routes : HTTP
-- **IA agnostique** — `ia.service.js`, configurable via `AI_PROVIDER` + `AI_MODEL`
+- **IA isolée** — appels Gemini regroupés dans `config/gemini.js` (modèle choisi par `AI_MODEL`, modèles de secours, messages d'erreur en français)
 - **dotenv v16 épinglé** — v17 casse la connexion PostgreSQL sur Windows
 
 ### Fichiers clés
@@ -395,6 +428,8 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `database/migrations/015_courriel_unique_insensible_casse.sql` | Un seul compte par courriel, sans tenir compte de la casse |
 | `tests/api/` | Tests d'API sur vraie base : `auth`, `crud`, `acces`, `pipeline`, `seed` (`*.api.test.js`) ; `helpers.js` simule l'IA (blocs 17 et 22) |
 | `database/seed.js` | Données de test facultatives ; `seedTestData(pool)` est aussi utilisée par les tests (bloc 22) |
+| `scripts/verifier.js` | `npm run verifier` : vérification complète de l'installation (bloc 18) |
+| `src/services/verification.service.js` | Contrôles de la vérification (dépendances injectées, testés) et messages de démarrage |
 | `src/utils/jwt.utils.js` | Génération et vérification des tokens JWT |
 | `src/utils/hash.utils.js` | Hachage bcrypt |
 
@@ -449,8 +484,10 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `bloc-21-resultats-taches` (PR #37) | PR ouverte — empilée sur `bloc-20-enregistrement` |
 | `bloc-16-calendrier` (PR #38) | PR ouverte — empilée sur `bloc-21-resultats-taches` |
 | `bloc-17-tests-securite` (PR #39) | PR ouverte — empilée sur `bloc-16-calendrier` |
-| `bloc-22-donnees-test` | PR ouverte — empilée sur `bloc-17-tests-securite` |
-| `bloc-18` | À faire |
+| `bloc-22-donnees-test` (PR #40) | PR ouverte — empilée sur `bloc-17-tests-securite` |
+| `fix/modele-gemini` (PR #41) | PR ouverte — empilée sur `bloc-22-donnees-test` |
+| `bloc-18-deploiement` | PR ouverte — empilée sur `fix/modele-gemini`, intègre aussi `fix/installation-linux` |
+| `branch/bloc-06-decisions` (PR #13) | Ancienne PR à fermer sans fusion : le bloc 06 est déjà dans `main` par un autre chemin |
 
 Une branche « empilée » part d'une branche pas encore fusionnée : fusionner les PR dans l'ordre du tableau. Après chaque fusion, la PR suivante ne montre plus que ses propres commits.
 
@@ -488,16 +525,16 @@ Tout se lance depuis `Projet/Backend` (base PostgreSQL démarrée pour les tests
 | `DB_PASSWORD` | `veridian_pass` | Mot de passe PostgreSQL |
 | `JWT_SECRET` | généré par le script | Secret de signature des tokens (obligatoire, **32 caractères au minimum** : sinon le serveur refuse de démarrer ; ne jamais le partager) |
 | `JWT_EXPIRES_IN` | `7d` | Durée de vie du token |
-| `AI_PROVIDER` | `gemini` | Fournisseur IA |
 | `AI_MODEL` | `gemini-3.5-flash` | Modèle Gemini principal. S'il est indisponible, l'application essaie `gemini-flash-latest` puis `gemini-flash-lite-latest`. Les modèles `gemini-1.*`, `2.0` et `2.5` sont retirés par Google ou fermés aux nouveaux comptes : le script de démarrage les remplace |
 | `GEMINI_API_KEY` | — | Clé Google AI Studio (obligatoire pour l'IA) |
-| `WHISPER_MODE` | `local` | Mode Whisper |
+| `EMBED_MODEL` | `gemini-embedding-001` | Modèle d'embeddings de la mémoire (768 dimensions : ne pas changer sans adapter la base) |
 | `WHISPER_MODEL` | `small` | Modèle Whisper (`tiny`/`small`/`medium`) |
 | `WHISPER_LANGUAGE` | `fr` | Langue de transcription |
 | `WHISPER_TIMEOUT_MIN` | `30` | Durée maximale d'une transcription, en minutes (au-delà, elle est arrêtée) |
 | `WHISPER_COMMAND` / `FFMPEG_COMMAND` | vide | Chemin complet de `whisper` / `ffmpeg` s'ils ne sont pas dans le `PATH` |
 | `MAX_AUDIO_MB` | `200` | Taille maximale d'un fichier audio envoyé, en Mo (413 au-delà) |
-| `SMTP_HOST` | vide | Serveur SMTP. Vide = mode console : les courriels sont affichés dans le terminal du backend, rien n'est envoyé |
+| `UPLOAD_DIR` | vide | Dossier des fichiers audio, relatif à `src/config` (vide : dossier `uploads` à la racine du dépôt) |
+| `SMTP_HOST` | vide | Serveur SMTP. Vide = mode console : les courriels sont affichés dans le terminal du backend, rien n'est envoyé (annoncé au démarrage du backend) |
 | `SMTP_PORT` | `587` | Port SMTP |
 | `SMTP_SECURE` | `false` | `true` pour TLS direct (port 465) |
 | `SMTP_USER` / `SMTP_PASSWORD` | vide | Identifiants SMTP (Gmail : mot de passe d'application) |
