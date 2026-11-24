@@ -3,7 +3,8 @@
 
 import { query } from '../config/db.js';
 
-// ─── Lire toutes les tâches d'un utilisateur ─────────────────────────────────
+// ─── Lire toutes les tâches visibles par un utilisateur ──────────────────────
+// Bloc 19 : celles qu'il a créées, celles qui lui sont assignées et celles des projets dont il est membre.
 // Fait un JOIN sur projects pour avoir project_name
 // et un JOIN sur meetings pour avoir meeting_title
 export async function findAllTasks(userId) {
@@ -12,10 +13,13 @@ export async function findAllTasks(userId) {
        t.id,
        t.title,
        t.description,
-       t.assignee,
+       COALESCE(au.name, t.assignee) AS assignee,
+       t.assignee_id,
        t.priority,
        t.status,
        t.due_date,
+       t.due_estimated,
+       t.source,
        t.created_at,
        t.updated_at,
        p.name  AS project_name,
@@ -23,7 +27,12 @@ export async function findAllTasks(userId) {
      FROM tasks t
      LEFT JOIN projects p ON t.project_id = p.id
      LEFT JOIN meetings m ON t.meeting_id = m.id
+     LEFT JOIN users au ON au.id = t.assignee_id
      WHERE t.user_id = $1
+        OR t.assignee_id = $1
+        OR t.project_id IN (
+             SELECT pm.project_id FROM project_members pm
+             WHERE pm.user_id = $1 AND pm.is_active = true)
      ORDER BY
        CASE t.priority
          WHEN 'haute'   THEN 1
@@ -52,7 +61,11 @@ export async function updateTaskStatus(id, status, userId) {
   const result = await query(
     `UPDATE tasks
      SET status = $1, updated_at = NOW()
-     WHERE id = $2 AND user_id = $3
+     WHERE id = $2
+       AND (user_id = $3
+            OR assignee_id = $3
+            OR project_id IN (SELECT pm.project_id FROM project_members pm
+                              WHERE pm.user_id = $3 AND pm.is_active = true))
      RETURNING *`,
     [status, id, userId]
   );
@@ -72,7 +85,7 @@ export async function deleteTask(id, userId) {
 // L'appartenance au projet est vérifiée par l'appelant. Sert à l'export PDF.
 export async function findTasksByProject(projectId) {
   const result = await query(
-    `SELECT t.id, t.title, t.description, t.assignee, t.priority, t.status,
+    `SELECT t.id, t.title, t.description, COALESCE((SELECT u.name FROM users u WHERE u.id = t.assignee_id), t.assignee) AS assignee, t.priority, t.status,
             t.due_date, t.created_at, m.title AS meeting_title
      FROM tasks t
      LEFT JOIN meetings m ON t.meeting_id = m.id
