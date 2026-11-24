@@ -155,3 +155,57 @@ Authorization: Bearer {{token}}
 ###
 GET {{baseUrl}}/meetings/COLLE_MEETING_ID_ICI/analysis
 Authorization: Bearer {{token}}
+
+### ─── Bloc 13 : membres d'un projet ─────────────────────────────────────
+### Lister les membres (tout membre du projet ; un non-membre reçoit 404)
+GET {{baseUrl}}/projects/COLLE_PROJECT_ID_ICI/members
+Authorization: Bearer {{token}}
+
+### Ajouter un membre : courriel EXACT d'un compte existant (propriétaire seulement)
+# 201 ajouté · 400 courriel invalide · 403 pas propriétaire · 404 aucun compte · 409 déjà membre
+POST {{baseUrl}}/projects/COLLE_PROJECT_ID_ICI/members
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "email": "marie.tremblay@example.com"
+}
+
+### Retirer un membre (retrait logique ; jamais le propriétaire → 400)
+DELETE {{baseUrl}}/projects/COLLE_PROJECT_ID_ICI/members/COLLE_USER_ID_ICI
+Authorization: Bearer {{token}}
+
+### ─── Bloc 13 : tâches ──────────────────────────────────────────────────
+### Créer une tâche : l'acteur (assignee_id) doit être membre du projet, sinon 400
+# due_date « AAAA-MM-JJ » est enregistrée à 17 h UTC (même jour dans tous les fuseaux)
+POST {{baseUrl}}/tasks
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "Préparer les maquettes du portail",
+  "description": "Pages d'accueil et de commande",
+  "priority": "haute",
+  "project_id": "COLLE_PROJECT_ID_ICI",
+  "assignee_id": "COLLE_USER_ID_ICI",
+  "due_date": "2026-12-04"
+}
+
+### Modifier une tâche : seuls les champs envoyés changent (assignee_id: null retire l'acteur)
+PUT {{baseUrl}}/tasks/COLLE_TASK_ID_ICI
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "priority": "basse",
+  "status": "in_progress",
+  "assignee_id": null
+}
+
+### Supprimer une tâche (suppression logique ; créateur ou propriétaire du projet)
+DELETE {{baseUrl}}/tasks/COLLE_TASK_ID_ICI
+Authorization: Bearer {{token}}
+
+### Identifiant mal formé → 400 (et non plus 500)
+GET {{baseUrl}}/projects/pas-un-uuid
+Authorization: Bearer {{token}}

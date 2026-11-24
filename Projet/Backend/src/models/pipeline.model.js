@@ -41,7 +41,7 @@ export const findProjectHistory = async (projectId, excludeMeetingId) => {
     `SELECT t.title, t.due_date, COALESCE(u.name, t.assignee) AS assignee
      FROM tasks t
      LEFT JOIN users u ON u.id = t.assignee_id
-     WHERE t.project_id = $1 AND t.status <> 'done'
+     WHERE t.project_id = $1 AND t.status <> 'done' AND t.is_active = true
        AND (t.meeting_id IS NULL OR t.meeting_id <> $2)
      ORDER BY t.due_date NULLS LAST LIMIT 30`,
     [projectId, excludeMeetingId]
@@ -188,7 +188,7 @@ export const findAnalysisByMeeting = async (meetingId) => {
      FROM tasks t
      INNER JOIN projects p ON p.id = t.project_id
      LEFT JOIN users u ON u.id = t.assignee_id
-     WHERE t.meeting_id = $1 AND t.source = 'ai'
+     WHERE t.meeting_id = $1 AND t.source = 'ai' AND t.is_active = true
      ORDER BY t.due_date NULLS LAST, t.created_at`,
     [meetingId]
   );

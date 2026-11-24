@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { api } from '../services/api'
 import { formatDateTime } from '../utils/dates'
 import { MEETING_STATUS, ANALYSIS_STATUS, labelOf } from '../utils/labels'
+import MeetingFormModal from '../components/MeetingFormModal.jsx'
 
 function StatusBadge({ table, status }) {
   const { label, color } = labelOf(table, status)
@@ -26,6 +27,7 @@ export default function MeetingsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [filter, setFilter] = useState('all')
+  const [showForm, setShowForm] = useState(false)
 
   useEffect(() => {
     async function fetchMeetings() {
@@ -65,7 +67,7 @@ export default function MeetingsPage() {
             {loading ? '...' : `${meetings.length} réunion${meetings.length !== 1 ? 's' : ''} au total`}
           </p>
         </div>
-        <button style={{
+        <button onClick={() => setShowForm(true)} style={{
           padding: '8px 18px',
           background: 'var(--color-ai)',
           color: '#fff',
@@ -184,6 +186,17 @@ export default function MeetingsPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {showForm && (
+        <MeetingFormModal
+          onClose={() => setShowForm(false)}
+          onCreated={() => {
+            // La réponse de création n'a pas le nom du projet : on recharge la liste
+            setShowForm(false)
+            api.get('/meetings').then((data) => setMeetings(data.meetings ?? [])).catch((err) => setError(err.message))
+          }}
+        />
       )}
     </div>
   )
