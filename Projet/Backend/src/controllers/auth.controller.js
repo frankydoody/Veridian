@@ -1,26 +1,33 @@
 import { findUserByEmail, createUser } from '../models/user.model.js';
 import { hashPassword, comparePassword } from '../utils/hash.utils.js';
 import { generateToken } from '../utils/jwt.utils.js';
+import { validateRegistration, normalizeEmail } from '../utils/validation.utils.js';
+
+// Bloc 17 : empreinte bcrypt d'un mot de passe quelconque, calculée une seule fois.
+// Quand le courriel est inconnu, on compare quand même le mot de passe à cette empreinte :
+// la réponse prend alors le même temps qu'avec un vrai compte, et la durée ne révèle
+// pas si un courriel est inscrit.
+let dummyHash;
+const getDummyHash = async () => {
+  dummyHash ??= await hashPassword('mot-de-passe-factice-pour-egaliser-le-temps');
+  return dummyHash;
+};
 
 export const register = async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
+    const { value, error } = validateRegistration(req.body ?? {});
+    if (error) return res.status(400).json({ message: error });
 
-    if (!name || !email || !password) {
-      return res.status(400).json({
-        message: 'Tous les champs sont obligatoires (name, email, password)'
-      });
-    }
-
-    const existingUser = await findUserByEmail(email);
+    // Courriel enregistré en minuscules ; doublon détecté sans tenir compte de la casse
+    const existingUser = await findUserByEmail(value.email);
     if (existingUser) {
       return res.status(409).json({
         message: 'Un compte existe déjà avec cet email'
       });
     }
 
-    const hashedPassword = await hashPassword(password);
-    const newUser = await createUser(name, email, hashedPassword);
+    const hashedPassword = await hashPassword(value.password);
+    const newUser = await createUser(value.name, value.email, hashedPassword);
 
     const token = generateToken({ id: newUser.id, role: newUser.role });
 
@@ -31,22 +38,31 @@ export const register = async (req, res, next) => {
     });
 
   } catch (error) {
-    next(error); // Pass the error to the error handling middleware
+    // Deux inscriptions simultanées du même courriel : la contrainte UNIQUE tranche
+    if (error.code === '23505') {
+      return res.status(409).json({ message: 'Un compte existe déjà avec cet email' });
+    }
+    next(error);
   }
 };
 
 export const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body ?? {};
 
-    if (!email || !password) {
+    if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
       return res.status(400).json({
         message: 'Email et mot de passe obligatoires'
       });
     }
 
-    const user = await findUserByEmail(email);
-    if (!user) {
+    const user = await findUserByEmail(normalizeEmail(email));
+
+    // Bloc 17 : le mot de passe est vérifié AVANT de dire quoi que ce soit sur le compte.
+    // Avant, « compte désactivé » était répondu sans mot de passe valide : n'importe qui
+    // pouvait savoir qu'un courriel était inscrit.
+    const isValidPassword = await comparePassword(password, user ? user.password_hash : await getDummyHash());
+    if (!user || !isValidPassword) {
       return res.status(401).json({
         message: 'Email ou mot de passe incorrect'
       });
@@ -55,13 +71,6 @@ export const login = async (req, res, next) => {
     if (!user.is_active) {
       return res.status(403).json({
         message: 'Ce compte a été désactivé'
-      });
-    }
-
-    const isValidPassword = await comparePassword(password, user.password_hash);
-    if (!isValidPassword) {
-      return res.status(401).json({
-        message: 'Email ou mot de passe incorrect'
       });
     }
 
@@ -76,8 +85,7 @@ export const login = async (req, res, next) => {
     });
 
   } catch (error) {
-    next(error); // Pass the error to the error handling middleware
-
+    next(error);
   }
 };
 
@@ -89,4 +97,3 @@ export const me = (req, res) => {
     user
   });
 };
-

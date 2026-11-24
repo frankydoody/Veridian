@@ -10,15 +10,48 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "test": "dotenv -e .env.test -- node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
-    "test:watch": "dotenv -e .env.test -- node --experimental-vm-modules node_modules/jest/bin/jest.js --watch --runInBand"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --selectProjects unit",
+    "test:api": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --selectProjects api",
+    "test:all": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --coverage",
+    "test:db": "node database/preparer-base-test.mjs",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand --watch --selectProjects unit"
   },
   "jest": {
-    "testEnvironment": "node",
-    "testMatch": [
-      "**/tests/**/*.test.js"
+    "verbose": true,
+    "projects": [
+      {
+        "displayName": "unit",
+        "testEnvironment": "node",
+        "testMatch": [
+          "<rootDir>/tests/unit/**/*.test.js"
+        ],
+        "setupFiles": [
+          "<rootDir>/tests/setup-env.js"
+        ]
+      },
+      {
+        "displayName": "api",
+        "testEnvironment": "node",
+        "testMatch": [
+          "<rootDir>/tests/api/**/*.test.js"
+        ],
+        "setupFiles": [
+          "<rootDir>/tests/api/setup-env.js"
+        ],
+        "globalSetup": "<rootDir>/tests/api/global-setup.js"
+      }
     ],
-    "verbose": true
+    "collectCoverageFrom": [
+      "app.js",
+      "src/**/*.js"
+    ],
+    "coverageDirectory": "coverage",
+    "coverageReporters": [
+      "text",
+      "text-summary",
+      "html"
+    ]
   },
   "keywords": [],
   "author": "Francis Cote",
@@ -28,6 +61,8 @@
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.4",
+    "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.3.0",
     "nodemailer": "^7.0.13",
@@ -36,7 +71,6 @@
   },
   "devDependencies": {
     "@jest/globals": "^30.4.1",
-    "dotenv-cli": "^11.0.0",
     "jest": "^30.4.2",
     "nodemon": "^3.1.14",
     "supertest": "^7.2.2"

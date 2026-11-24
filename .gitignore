@@ -57,3 +57,9 @@ Desktop.ini
 # Préférences personnelles de VS Code — chaque dev a les siennes
 .vscode/settings.json
 .idea/ 
+
+# ========================
+# RAPPORTS DE TESTS
+# ========================
+# Rapport de couverture généré par « npm run test:coverage » (recréé à chaque exécution)
+coverage/
