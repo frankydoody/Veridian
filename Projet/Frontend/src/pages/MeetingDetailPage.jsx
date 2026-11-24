@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../services/api.js'
 import TaskFormModal from '../components/TaskFormModal.jsx'
+import AddRecordingPanel from '../components/AddRecordingPanel.jsx'
 import { Button, FormError, inputStyle } from '../components/form.jsx'
 import { formatDateTime, formatDueDate, isOverdue } from '../utils/dates.js'
 import {
@@ -75,6 +76,77 @@ function AudioPlayer({ meetingId }) {
   return <audio controls src={url} style={{ width: '100%' }} aria-label="Enregistrement de la réunion" />
 }
 
+// Suivi en direct : interroge l'état toutes les 3 s tant qu'un traitement est en cours.
+// setTimeout relancé (et non setInterval) : si le serveur est lent, les requêtes ne s'empilent pas.
+function useProcessingStatus(meetingId, initial, onFinished) {
+  const [status, setStatus] = useState(initial)
+  const busy = status.transcription_status === 'processing' || status.analysis_status === 'processing'
+
+  useEffect(() => {
+    if (!busy) return undefined
+    let cancelled = false
+    let timer
+    const poll = async () => {
+      try {
+        const data = await api.get(`/meetings/${meetingId}/analysis`)
+        if (cancelled) return
+        const next = {
+          transcription_status: data.transcription_status, transcription_error: data.transcription_error,
+          analysis_status: data.analysis_status, analysis_error: data.analysis_error,
+        }
+        setStatus(next)
+        if (next.transcription_status !== 'processing' && next.analysis_status !== 'processing') {
+          onFinished()
+          return
+        }
+      } catch {
+        // Erreur réseau passagère : on réessaie au prochain tour
+      }
+      if (!cancelled) timer = setTimeout(poll, 3000)
+    }
+    timer = setTimeout(poll, 3000)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [busy, meetingId, onFinished])
+
+  return [status, setStatus]
+}
+
+function ProcessingBanner({ status }) {
+  const t = status.transcription_status
+  const a = status.analysis_status
+  let tone = null
+  let text = ''
+  if (t === 'processing') {
+    tone = 'busy'
+    text = "Transcription en cours (Whisper). Comptez environ la durée de l'enregistrement ; vous pouvez quitter la page et revenir."
+  } else if (a === 'processing') {
+    tone = 'busy'
+    text = 'Analyse en cours : projets, décisions, tâches, acteurs et dates…'
+  } else if (t === 'error') {
+    tone = 'error'
+    text = `La transcription a échoué : ${status.transcription_error ?? 'raison inconnue'}`
+  }
+  if (!tone) return null
+  return (
+    <div role="status" aria-live="polite" style={{
+      display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)',
+      fontSize: '13px',
+      background: tone === 'busy' ? 'var(--color-ai-glow)' : 'var(--color-danger-muted)',
+      color: tone === 'busy' ? 'var(--color-text)' : 'var(--color-danger)',
+      border: `1px solid ${tone === 'busy' ? 'rgba(168,85,247,0.3)' : 'var(--color-danger)'}`,
+    }}>
+      {tone === 'busy' && (
+        <span aria-hidden="true" style={{
+          width: '14px', height: '14px', borderRadius: '50%', flexShrink: 0,
+          border: '2px solid var(--color-ai)', borderTopColor: 'transparent', animation: 'spin 0.9s linear infinite',
+        }} />
+      )}
+      <span>{text}</span>
+      <style>{'@keyframes spin { to { transform: rotate(360deg) } }'}</style>
+    </div>
+  )
+}
+
 function TranscriptionSection({ transcription, onSaved }) {
   const [editing, setEditing] = useState(false)
   const [text, setText] = useState(transcription?.raw_text ?? '')
@@ -140,12 +212,49 @@ function TranscriptionSection({ transcription, onSaved }) {
   )
 }
 
+function RecordingSection({ meeting, hasTranscription, initialStatus, maxMb, showAdd, onToggleAdd, onChanged }) {
+  const [status, setStatus] = useProcessingStatus(meeting.id, initialStatus, onChanged)
+  const busy = status.transcription_status === 'processing' || status.analysis_status === 'processing'
+
+  return (
+    <Section
+      id="audio-title"
+      title="Enregistrement"
+      action={hasTranscription && !busy && (
+        <Button variant="secondary" onClick={onToggleAdd}>{showAdd ? 'Fermer' : "Remplacer l'enregistrement"}</Button>
+      )}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <ProcessingBanner status={status} />
+        {meeting.has_audio ? <AudioPlayer meetingId={meeting.id} /> : !showAdd && <Empty>Aucun enregistrement audio.</Empty>}
+        {showAdd && !busy && (
+          <AddRecordingPanel
+            meetingId={meeting.id}
+            maxMb={maxMb}
+            hasTranscription={hasTranscription}
+            onUploaded={(data) => {
+              // 202 (audio) : la transcription démarre, le suivi en direct prend le relais
+              if (data?.transcription_status === 'processing') {
+                setStatus((s) => ({ ...s, transcription_status: 'processing', transcription_error: null }))
+              } else {
+                onChanged() // texte collé : la transcription est là, l'analyse a démarré
+              }
+            }}
+          />
+        )}
+      </div>
+    </Section>
+  )
+}
+
 export default function MeetingDetailPage() {
   const { id } = useParams()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [taskForm, setTaskForm] = useState(null) // null | { task: null } | { task }
+  const [maxMb, setMaxMb] = useState(null)
+  const [showAdd, setShowAdd] = useState(false)
 
   const load = useCallback(() => {
     return api.get(`/meetings/${id}/details`)
@@ -155,6 +264,14 @@ export default function MeetingDetailPage() {
   }, [id])
 
   useEffect(() => { load() }, [load])
+
+  // Taille maximale d'un audio : le navigateur refuse un fichier trop gros AVANT l'envoi
+  useEffect(() => {
+    fetch('/api/health').then((r) => r.json()).then((d) => setMaxMb(d.limits?.audioMb ?? null)).catch(() => {})
+  }, [])
+
+  // Recharger la page quand un traitement se termine (fonction stable pour le suivi)
+  const handleChanged = useCallback(() => { setShowAdd(false); load() }, [load])
 
   if (loading) return <p style={{ color: 'var(--color-text-muted)' }}>Chargement de la réunion…</p>
   if (error) {
@@ -167,6 +284,10 @@ export default function MeetingDetailPage() {
   }
 
   const { meeting, transcription, decisions, tasks, alerts, risks, notifications } = data
+  const initialStatus = {
+    transcription_status: meeting.transcription_status ?? 'none', transcription_error: meeting.transcription_error,
+    analysis_status: meeting.analysis_status ?? 'none', analysis_error: meeting.analysis_error,
+  }
   const status = labelOf(MEETING_STATUS, meeting.status)
   const analysis = labelOf(ANALYSIS_STATUS, meeting.analysis_status ?? 'none')
 
@@ -192,9 +313,16 @@ export default function MeetingDetailPage() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.25rem', alignItems: 'start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <Section id="audio-title" title="Enregistrement">
-            {meeting.has_audio ? <AudioPlayer meetingId={meeting.id} /> : <Empty>Aucun enregistrement audio.</Empty>}
-          </Section>
+          <RecordingSection
+            key={`${meeting.transcription_status}-${meeting.analysis_status}-${transcription?.updated_at ?? ''}`}
+            meeting={meeting}
+            hasTranscription={Boolean(transcription)}
+            initialStatus={initialStatus}
+            maxMb={maxMb}
+            showAdd={showAdd || !transcription}
+            onToggleAdd={() => setShowAdd((v) => !v)}
+            onChanged={handleChanged}
+          />
           <TranscriptionSection
             key={transcription?.id ?? 'aucune'}
             transcription={transcription}

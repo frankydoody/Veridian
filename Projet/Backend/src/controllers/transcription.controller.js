@@ -1,17 +1,22 @@
 import fs from 'fs';
-import path from 'path';
 import {
-  createTranscription,
   findTranscriptionByMeeting,
   findTranscriptionById,
   updateTranscriptionText,
 } from '../models/transcription.model.js';
 import { findMeetingById } from '../models/meeting.model.js';
-import { transcribeAudio } from '../services/whisper.service.js';
 import { indexTranscriptionSafely } from '../services/memory.service.js';
 import { processMeetingSafely } from '../services/meeting-pipeline.service.js';
-import { setMeetingAudio } from '../models/meeting-detail.model.js';
-import { resolveAudioPath } from '../config/storage.js';
+import { saveTranscription, transcribeMeetingAudioSafely } from '../services/meeting-processing.service.js';
+import { setTranscriptionStatus } from '../models/processing.model.js';
+import { isUuid } from '../utils/validation.utils.js';
+
+const NOT_FOUND = { message: 'Réunion introuvable ou accès non autorisé' };
+const BUSY = { message: 'Une transcription est déjà en cours pour cette réunion. Attendez qu\'elle se termine.' };
+
+const removeFile = (filePath) => {
+  if (filePath) fs.rmSync(filePath, { force: true });
+};
 
 // Lance l'analyse en arrière-plan (sauf autoAnalyze = 'false'). Ne bloque pas la réponse.
 const startAutoAnalysis = (meeting, user, autoAnalyze) => {
@@ -20,63 +25,45 @@ const startAutoAnalysis = (meeting, user, autoAnalyze) => {
   return { analysis_status: 'processing' };
 };
 
+// POST /api/transcriptions/upload (multipart : audio, meetingId[, autoAnalyze])
+// Bloc 20 : répond 202 TOUT DE SUITE ; Whisper puis l'analyse tournent en arrière-plan.
 export const uploadAndTranscribeHandler = async (req, res, next) => {
   try {
     if (!req.file) {
-      return res.status(400).json({
-        message: 'Aucun fichier audio reçu'
-      });
+      return res.status(400).json({ message: 'Aucun fichier audio reçu (champ « audio »)' });
     }
 
-    const { meetingId } = req.body;
-
-    if (!meetingId) {
-      fs.unlinkSync(req.file.path);
-      return res.status(400).json({
-        message: 'meetingId est obligatoire'
-      });
+    const { meetingId, autoAnalyze } = req.body ?? {};
+    if (!isUuid(meetingId)) {
+      removeFile(req.file.path);
+      return res.status(400).json({ message: 'meetingId manquant ou invalide' });
     }
 
+    // Accès vérifié AVANT de garder quoi que ce soit
     const meeting = await findMeetingById(meetingId, req.user.id);
-
     if (!meeting) {
-      fs.unlinkSync(req.file.path);
-      return res.status(404).json({
-        message: 'Réunion introuvable ou accès non autorisé'
-      });
+      removeFile(req.file.path);
+      return res.status(404).json(NOT_FOUND);
+    }
+    if (meeting.transcription_status === 'processing') {
+      removeFile(req.file.path);
+      return res.status(409).json(BUSY);
     }
 
-    const text = await transcribeAudio(req.file.path);
+    // L'audio ne remplacera l'ancien qu'APRÈS une transcription réussie (service d'arrière-plan)
+    await setTranscriptionStatus(meeting.id, 'processing');
 
-    // Une seule transcription par réunion (meeting_id UNIQUE) : un nouvel envoi la remplace
-    const existing = await findTranscriptionByMeeting(meetingId);
-    const transcription = existing
-      ? await updateTranscriptionText(existing.id, text)
-      : await createTranscription(meetingId, text);
-
-    // Bloc 14 : l'audio est conservé pour le lecteur de la page de la réunion
-    // (seul le nom du fichier est enregistré ; l'ancien enregistrement est supprimé)
-    const previousAudio = resolveAudioPath(meeting.audio_path);
-    await setMeetingAudio(meetingId, path.basename(req.file.path));
-    if (previousAudio && previousAudio !== path.resolve(req.file.path)) fs.unlinkSync(previousAudio);
-
-    // Bloc 07 : la transcription entre dans la mémoire vectorielle
-    const memory = await indexTranscriptionSafely(meetingId, meeting.project_id, text);
-
-    // Bloc 19 : l'analyse IA (projets, décisions, tâches, courriels) démarre toute seule
-    const analysis = startAutoAnalysis(meeting, req.user, req.body.autoAnalyze);
-
-    return res.status(201).json({
-      message: 'Audio transcrit avec succès',
-      transcription,
-      memory,
-      analysis
+    // Arrière-plan : on n'attend PAS (pas de « await ») ; l'état est suivi en base
+    transcribeMeetingAudioSafely(meeting, req.user, req.file.path, {
+      autoAnalyze: String(autoAnalyze) !== 'false',
     });
 
+    return res.status(202).json({
+      message: 'Audio reçu. La transcription a commencé : suivez son avancement sur la page de la réunion.',
+      transcription_status: 'processing',
+    });
   } catch (error) {
-    if (req.file && fs.existsSync(req.file.path)) {
-      fs.unlinkSync(req.file.path);
-    }
+    removeFile(req.file?.path);
     next(error);
   }
 };
@@ -84,28 +71,17 @@ export const uploadAndTranscribeHandler = async (req, res, next) => {
 export const getTranscriptionHandler = async (req, res, next) => {
   try {
     const { meetingId } = req.params;
+    if (!isUuid(meetingId)) return res.status(400).json({ message: 'Identifiant de réunion invalide' });
 
     const meeting = await findMeetingById(meetingId, req.user.id);
-
-    if (!meeting) {
-      return res.status(404).json({
-        message: 'Réunion introuvable ou accès non autorisé'
-      });
-    }
+    if (!meeting) return res.status(404).json(NOT_FOUND);
 
     const transcription = await findTranscriptionByMeeting(meetingId);
-
     if (!transcription) {
-      return res.status(404).json({
-        message: 'Aucune transcription pour cette réunion'
-      });
+      return res.status(404).json({ message: 'Aucune transcription pour cette réunion' });
     }
 
-    return res.status(200).json({
-      message: 'Transcription récupérée avec succès',
-      transcription
-    });
-
+    return res.status(200).json({ message: 'Transcription récupérée avec succès', transcription });
   } catch (error) {
     next(error);
   }
@@ -114,12 +90,11 @@ export const getTranscriptionHandler = async (req, res, next) => {
 export const updateTranscriptionHandler = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { rawText } = req.body;
+    const { rawText } = req.body ?? {};
+    if (!isUuid(id)) return res.status(400).json({ message: 'Identifiant de transcription invalide' });
 
-    if (!rawText || rawText.trim() === '') {
-      return res.status(400).json({
-        message: 'Le texte de transcription est obligatoire'
-      });
+    if (!rawText || String(rawText).trim() === '') {
+      return res.status(400).json({ message: 'Le texte de transcription est obligatoire' });
     }
 
     // 1. La transcription existe-t-elle ?
@@ -133,63 +108,46 @@ export const updateTranscriptionHandler = async (req, res, next) => {
       : null;
 
     if (!existing || !meeting) {
-      return res.status(404).json({
-        message: 'Transcription introuvable ou accès non autorisé'
-      });
+      return res.status(404).json({ message: 'Transcription introuvable ou accès non autorisé' });
     }
 
     // 3. Seulement maintenant, on modifie
-    const transcription = await updateTranscriptionText(id, rawText.trim());
+    const transcription = await updateTranscriptionText(id, String(rawText).trim());
 
     // Bloc 07 : le texte a changé, la mémoire doit être ré-indexée
-    const memory = await indexTranscriptionSafely(
-      meeting.id,
-      meeting.project_id,
-      transcription.raw_text
-    );
+    const memory = await indexTranscriptionSafely(meeting.id, meeting.project_id, transcription.raw_text);
 
-    return res.status(200).json({
-      message: 'Transcription mise à jour avec succès',
-      transcription,
-      memory
-    });
-
+    return res.status(200).json({ message: 'Transcription mise à jour avec succès', transcription, memory });
   } catch (error) {
     next(error);
   }
 };
 
-
-// POST /api/transcriptions/text — transcription fournie en texte (collée, importée,
-// ou jeu de démonstration) : remplace l'audio + Whisper, puis lance la même analyse.
+// POST /api/transcriptions/text — transcription fournie en texte (collée ou importée) :
+// remplace l'audio + Whisper, puis lance la même analyse.
 export const submitTextHandler = async (req, res, next) => {
   try {
-    const { meetingId, rawText, autoAnalyze } = req.body;
+    const { meetingId, rawText, autoAnalyze } = req.body ?? {};
 
-    if (!meetingId || !rawText || String(rawText).trim() === '') {
+    if (!isUuid(meetingId) || !rawText || String(rawText).trim() === '') {
       return res.status(400).json({ message: 'meetingId et rawText sont obligatoires' });
+    }
+    if (String(rawText).length > 200000) {
+      return res.status(400).json({ message: 'Transcription trop longue (200 000 caractères au maximum)' });
     }
 
     const meeting = await findMeetingById(meetingId, req.user.id);
-    if (!meeting) {
-      return res.status(404).json({ message: 'Réunion introuvable ou accès non autorisé' });
-    }
+    if (!meeting) return res.status(404).json(NOT_FOUND);
+    if (meeting.transcription_status === 'processing') return res.status(409).json(BUSY);
 
     const text = String(rawText).trim();
-    const existing = await findTranscriptionByMeeting(meetingId);
-    const transcription = existing
-      ? await updateTranscriptionText(existing.id, text)
-      : await createTranscription(meetingId, text);
+    const transcription = await saveTranscription(meetingId, text);
+    await setTranscriptionStatus(meetingId, 'done');
 
     const memory = await indexTranscriptionSafely(meetingId, meeting.project_id, text);
     const analysis = startAutoAnalysis(meeting, req.user, autoAnalyze);
 
-    return res.status(201).json({
-      message: 'Transcription enregistrée',
-      transcription,
-      memory,
-      analysis
-    });
+    return res.status(201).json({ message: 'Transcription enregistrée', transcription, memory, analysis });
   } catch (error) {
     next(error);
   }

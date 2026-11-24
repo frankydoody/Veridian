@@ -19,6 +19,9 @@ export const analyzeMeetingHandler = async (req, res, next) => {
       return res.status(404).json({ message: 'Réunion introuvable ou accès non autorisé' });
     }
 
+    if (meeting.transcription_status === 'processing') {
+      return res.status(409).json({ message: "La transcription est encore en cours : l'analyse démarrera ensuite" });
+    }
     if (meeting.analysis_status === 'processing') {
       return res.status(409).json({ message: 'Une analyse est déjà en cours pour cette réunion' });
     }
@@ -56,6 +59,8 @@ export const getAnalysisHandler = async (req, res, next) => {
 
     const results = await findAnalysisByMeeting(id);
     return res.status(200).json({
+      transcription_status: meeting.transcription_status,
+      transcription_error: meeting.transcription_error,
       analysis_status: meeting.analysis_status,
       analysis_error: meeting.analysis_error,
       analyzed_at: meeting.analyzed_at,
