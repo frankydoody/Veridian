@@ -168,7 +168,8 @@ cd Projet/Backend && npm run verifier                          # équivalent, pa
 | Migrations | Chaque fichier de `database/migrations` est inscrit dans `schema_migrations` |
 | Clé Gemini | Un très court appel réel (génération, puis embedding de 768 dimensions) |
 | ffmpeg, Whisper | Les commandes répondent (chemins de `FFMPEG_COMMAND` / `WHISPER_COMMAND` si renseignés) |
-| Courriels | Connexion et authentification au serveur SMTP, **sans envoyer** de courriel ; sans `SMTP_HOST` : avertissement « courriels simulés » |
+| Courriels | Connexion et authentification au serveur SMTP (ou à Mailpit), **sans envoyer** de courriel ; sans `SMTP_HOST` : avertissement « courriels simulés » |
+| Boîte courriel de test | Mailpit répond sur `MAILBOX_URL` (contrôle ignoré avec un SMTP réel) |
 | Ports 3000 et 5173 | Libres, ou déjà utilisés par Veridian |
 
 Options : `--sans-ia` (ne pas appeler Gemini), `--sans-whisper`. Code de sortie 0 si rien n'est bloquant, 1 sinon. Aucun secret n'est affiché.
@@ -178,6 +179,20 @@ Options : `--sans-ia` (ne pas appeler Gemini), `--sans-whisper`. Code de sortie 
 | Frontend | http://localhost:5173 |
 | API | http://localhost:3000 |
 | Health check | http://localhost:3000/api/health |
+| Boîte courriel de test (Mailpit) | http://localhost:8025 |
+
+### Courriels : boîte de test ou envoi réel
+
+Après une analyse, Veridian envoie un courriel à chaque acteur (ses tâches et leurs échéances) et un résumé à l'organisateur. Deux modes :
+
+| Mode | Configuration (`Projet/Backend/.env`) | Où lire les courriels |
+|---|---|---|
+| **Boîte de test locale** (par défaut) | `SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025`, `MAILBOX_URL=http://localhost:8025` (écrits par le script de démarrage si `SMTP_HOST` est vide) | Lien **« 📬 Boîte courriel de test »** dans l'en-tête de l'application, filtré sur les courriels de l'utilisateur connecté |
+| **Envoi réel** | Un vrai serveur SMTP (Gmail : `smtp.gmail.com`, port `587`, mot de passe d'application) et `MAILBOX_URL=` vide | Dans la vraie boîte de chaque destinataire |
+
+La boîte de test est **Mailpit**, un vrai serveur SMTP lancé par `docker compose` à côté de PostgreSQL (conteneur `veridian_mail`). L'application suit exactement le même chemin qu'avec Gmail (envoi SMTP par nodemailer). La seule différence : Mailpit garde les courriels au lieu de les distribuer, et **aucun ne sort de ce PC**. On peut donc s'inscrire avec n'importe quelle adresse, même fictive.
+
+À savoir : la page de Mailpit n'a pas de connexion et montre **tous** les courriels (le lien de l'application ne fait que filtrer l'affichage). Elle n'est joignable que depuis ce PC (ports liés à `127.0.0.1`). C'est un outil de test, pas une messagerie : pour une utilisation réelle, configurer un serveur SMTP.
 
 Se connecter avec un compte de test (voir « Données de test » ci-dessous), ou créer son propre compte sur la page d'inscription.
 
@@ -227,8 +242,8 @@ Puis relancer `Demarrer.bat` : les nouvelles dépendances et les nouvelles migra
 Fermer les deux fenêtres (ou Ctrl+C dans chacune), puis, pour arrêter la base :
 
 ```powershell
-docker compose down       # arrête PostgreSQL, conserve les données
-docker compose down -v    # arrête et efface les données
+docker compose down       # arrête PostgreSQL et Mailpit, conserve les données
+docker compose down -v    # arrête et efface les données (base et courriels de test)
 ```
 
 ---
@@ -343,7 +358,7 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | Bloc | Titre | Statut | Description |
 |---|---|---|---|
 | 17 | Tests d'intégration & Qualité | ✅ Done | Tests d'API (Jest + supertest) sur une vraie base de test `veridian_test` recréée à chaque exécution : authentification, CRUD, contrôle d'accès (404 partout pour un non-membre), chaîne d'analyse avec IA simulée, mémoire vectorielle, chat, PDF ; couverture des lignes ≈ 92 % ; sécurité : `helmet`, CORS configurable (`FRONTEND_URL`), limitation de débit sur la connexion, mot de passe de 8 caractères minimum, courriel unique sans tenir compte de la casse (migration 015), JWT en HS256 imposé, refus de démarrer sans secret JWT solide |
-| 18 | Déploiement & Documentation finale | En cours | Installation : données de test facultatives (`-DonneesTest`, `--donnees-test`), vérification complète de l'installation (`npm run verifier`, `-Verifier`, `--verifier`), `.env.example` entièrement commenté, courriels simulés annoncés au démarrage. Reste : documentation finale (README, UML, guide, rapport TN4, captures) |
+| 18 | Déploiement & Documentation finale | En cours | Installation : données de test facultatives (`-DonneesTest`, `--donnees-test`), vérification complète de l'installation (`npm run verifier`, `-Verifier`, `--verifier`), `.env.example` entièrement commenté, courriels simulés annoncés au démarrage ; boîte courriel de test Mailpit (Docker) par défaut, avec lien filtré par utilisateur dans l'en-tête. Reste : documentation finale (README, UML, guide, rapport TN4, captures) |
 
 ---
 
@@ -395,7 +410,7 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `src/services/meeting-pipeline.service.js` | Orchestre l'analyse d'une réunion : IA → enregistrement → mémoire → contradictions → risques → courriels (bloc 19) |
 | `src/utils/analysis.utils.js` | Fonctions pures : correspondance des noms (acteurs, projets), priorités, dates estimées, nettoyage de la réponse de l'IA |
 | `src/models/pipeline.model.js` | Enregistrement atomique de l'analyse (projets, décisions, tâches), risques, journal des courriels |
-| `src/services/notification.service.js` | Construction des courriels (un par acteur + résumé) et envoi SMTP ; sans `SMTP_HOST`, mode console |
+| `src/services/notification.service.js` | Construction des courriels (un par acteur + résumé) et envoi SMTP (Mailpit ou serveur réel) ; sans `SMTP_HOST`, mode console |
 | `src/controllers/analysis.controller.js` | `POST /api/meetings/:id/analyze[?wait=true&notify=false]`, `GET /api/meetings/:id/analysis` |
 | `database/migrations/010_pipeline_reunion.sql` | `tasks.assignee_id`, état d'analyse des réunions, tables `mtg_risks` et `mtg_notifications` |
 | `tests/integration/pipeline.it.mjs` | Scénario complet sur une vraie base avec une IA simulée (voir l'en-tête du fichier) |
@@ -440,7 +455,8 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `src/api/client.js` | Jeton dans `localStorage` et appels de connexion / inscription (un 401 = mauvais mot de passe) |
 | `src/services/api.js` | Client des pages protégées : URL relatives `/api`, envoi de fichiers (`FormData`), téléchargement binaire, 401 = session expirée → page de connexion avec message |
 | `src/components/SessionNotice.jsx` | Bandeau « session expirée » affiché une fois sur la page de connexion |
-| `src/components/ServiceStatus.jsx` | Pastilles d'état réelles de l'en-tête (`GET /api/health` : clé Gemini, SMTP ou courriels simulés) |
+| `src/components/ServiceStatus.jsx` | Pastilles d'état réelles de l'en-tête (`GET /api/health` : clé Gemini, SMTP ou courriels simulés) et lien « Boîte courriel de test » |
+| `src/utils/mailbox.js` | Lien vers la boîte de test, filtré sur l'adresse de l'utilisateur connecté (bloc 18) |
 | `src/utils/dates.js` | Durées relatives passé/futur, dates, échéances lues en UTC, tâche en retard |
 | `src/utils/labels.js` | Libellés et couleurs des statuts, priorités et gravités (mêmes clés que la base) |
 | `src/utils/dates.test.js` | Tests des dates (`npm test` dans `Projet/Frontend`, testeur intégré à Node) |
@@ -473,20 +489,8 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | Branches | Statut |
 |---|---|
 | `main` | Active — base de production |
-| `bloc-01` à `bloc-11`, `bloc-15-frontend-decisions`, `fix/securite-et-installation` | Fusionnées |
-| `fix/installation-linux` (PR #30) | PR ouverte, à tester |
-| `bloc-19-pipeline-ia` (PR #31) | PR ouverte, à tester |
-| `chore/hygiene-depot` (PR #32) | PR ouverte — empilée sur `bloc-19-pipeline-ia` |
-| `bloc-12-frontend-api` (PR #33) | PR ouverte — empilée sur `chore/hygiene-depot` |
-| `bloc-13-formulaires` (PR #34) | PR ouverte — empilée sur `bloc-12-frontend-api` |
-| `bloc-14-detail-reunion` (PR #35) | PR ouverte — empilée sur `bloc-13-formulaires` |
-| `bloc-20-enregistrement` (PR #36) | PR ouverte — empilée sur `bloc-14-detail-reunion` |
-| `bloc-21-resultats-taches` (PR #37) | PR ouverte — empilée sur `bloc-20-enregistrement` |
-| `bloc-16-calendrier` (PR #38) | PR ouverte — empilée sur `bloc-21-resultats-taches` |
-| `bloc-17-tests-securite` (PR #39) | PR ouverte — empilée sur `bloc-16-calendrier` |
-| `bloc-22-donnees-test` (PR #40) | PR ouverte — empilée sur `bloc-17-tests-securite` |
-| `fix/modele-gemini` (PR #41) | PR ouverte — empilée sur `bloc-22-donnees-test` |
-| `bloc-18-deploiement` | PR ouverte — empilée sur `fix/modele-gemini`, intègre aussi `fix/installation-linux` |
+| `bloc-01` à `bloc-22`, `fix/*`, `chore/hygiene-depot` (PR #12 à #42, sauf #13) | Fusionnées en merge commit, branches conservées |
+| `bloc-18-mailpit` | PR ouverte : boîte courriel de test |
 | `branch/bloc-06-decisions` (PR #13) | Ancienne PR à fermer sans fusion : le bloc 06 est déjà dans `main` par un autre chemin |
 
 Une branche « empilée » part d'une branche pas encore fusionnée : fusionner les PR dans l'ordre du tableau. Après chaque fusion, la PR suivante ne montre plus que ses propres commits.
@@ -534,14 +538,15 @@ Tout se lance depuis `Projet/Backend` (base PostgreSQL démarrée pour les tests
 | `WHISPER_COMMAND` / `FFMPEG_COMMAND` | vide | Chemin complet de `whisper` / `ffmpeg` s'ils ne sont pas dans le `PATH` |
 | `MAX_AUDIO_MB` | `200` | Taille maximale d'un fichier audio envoyé, en Mo (413 au-delà) |
 | `UPLOAD_DIR` | vide | Dossier des fichiers audio, relatif à `src/config` (vide : dossier `uploads` à la racine du dépôt) |
-| `SMTP_HOST` | vide | Serveur SMTP. Vide = mode console : les courriels sont affichés dans le terminal du backend, rien n'est envoyé (annoncé au démarrage du backend) |
-| `SMTP_PORT` | `587` | Port SMTP |
+| `SMTP_HOST` | `127.0.0.1` | Serveur SMTP. `127.0.0.1` + port `1025` = boîte de test Mailpit. Vide = mode console : les courriels sont seulement affichés dans le terminal du backend (annoncé au démarrage) |
+| `SMTP_PORT` | `1025` | Port SMTP (`1025` Mailpit, `587` STARTTLS, `465` TLS direct) |
 | `SMTP_SECURE` | `false` | `true` pour TLS direct (port 465) |
 | `SMTP_USER` / `SMTP_PASSWORD` | vide | Identifiants SMTP (Gmail : mot de passe d'application) |
 | `FRONTEND_URL` | `http://localhost:5173` | Origine(s) autorisée(s) à appeler l'API depuis un navigateur (CORS), séparées par des virgules |
 | `AUTH_RATE_LIMIT` | `20` | Essais de connexion ou d'inscription permis par adresse IP et par fenêtre ; au-delà : 429 |
 | `AUTH_RATE_WINDOW_MIN` | `15` | Durée de la fenêtre de limitation, en minutes |
 | `MAIL_FROM` | `Veridian <no-reply@veridian.local>` | Expéditeur des courriels |
+| `MAILBOX_URL` | `http://localhost:8025` | Adresse de la boîte courriel de test, affichée en lien dans l'en-tête ; vide avec un SMTP réel |
 
 Les valeurs `DB_*` correspondent à `docker-compose.yml` : ne pas les changer sans modifier aussi ce fichier.
 
@@ -557,6 +562,8 @@ Les valeurs `DB_*` correspondent à `docker-compose.yml` : ne pas les changer sa
 | La fenêtre de confirmation administrateur (UAC) a été refusée | Relancer `Demarrer.bat` et accepter : l'activation de WSL 2 exige les droits administrateur |
 | Docker ne répond pas après 5 minutes | Ouvrir Docker Desktop une fois, attendre l'icône verte, relancer. Si WSL pose problème : `wsl --update` dans un terminal administrateur, puis redémarrer |
 | Port 5432 déjà utilisé | Un PostgreSQL est déjà installé sur le PC : arrêter son service (`services.msc`), relancer |
+| Port 1025 ou 8025 déjà utilisé (`docker compose up` échoue) | Un autre outil de courriel de test tourne (MailHog, autre Mailpit) : l'arrêter, puis relancer le script |
+| Aucun courriel dans la boîte de test | `.\start.ps1 -Verifier` : les lignes « Courriels (SMTP) » et « Boîte courriel de test » disent ce qui manque (souvent : Docker arrêté, `docker compose up -d`) ; la page d'une réunion montre l'état de chaque envoi |
 | Port 3000 ou 5173 déjà utilisé | Fermer le programme qui l'occupe (ou l'ancienne fenêtre « Backend »/« Frontend »), relancer |
 | L'application démarre mais l'IA ne répond pas | `GEMINI_API_KEY` absente ou invalide dans `Projet\Backend\.env` : corriger puis relancer |
 | Le `.env` n'est pas pris en compte | Vérifier le nom exact `.env` (pas `.env.txt`) et l'emplacement `Projet\Backend\` |

@@ -1163,6 +1163,21 @@ Cette section explique, bloc par bloc, les choix faits et leur justification. Le
 - **Une base vide par défaut.** Le professeur doit partir d'une application réelle, sans faux comptes. Les données de test deviennent une option explicite (`-DonneesTest`, `--donnees-test`). L'ancienne option `-NoSeed` est encore acceptée, sans effet, pour ne pas casser une commande déjà notée.
 - **Les modes dégradés annoncés.** Au démarrage, le backend dit si les courriels sont simulés (pas de `SMTP_HOST`) ou si la clé Gemini est vide, au lieu de laisser l'utilisateur le découvrir après une analyse.
 
+### 9.12 Bloc 18 — Boîte courriel de test (Mailpit)
+
+- **Le besoin.** L'application doit montrer ses courriels sans dépendre d'un compte Gmail, et sans envoyer de messages à de vraies personnes pendant les essais.
+- **Trois options comparées.**
+  - Une page « Mes courriels » dans Veridian, qui lit des courriels stockés en base : chacun ne voit que les siens, mais l'envoi devient une simulation.
+  - Mailpit, un vrai serveur SMTP local.
+  - Les deux à la fois.
+
+  Mailpit est retenu : l'application suit **exactement** le même chemin qu'en production (nodemailer, SMTP, journal `sent`/`failed`). Ce qui est montré est donc un vrai envoi, pas un mode démonstration. Le code d'envoi n'a pas changé d'une ligne : seule la configuration change.
+- **Configuration plutôt que code.** Le script de démarrage remplit `SMTP_HOST=127.0.0.1`, `SMTP_PORT=1025` et `MAILBOX_URL` **seulement si `SMTP_HOST` est vide**. Un SMTP réel déjà renseigné n'est jamais modifié, et le lien vers la boîte de test est alors retiré.
+- **`127.0.0.1` plutôt que `localhost`.** Les ports de Mailpit sont liés à l'adresse IPv4 locale. Sur certains postes, `localhost` se résout d'abord en IPv6 (`::1`), où rien n'écoute.
+- **La limite assumée.** La page de Mailpit n'a pas de connexion : tous les courriels y sont visibles, le lien de l'application filtre seulement l'affichage (`/search?q=to:adresse`, vérifié dans un navigateur). Pour ne pas exposer cette page au réseau, ses ports sont liés à `127.0.0.1`. C'est acceptable pour une installation de test sur un poste ; pour une vraie utilisation, on configure un serveur SMTP.
+- **Une version figée.** L'image est épinglée (`axllent/mailpit:v1.32.0`) : une installation faite plus tard donne le même résultat.
+- **Vérifié de bout en bout.** Une vraie analyse Gemini a produit trois courriels (deux acteurs et l'organisateur), notés `sent` dans le journal et reçus par Mailpit. Le lien de l'en-tête, connecté avec un acteur, n'affiche que son courriel.
+
 ---
 
 *Guide de développement Veridian — INF4018 — Francis Côté*
