@@ -1129,6 +1129,21 @@ Cette section explique, bloc par bloc, les choix faits et leur justification. Le
 - **Erreurs.** Le client ne reçoit jamais le message interne (SQL, chemin de fichier) ni la trace d'exécution, sauf avec `NODE_ENV=development`. La trace complète reste dans la console du serveur.
 - **Déjà en place et vérifiés par les tests** : échappement HTML des courriels (`escapeHtml`), aucune route ne renvoie `password_hash`, type et taille des fichiers audio contrôlés, chemin du fichier audio jamais exposé.
 
+### 9.9 Bloc 22 — Données de test
+
+- **Imiter le résultat réel, pas l'ancien modèle.** Le jeu de données datait d'avant la chaîne d'analyse (bloc 19). Ses tâches n'avaient ni `assignee_id` ni `source = 'ai'`, elles n'apparaissaient donc ni dans « Mes tâches » ni dans la section Analyse (BUG-38). Elles sont maintenant écrites comme le fait `pipeline.model.js` : acteur lié à son compte, créées au nom de l'organisateur, échéance à 17 h UTC, `due_estimated` quand aucune date n'avait été dite. Les réunions sont marquées transcrites et analysées, avec leurs risques et le journal des courriels (`logged`, comme en mode console).
+- **Couvrir chaque écran.** Le jeu contient de quoi remplir toutes les pages :
+  - une tâche en retard (tableau de bord) ;
+  - une réunion planifiée (calendrier) ;
+  - un projet créé par une réunion (« Nouveau ») ;
+  - deux contradictions (alertes) et des risques ;
+  - un projet confidentiel (isolation) ;
+  - un scénario en trois réunions d'un même projet (création → contradiction → mise à jour).
+- **Pas de collision avec les scénarios.** Le projet créé par la réunion s'appelle « Boutique en ligne ». « Portail fournisseurs » reste le nom du projet *nouveau* dans `pipeline.it.mjs` et dans le test réel à la voix (BUG-39).
+- **Une fonction testée plutôt qu'un script opaque.** `seedTestData(pool)` est exportée ; le fichier ne s'exécute seul que lancé directement (`node database/seed.js`). Le test `seed.api.test.js` l'appelle sur `veridian_test`, puis relit tout par les vraies routes, connecté avec chacun des trois comptes. Un changement de schéma qui casserait le jeu de données fait donc échouer les tests.
+- **Idempotent et en une transaction.** Si `admin@example.com` existe, rien n'est fait ; sinon tout est inséré, ou rien en cas d'erreur. L'indexation de la mémoire (appel à Gemini) se fait après la transaction et n'est jamais bloquante.
+- **Clairement « données de test ».** Le script l'annonce en tête de sa sortie. Les comptes sont en `@example.com`, un domaine réservé : aucun courriel ne peut y arriver.
+
 ---
 
 *Guide de développement Veridian — INF4018 — Francis Côté*

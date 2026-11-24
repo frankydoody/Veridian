@@ -36,7 +36,7 @@ Veridian/
 │   │   ├── .env.example   # Modèle de .env sans secret
 │   │   ├── database/
 │   │   │   ├── schema.sql         # schéma de base (9 tables) — à appliquer AVANT les migrations
-│   │   │   ├── seed.js            # données de démonstration (3 comptes, projets, réunions...)
+│   │   │   ├── seed.js            # données de test facultatives (3 comptes, 4 projets, réunions analysées...)
 │   │   │   └── migrations/
 │   │   └── src/
 │   │       ├── config/    # db.js, gemini.js
@@ -147,31 +147,36 @@ powershell -ExecutionPolicy Bypass -File .\start.ps1 -InstallOnly
 | API | http://localhost:3000 |
 | Health check | http://localhost:3000/api/health |
 
-Se connecter avec un compte de démonstration (voir ci-dessous), ou créer son propre compte sur la page d'inscription.
+Se connecter avec un compte de test (voir « Données de test » ci-dessous), ou créer son propre compte sur la page d'inscription.
 
-### Données de démonstration
+### Données de test (facultatif)
 
-Au premier démarrage (base sans aucun utilisateur), le script ajoute un jeu de données pour pouvoir tester immédiatement. **Mot de passe de tous les comptes : `12345678`**
+Un jeu de **données de test** (comptes et projets fictifs) permet d'essayer l'application ou de la présenter sans tout saisir. Il imite exactement le résultat de la vraie chaîne d'analyse : réunions transcrites et analysées, tâches liées à leurs acteurs avec des échéances, alertes, risques, journal des courriels. Pour l'instant, les scripts de démarrage l'ajoutent sur une base vide (désactivable avec `-NoSeed`, ou `NO_SEED=1` sous Ubuntu). Le bloc 18 le rendra entièrement facultatif. **Mot de passe de tous les comptes : `12345678`**
 
 | Compte | Rôle | Projets accessibles |
 |---|---|---|
-| `admin@example.com` | admin | Refonte du site web client, Application mobile Atlas |
+| `admin@example.com` | admin | Refonte du site web client, Application mobile Atlas, Boutique en ligne |
 | `marie.tremblay@example.com` | membre | Refonte du site web client, Application mobile Atlas |
-| `samuel.gagnon@example.com` | membre | Refonte du site web client, Plan de relève RH (confidentiel) |
+| `samuel.gagnon@example.com` | membre | Refonte du site web client, Boutique en ligne, Plan de relève RH (confidentiel) |
 
-Contenu : 3 projets, 7 réunions (6 terminées avec transcription en français, 1 planifiée sans audio pour tester le téléversement), 15 décisions (confirmées, provisoires, contredites), 2 alertes de contradiction (sévérité haute et moyenne), 13 tâches (à faire, en cours, terminées, une en retard) réparties entre les trois comptes.
+Contenu : 4 projets, 8 réunions (7 transcrites et analysées, 1 planifiée sans audio pour essayer l'enregistrement), 17 décisions (confirmées, provisoires, contredites), 2 alertes de contradiction, 4 risques, 16 tâches (à faire, en cours, terminées, en retard, dates estimées) et 19 courriels journalisés.
 
 Scénarios de test utiles :
-- **Contradictions** : dans « Refonte du site web client », l'hébergement chez Cloudflare Pages (lancement) est contredit par la migration vers un serveur interne (suivi technique) ; dans « Application mobile Atlas », le report des notifications push est contredit par leur ajout pour la démonstration.
+- **Une chaîne complète en 3 réunions** (« Application mobile Atlas ») :
+  - **création** : périmètre, React Native, mode hors ligne ;
+  - **contradiction** : les notifications push, reportées à la version 2, sont finalement demandées dès la première version → alerte ;
+  - **mise à jour** : prototype livré, tâches terminées, nouvelles tâches, risques.
+- **Projet créé par une réunion** : l'analyse du « Suivi technique » (Refonte) a créé « Boutique en ligne ». La page de la réunion l'affiche « Nouveau » ; Samuel, qui y reçoit une tâche, en est devenu membre.
+- **Contradictions** : dans « Refonte du site web client », l'hébergement chez Cloudflare Pages (lancement) est contredit par la migration vers un serveur interne (suivi technique).
+- **Mes tâches, tableau de bord, calendrier** : chaque compte a ses tâches, dont une en retard (Admin). La « Revue de sprint » est planifiée dans 3 jours et apparaît dans le calendrier.
 - **Isolation des données** : « Plan de relève RH (confidentiel) » n'appartient qu'à Samuel ; `admin@example.com` et Marie ne doivent ni le voir ni y accéder (réponse 404).
-- **Tâches** : chaque utilisateur ne voit que ses propres tâches.
-- **Mémoire / chat** : les transcriptions et décisions sont indexées au premier démarrage si la clé Gemini est valide ; sinon, relancer l'indexation d'une réunion avec `POST /api/memory/index/:meetingId`. Les conversations sont créées avec `POST /api/chat/conversations` (`{ "projectId": ... }`), puis chaque question est envoyée à `POST /api/chat/conversations/:id/messages` (`{ "question": ... }`) ; chaque utilisateur ne voit que ses propres conversations.
-- **Export PDF** : `GET /api/projects/:id/export/pdf` (avec le token) télécharge le rapport du projet ; les non-membres reçoivent 404.
+- **Mémoire / chat** : les transcriptions et décisions sont indexées à l'ajout des données si la clé Gemini est valide. Sinon, on relance l'indexation d'une réunion avec `POST /api/memory/index/:meetingId`.
+- **Export PDF** : bouton « Exporter en PDF » de la page Décisions ; les non-membres reçoivent 404.
 
 Commandes (depuis `Projet/Backend`) :
 
 ```bash
-node database/seed.js                  # ajoute les données si elles n'existent pas (sinon ne fait rien)
+node database/seed.js                  # ajoute les données de test si elles n'existent pas (sinon ne fait rien)
 node database/seed.js --no-embeddings  # idem, sans appeler Gemini
 ```
 
@@ -290,7 +295,7 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | 19 | Pipeline IA & courriels | ✅ Done (à tester) | Une réunion transcrite est analysée : projets détectés (existants réutilisés, nouveaux créés), décisions, tâches liées à un acteur avec date de fin estimée, contradictions, risques, courriel par acteur et résumé de l'organisateur (`POST /api/meetings/:id/analyze`, `GET /api/meetings/:id/analysis`, `POST /api/transcriptions/text`) |
 | 20 | Frontend Enregistrement | ✅ Done | Enregistrement dans le navigateur (MediaRecorder : pause, niveau du micro, écoute de contrôle), téléversement d'un fichier, transcription collée ; envoi en `202` et Whisper en arrière-plan (`transcription_status`, migration 012), suivi en direct, erreurs claires (micro refusé, ffmpeg absent, fichier trop gros) |
 | 21 | Frontend Réunion & Tâches liées | ✅ Done | Section Analyse de la réunion (état en direct, relance, projets nouveaux ou existants, courriels), tâches regroupées par acteur avec échéance estimée ; page « Mes tâches » (filtres, tri par échéance, retard, statut) ; tableau de bord aux compteurs réels (`GET /api/dashboard`, migration 013) |
-| 22 | Jeu de données de scénario & tests d'intégration | Todo | Transcriptions de démonstration en plusieurs réunions, tests sur vraie base |
+| 22 | Jeu de données de scénario & tests d'intégration | ✅ Done | Données de test conformes au modèle actuel (tâches liées aux acteurs, réunions analysées, risques, courriels, projet créé par une réunion, réunion planifiée au calendrier) ; scénario en 3 réunions (création, contradiction, mise à jour) ; `seedTestData` testé sur `veridian_test` par les vraies routes (`tests/api/seed.api.test.js`) |
 
 ### Qualité et livraison
 
@@ -380,7 +385,8 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `src/config/security.js` | CORS (`FRONTEND_URL`), limitation de débit de la connexion, vérification du secret JWT au démarrage (bloc 17) |
 | `database/preparer-base-test.mjs` | Recrée la base de test `veridian_test` (schéma + migrations) ; refuse tout nom sans `_test` (bloc 17) |
 | `database/migrations/015_courriel_unique_insensible_casse.sql` | Un seul compte par courriel, sans tenir compte de la casse |
-| `tests/api/` | Tests d'API sur vraie base : `auth`, `crud`, `acces`, `pipeline` (`*.api.test.js`) ; `helpers.js` simule l'IA (bloc 17) |
+| `tests/api/` | Tests d'API sur vraie base : `auth`, `crud`, `acces`, `pipeline`, `seed` (`*.api.test.js`) ; `helpers.js` simule l'IA (blocs 17 et 22) |
+| `database/seed.js` | Données de test facultatives ; `seedTestData(pool)` est aussi utilisée par les tests (bloc 22) |
 | `src/utils/jwt.utils.js` | Génération et vérification des tokens JWT |
 | `src/utils/hash.utils.js` | Hachage bcrypt |
 
@@ -434,8 +440,9 @@ Chaque bloc = une branche Git `bloc-XX`, une PR vers `main`, jamais supprimée.
 | `bloc-20-enregistrement` (PR #36) | PR ouverte — empilée sur `bloc-14-detail-reunion` |
 | `bloc-21-resultats-taches` (PR #37) | PR ouverte — empilée sur `bloc-20-enregistrement` |
 | `bloc-16-calendrier` (PR #38) | PR ouverte — empilée sur `bloc-21-resultats-taches` |
-| `bloc-17-tests-securite` | PR ouverte — empilée sur `bloc-16-calendrier` |
-| `bloc-18`, `bloc-22` | À faire |
+| `bloc-17-tests-securite` (PR #39) | PR ouverte — empilée sur `bloc-16-calendrier` |
+| `bloc-22-donnees-test` | PR ouverte — empilée sur `bloc-17-tests-securite` |
+| `bloc-18` | À faire |
 
 Une branche « empilée » part d'une branche pas encore fusionnée : fusionner les PR dans l'ordre du tableau. Après chaque fusion, la PR suivante ne montre plus que ses propres commits.
 
