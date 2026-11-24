@@ -39,7 +39,7 @@ const NAV_ITEMS = [
   },
   {
     to: '/tasks',
-    label: 'Tâches',
+    label: 'Mes tâches',
     icon: (
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
         <path d="M9 11l3 3L22 4" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"/>

@@ -19,6 +19,7 @@ jest.unstable_mockModule('../../src/models/transcription.model.js', () => ({
 jest.unstable_mockModule('../../src/models/meeting.model.js', () => ({ findMeetingById }));
 jest.unstable_mockModule('../../src/services/whisper.service.js', () => ({ transcribeAudio: jest.fn() }));
 jest.unstable_mockModule('../../src/services/memory.service.js', () => ({ indexTranscriptionSafely }));
+jest.unstable_mockModule('../../src/models/pipeline.model.js', () => ({ setAnalysisStatus: jest.fn() }));
 jest.unstable_mockModule('../../src/services/meeting-pipeline.service.js', () => ({ processMeetingSafely: jest.fn() }));
 jest.unstable_mockModule('../../src/models/meeting-detail.model.js', () => ({ setMeetingAudio: jest.fn() }));
 

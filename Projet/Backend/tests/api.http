@@ -251,3 +251,17 @@ Content-Type: audio/mpeg
 ### Suivre le traitement : transcription_status puis analysis_status (none | processing | done | error)
 GET {{baseUrl}}/meetings/COLLE_MEETING_ID_ICI/analysis
 Authorization: Bearer {{token}}
+
+### ─── Bloc 21 : résultats, relance, tableau de bord ──────────────────────
+### Relancer l'analyse d'une réunion : 202, puis suivre analysis_status avec /analysis
+# 409 si une transcription ou une analyse est déjà en cours ; 404 sans transcription
+POST {{baseUrl}}/meetings/COLLE_MEETING_ID_ICI/analyze
+Authorization: Bearer {{token}}
+
+### Détail : « projects » indique pour chaque projet s'il a été créé par cette réunion (is_new)
+GET {{baseUrl}}/meetings/COLLE_MEETING_ID_ICI/details
+Authorization: Bearer {{token}}
+
+### Tableau de bord : compteurs réels de l'utilisateur connecté et prochaines échéances
+GET {{baseUrl}}/dashboard
+Authorization: Bearer {{token}}

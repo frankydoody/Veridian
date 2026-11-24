@@ -8,7 +8,8 @@ const processMeetingSafely = jest.fn();
 
 jest.unstable_mockModule('../../src/models/meeting.model.js', () => ({ findMeetingById }));
 jest.unstable_mockModule('../../src/models/transcription.model.js', () => ({ findTranscriptionByMeeting }));
-jest.unstable_mockModule('../../src/models/pipeline.model.js', () => ({ findAnalysisByMeeting }));
+const setAnalysisStatus = jest.fn();
+jest.unstable_mockModule('../../src/models/pipeline.model.js', () => ({ findAnalysisByMeeting, setAnalysisStatus }));
 jest.unstable_mockModule('../../src/services/meeting-pipeline.service.js', () => ({ processMeeting, processMeetingSafely }));
 
 const { analyzeMeetingHandler, getAnalysisHandler } = await import('../../src/controllers/analysis.controller.js');

@@ -7,6 +7,7 @@ import { api } from '../services/api.js'
 import TaskFormModal from '../components/TaskFormModal.jsx'
 import AddRecordingPanel from '../components/AddRecordingPanel.jsx'
 import { Button, FormError, inputStyle } from '../components/form.jsx'
+import { groupByActor } from '../utils/tasks.js'
 import { formatDateTime, formatDueDate, isOverdue } from '../utils/dates.js'
 import {
   MEETING_STATUS, ANALYSIS_STATUS, TASK_STATUS, PRIORITY, SEVERITY, labelOf,
@@ -212,8 +213,7 @@ function TranscriptionSection({ transcription, onSaved }) {
   )
 }
 
-function RecordingSection({ meeting, hasTranscription, initialStatus, maxMb, showAdd, onToggleAdd, onChanged }) {
-  const [status, setStatus] = useProcessingStatus(meeting.id, initialStatus, onChanged)
+function RecordingSection({ meeting, hasTranscription, status, setStatus, maxMb, showAdd, onToggleAdd, onChanged }) {
   const busy = status.transcription_status === 'processing' || status.analysis_status === 'processing'
 
   return (
@@ -243,6 +243,87 @@ function RecordingSection({ meeting, hasTranscription, initialStatus, maxMb, sho
           />
         )}
       </div>
+    </Section>
+  )
+}
+
+const EMAIL_SUMMARY = { sent: 'envoyé(s)', logged: 'simulé(s) (console)', failed: 'en échec' }
+
+// Bloc 21 : état et résultat de l'analyse, relance
+function AnalysisSection({ meeting, status, setStatus, hasTranscription, projects, decisions, tasks, risks, alerts, notifications }) {
+  const [error, setError] = useState('')
+  const [starting, setStarting] = useState(false)
+  const busy = status.transcription_status === 'processing' || status.analysis_status === 'processing'
+  const state = labelOf(ANALYSIS_STATUS, status.analysis_status ?? 'none')
+  const actors = new Set(tasks.filter((t) => t.assignee_id).map((t) => t.assignee_id)).size
+  const emailCounts = notifications.reduce((acc, n) => ({ ...acc, [n.status]: (acc[n.status] ?? 0) + 1 }), {})
+
+  async function relaunch() {
+    if (status.analysis_status === 'done'
+      && !window.confirm("Relancer l'analyse ? Les décisions, tâches et risques extraits seront remplacés (les tâches ajoutées à la main sont conservées) et les courriels renvoyés.")) return
+    setStarting(true)
+    setError('')
+    try {
+      await api.post(`/meetings/${meeting.id}/analyze`)
+      setStatus((s) => ({ ...s, analysis_status: 'processing', analysis_error: null }))
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setStarting(false)
+    }
+  }
+
+  return (
+    <Section
+      id="analysis-title"
+      title="Analyse"
+      action={(
+        <Button onClick={relaunch} disabled={busy || starting || !hasTranscription}
+          title={!hasTranscription ? "Ajoutez d'abord un enregistrement ou une transcription" : undefined}>
+          {status.analysis_status === 'none' ? "Lancer l'analyse" : "Relancer l'analyse"}
+        </Button>
+      )}
+    >
+      <FormError message={error} />
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', fontSize: '13px' }}>
+        <Badge {...state} />
+        {meeting.analyzed_at && status.analysis_status === 'done' && (
+          <span style={{ fontSize: '12px', color: 'var(--color-text-faint)' }}>le {formatDateTime(meeting.analyzed_at)}</span>
+        )}
+      </div>
+      {status.analysis_status === 'error' && status.analysis_error && (
+        <div style={{ marginTop: '0.75rem' }}><FormError message={`L'analyse a échoué : ${status.analysis_error}`} /></div>
+      )}
+      {status.analysis_status === 'done' && (
+        <>
+          <p style={{ margin: '0.75rem 0 0.5rem', fontSize: '13px', color: 'var(--color-text-muted)' }}>
+            {decisions.length} décision(s) · {tasks.length} tâche(s) pour {actors} acteur(s) · {alerts.length} contradiction(s) · {risks.length} risque(s)
+          </p>
+          <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>Projets concernés :</div>
+          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+            {projects.map((p) => (
+              <li key={p.id} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', fontSize: '13px' }}>
+                <Link to={`/projects/${p.id}`} style={{ color: 'var(--color-text)' }}>{p.name}</Link>
+                {p.is_new
+                  ? <Badge label="Nouveau (créé par cette réunion)" color="var(--color-ai)" />
+                  : <Badge label="Existant" color="var(--color-text-muted)" />}
+              </li>
+            ))}
+          </ul>
+          {notifications.length > 0 && (
+            <p style={{ margin: '0.75rem 0 0', fontSize: '12px', color: 'var(--color-text-muted)' }}>
+              Courriels : {Object.entries(emailCounts).map(([k, n]) => `${n} ${EMAIL_SUMMARY[k] ?? k}`).join(' · ')}
+            </p>
+          )}
+        </>
+      )}
+      {status.analysis_status === 'none' && !busy && (
+        <p style={{ margin: '0.75rem 0 0', fontSize: '13px', color: 'var(--color-text-muted)' }}>
+          {hasTranscription
+            ? "L'analyse extrait les projets, décisions, tâches (acteur et date) et risques, puis envoie les courriels."
+            : "Ajoutez un enregistrement : la transcription puis l'analyse démarreront automatiquement."}
+        </p>
+      )}
     </Section>
   )
 }
@@ -283,13 +364,33 @@ export default function MeetingDetailPage() {
     )
   }
 
-  const { meeting, transcription, decisions, tasks, alerts, risks, notifications } = data
+  return (
+    <MeetingView
+      key={`${data.meeting.transcription_status}-${data.meeting.analysis_status}-${data.meeting.analyzed_at ?? ''}-${data.transcription?.updated_at ?? ''}`}
+      data={data}
+      setData={setData}
+      maxMb={maxMb}
+      showAdd={showAdd}
+      setShowAdd={setShowAdd}
+      handleChanged={handleChanged}
+      taskForm={taskForm}
+      setTaskForm={setTaskForm}
+      load={load}
+    />
+  )
+}
+
+// Rendu d'une réunion chargée. Détient l'état du traitement en direct (bandeau, relance).
+function MeetingView({ data, setData, maxMb, showAdd, setShowAdd, handleChanged, taskForm, setTaskForm, load }) {
+  const { meeting, transcription, decisions, tasks, alerts, risks, notifications, projects = [] } = data
   const initialStatus = {
     transcription_status: meeting.transcription_status ?? 'none', transcription_error: meeting.transcription_error,
     analysis_status: meeting.analysis_status ?? 'none', analysis_error: meeting.analysis_error,
   }
+  const [processing, setProcessing] = useProcessingStatus(meeting.id, initialStatus, handleChanged)
+  const actorGroups = groupByActor(tasks)
   const status = labelOf(MEETING_STATUS, meeting.status)
-  const analysis = labelOf(ANALYSIS_STATUS, meeting.analysis_status ?? 'none')
+  const analysis = labelOf(ANALYSIS_STATUS, processing.analysis_status ?? 'none')
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -306,18 +407,15 @@ export default function MeetingDetailPage() {
         {meeting.description && (
           <p style={{ margin: '0.5rem 0 0', fontSize: '13px', color: 'var(--color-text-muted)', maxWidth: '75ch' }}>{meeting.description}</p>
         )}
-        {meeting.analysis_status === 'error' && meeting.analysis_error && (
-          <div style={{ marginTop: '0.75rem' }}><FormError message={`Dernière analyse en échec : ${meeting.analysis_error}`} /></div>
-        )}
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.25rem', alignItems: 'start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <RecordingSection
-            key={`${meeting.transcription_status}-${meeting.analysis_status}-${transcription?.updated_at ?? ''}`}
             meeting={meeting}
             hasTranscription={Boolean(transcription)}
-            initialStatus={initialStatus}
+            status={processing}
+            setStatus={setProcessing}
             maxMb={maxMb}
             showAdd={showAdd || !transcription}
             onToggleAdd={() => setShowAdd((v) => !v)}
@@ -331,6 +429,18 @@ export default function MeetingDetailPage() {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <AnalysisSection
+            meeting={meeting}
+            status={processing}
+            setStatus={setProcessing}
+            hasTranscription={Boolean(transcription)}
+            projects={projects}
+            decisions={decisions}
+            tasks={tasks}
+            risks={risks}
+            alerts={alerts}
+            notifications={notifications}
+          />
           <Section id="decisions-title" title="Décisions" count={decisions.length}>
             {decisions.length === 0 && <Empty>Aucune décision.</Empty>}
             <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
@@ -354,32 +464,42 @@ export default function MeetingDetailPage() {
             action={<Button variant="secondary" onClick={() => setTaskForm({ task: null })}>+ Tâche</Button>}
           >
             {tasks.length === 0 && <Empty>Aucune tâche.</Empty>}
-            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-              {tasks.map((t) => {
-                const late = isOverdue(t)
-                return (
-                  <li key={t.id} style={{ padding: '0.55rem 0', borderBottom: '1px solid var(--color-border)' }}>
-                    <button onClick={() => setTaskForm({ task: t })} title="Modifier la tâche" style={{
-                      background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left',
-                      color: 'var(--color-text)', fontSize: '13px', fontWeight: 500, fontFamily: 'inherit',
-                      textDecoration: t.status === 'done' ? 'line-through' : 'none',
-                    }}>{t.title}</button>
-                    <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '2px' }}>
-                      <span>{t.assignee ?? 'Personne'}</span>
-                      <span>·</span>
-                      <span style={{ color: late ? 'var(--color-danger)' : undefined }}>
-                        {t.due_date ? `${t.due_estimated ? 'vers le ' : 'le '}${formatDueDate(t.due_date)}${t.due_estimated ? ' (estimée)' : ''}` : 'sans échéance'}
-                        {late && ' · en retard'}
-                      </span>
-                      <span>·</span>
-                      <span style={{ color: labelOf(PRIORITY, t.priority).color }}>{labelOf(PRIORITY, t.priority).label}</span>
-                      <span>·</span>
-                      <span>{labelOf(TASK_STATUS, t.status).label}</span>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
+            {actorGroups.map((group) => (
+              <div key={group.key} style={{ marginBottom: '0.75rem' }}>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: group.linked ? 'var(--color-ai)' : 'var(--color-text-muted)', marginBottom: '0.15rem' }}>
+                  {group.name} · {group.tasks.length} tâche(s)
+                  {!group.linked && group.key !== 'aucun' && (
+                    <span title="Personne citée dans la réunion, sans compte Veridian membre du projet" style={{ fontWeight: 400 }}> · non liée à un compte</span>
+                  )}
+                </div>
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                  {group.tasks.map((t) => {
+                    const late = isOverdue(t)
+                    return (
+                      <li key={t.id} style={{ padding: '0.45rem 0 0.45rem 0.75rem', borderLeft: '2px solid var(--color-border)', marginLeft: '0.15rem' }}>
+                        <button onClick={() => setTaskForm({ task: t })} title="Modifier la tâche" style={{
+                          background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left',
+                          color: 'var(--color-text)', fontSize: '13px', fontWeight: 500, fontFamily: 'inherit',
+                          textDecoration: t.status === 'done' ? 'line-through' : 'none',
+                        }}>{t.title}</button>
+                        <div style={{ fontSize: '12px', color: 'var(--color-text-muted)', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '2px' }}>
+                          <span style={{ color: late ? 'var(--color-danger)' : undefined }}>
+                            {t.due_date ? `À terminer ${t.due_estimated ? 'vers le ' : 'le '}${formatDueDate(t.due_date)}` : 'Sans échéance'}
+                            {t.due_date && t.due_estimated && <em title="Date estimée par l'analyse"> (estimée)</em>}
+                            {late && ' · en retard'}
+                          </span>
+                          <span>·</span>
+                          <span style={{ color: labelOf(PRIORITY, t.priority).color }}>{labelOf(PRIORITY, t.priority).label}</span>
+                          <span>·</span>
+                          <span>{labelOf(TASK_STATUS, t.status).label}</span>
+                          {t.project_id !== meeting.project_id && <><span>·</span><span>{t.project_name}</span></>}
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            ))}
           </Section>
         </div>
       </div>

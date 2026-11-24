@@ -1083,6 +1083,18 @@ Cette section explique, bloc par bloc, les choix faits et leur justification. Le
 - **Silence et phrases inventées.** Sur du silence, Whisper produit des phrases de sous-titres (« Merci. », « Thank you. »). Une transcription entière réduite à l'une d'elles est traitée comme « aucune parole » (BUG-24).
 - **Vérification réelle.** `tests/integration/enregistrement.it.mjs` utilise le vrai ffmpeg et le vrai Whisper (seul Gemini est remplacé). Avec un fichier et un mot attendu en arguments, il vérifie aussi le contenu transcrit.
 
+
+### 9.6 Bloc 21 — Résultats de l'analyse, Mes tâches, tableau de bord
+
+- **Projet nouveau ou existant.** La migration 013 ajoute `projects.source_meeting_id`, rempli quand l'analyse crée un projet. On ne déduit rien de la description par défaut, que l'utilisateur peut modifier. Si l'analyse est relancée, l'IA retrouve ce projet comme « existant » et ne le recrée pas, mais la page l'affiche toujours « nouveau, créé par cette réunion ».
+- **Ne pas révéler un projet inaccessible.** La liste des projets d'une réunion est limitée à ceux dont l'utilisateur est membre. Une personne retirée d'un projet créé par la réunion n'en voit plus le nom.
+- **Suivi en direct partagé.** L'état du traitement est détenu par `MeetingView` et transmis à la section Enregistrement et à la section Analyse. Le bouton « Relancer l'analyse » met l'état à `processing`, et le même suivi (toutes les 3 s) prend le relais. Les hooks React ne pouvant pas être appelés après un `return` conditionnel (« Chargement… »), ce rendu est un sous-composant affiché une fois les données chargées.
+- **État écrit avant de répondre.** Un travail lancé en arrière-plan doit avoir son état « en cours » enregistré **avant** la réponse HTTP (BUG-28). Sinon, le client peut lire un état périmé et arrêter le suivi.
+- **Tâches regroupées par acteur.** `groupByActor` crée un groupe par compte. Un nom cité dans la réunion mais sans compte membre du projet forme son propre groupe, marqué « non lié à un compte » : l'analyse ne donne jamais accès à un projet existant (bloc 19).
+- **Mes tâches.** Le filtre « Acteur : Moi » est appliqué par défaut. Le tri par échéance place les tâches sans échéance puis les tâches terminées à la fin. Le statut se change par un menu (à faire, en cours, terminée), plus clair qu'une case à cocher à deux états. Filtres et tri sont des fonctions pures (`utils/tasks.js`), testées sans navigateur.
+- **Compteurs calculés en SQL.** `GET /api/dashboard` compte en base (tâches ouvertes, en retard, alertes ouvertes, réunions du mois) au lieu de télécharger toutes les listes pour les compter dans le navigateur. « En retard » a la même définition côté serveur (`date UTC de l'échéance < date UTC du jour`) et côté client (`isOverdue`), sinon le compteur et la liste ne seraient pas d'accord. `COUNT(*)` renvoie un `bigint`, que le pilote `pg` transmet sous forme de texte : on le convertit en nombre.
+- **Une échéance passée n'est pas acceptée de l'IA.** L'analyse remplace une date déjà passée par une date estimée selon la priorité (`resolveDueDate`, bloc 19) : une tâche qui vient d'être créée ne peut pas déjà être en retard.
+
 ---
 
 *Guide de développement Veridian — INF4018 — Francis Côté*

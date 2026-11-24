@@ -14,8 +14,8 @@ export const setMeetingAudio = async (meetingId, fileName) => {
   return result.rows[0];
 };
 
-export const findMeetingDetails = async (meetingId) => {
-  const [transcription, decisions, tasks, alerts, risks, notifications] = await Promise.all([
+export const findMeetingDetails = async (meetingId, userId) => {
+  const [transcription, decisions, tasks, alerts, risks, notifications, projects] = await Promise.all([
     query(
       `SELECT id, raw_text, language, is_edited, created_at, updated_at
        FROM transcriptions
@@ -74,6 +74,22 @@ export const findMeetingDetails = async (meetingId) => {
        ORDER BY created_at`,
       [meetingId]
     ),
+    // Bloc 21 : projets concernés (celui de la réunion + ceux de ses décisions et tâches),
+    // « nouveau » s'il a été créé par l'analyse de CETTE réunion. Seulement les projets
+    // dont l'utilisateur est membre : on ne révèle pas le nom d'un projet inaccessible.
+    query(
+      // COALESCE : NULL = $1 vaut NULL (et non false) pour un projet qui n'a pas de réunion source
+      `SELECT p.id, p.name, COALESCE(p.source_meeting_id = $1, false) AS is_new
+       FROM projects p
+       INNER JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = $2 AND pm.is_active = true
+       WHERE p.is_active = true
+         AND p.id IN (
+           SELECT project_id FROM meetings WHERE id = $1
+           UNION SELECT project_id FROM decisions WHERE meeting_id = $1 AND is_active = true
+           UNION SELECT project_id FROM tasks WHERE meeting_id = $1 AND is_active = true)
+       ORDER BY is_new DESC, p.name`,
+      [meetingId, userId]
+    ),
   ]);
 
   return {
@@ -83,5 +99,6 @@ export const findMeetingDetails = async (meetingId) => {
     alerts: alerts.rows,
     risks: risks.rows,
     notifications: notifications.rows,
+    projects: projects.rows,
   };
 };

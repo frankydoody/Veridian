@@ -9,6 +9,7 @@ import { indexTranscriptionSafely } from '../services/memory.service.js';
 import { processMeetingSafely } from '../services/meeting-pipeline.service.js';
 import { saveTranscription, transcribeMeetingAudioSafely } from '../services/meeting-processing.service.js';
 import { setTranscriptionStatus } from '../models/processing.model.js';
+import { setAnalysisStatus } from '../models/pipeline.model.js';
 import { isUuid } from '../utils/validation.utils.js';
 
 const NOT_FOUND = { message: 'Réunion introuvable ou accès non autorisé' };
@@ -19,8 +20,11 @@ const removeFile = (filePath) => {
 };
 
 // Lance l'analyse en arrière-plan (sauf autoAnalyze = 'false'). Ne bloque pas la réponse.
-const startAutoAnalysis = (meeting, user, autoAnalyze) => {
+// L'état passe à « processing » AVANT de répondre (BUG-28) : sinon une interrogation
+// arrivée entre la réponse et le début de l'analyse lirait « none » et arrêterait le suivi.
+const startAutoAnalysis = async (meeting, user, autoAnalyze) => {
   if (String(autoAnalyze) === 'false') return { analysis_status: 'none' };
+  await setAnalysisStatus(meeting.id, 'processing');
   processMeetingSafely(meeting, user);
   return { analysis_status: 'processing' };
 };
@@ -145,7 +149,7 @@ export const submitTextHandler = async (req, res, next) => {
     await setTranscriptionStatus(meetingId, 'done');
 
     const memory = await indexTranscriptionSafely(meetingId, meeting.project_id, text);
-    const analysis = startAutoAnalysis(meeting, req.user, autoAnalyze);
+    const analysis = await startAutoAnalysis(meeting, req.user, autoAnalyze);
 
     return res.status(201).json({ message: 'Transcription enregistrée', transcription, memory, analysis });
   } catch (error) {
