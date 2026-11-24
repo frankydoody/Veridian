@@ -1144,6 +1144,16 @@ Cette section explique, bloc par bloc, les choix faits et leur justification. Le
 - **Idempotent et en une transaction.** Si `admin@example.com` existe, rien n'est fait ; sinon tout est inséré, ou rien en cas d'erreur. L'indexation de la mémoire (appel à Gemini) se fait après la transaction et n'est jamais bloquante.
 - **Clairement « données de test ».** Le script l'annonce en tête de sa sortie. Les comptes sont en `@example.com`, un domaine réservé : aucun courriel ne peut y arriver.
 
+### 9.10 Correctif — Modèles Gemini et messages d'erreur
+
+- **Ne pas dépendre d'un seul numéro de modèle.** Google ferme des modèles aux nouveaux comptes avant de les retirer. Le modèle principal reste réglable (`AI_MODEL`, par défaut `gemini-3.5-flash`). Les secours sont des **alias** (`gemini-flash-latest`, `gemini-flash-lite-latest`) que Google fait pointer vers un modèle courant.
+- **Classer les erreurs avant de réagir.**
+  - Une clé refusée l'est pour tous les modèles : on s'arrête tout de suite.
+  - Un modèle fermé (404) ou surchargé (503, 429) : on passe au suivant.
+  - Toute autre erreur est transmise telle quelle.
+- **Un message qui dit quoi faire.** Le message enregistré dans `analysis_error` est affiché dans la page. Il nomme donc le fichier et la variable à corriger, sans jamais contenir la clé. Le détail technique de Google reste dans `error.cause` et dans la console du serveur.
+- **Durée.** Une analyse réelle a pris environ 50 s avec `gemini-3.5-flash`. C'est acceptable parce qu'elle tourne en arrière-plan (réponse 202 et suivi en direct, bloc 20).
+
 ---
 
 *Guide de développement Veridian — INF4018 — Francis Côté*
