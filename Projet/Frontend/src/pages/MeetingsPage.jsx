@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../services/api'
 import { formatDateTime } from '../utils/dates'
 import { MEETING_STATUS, ANALYSIS_STATUS, labelOf } from '../utils/labels'
@@ -28,6 +29,7 @@ export default function MeetingsPage() {
   const [error, setError] = useState(null)
   const [filter, setFilter] = useState('all')
   const [showForm, setShowForm] = useState(false)
+  const navigate = useNavigate()
 
   useEffect(() => {
     async function fetchMeetings() {
@@ -160,6 +162,11 @@ export default function MeetingsPage() {
           {filtered.map((m, i) => (
             <div
               key={m.id}
+              role="link"
+              tabIndex={0}
+              aria-label={`Ouvrir la réunion ${m.title}`}
+              onClick={() => navigate(`/meetings/${m.id}`)}
+              onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/meetings/${m.id}`) }}
               style={{
                 display: 'grid',
                 gridTemplateColumns: '2fr 1.5fr 1fr 1.5fr 1.5fr',
@@ -191,11 +198,7 @@ export default function MeetingsPage() {
       {showForm && (
         <MeetingFormModal
           onClose={() => setShowForm(false)}
-          onCreated={() => {
-            // La réponse de création n'a pas le nom du projet : on recharge la liste
-            setShowForm(false)
-            api.get('/meetings').then((data) => setMeetings(data.meetings ?? [])).catch((err) => setError(err.message))
-          }}
+          onCreated={(meeting) => navigate(`/meetings/${meeting.id}`)}
         />
       )}
     </div>
