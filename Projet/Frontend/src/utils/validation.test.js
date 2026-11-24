@@ -17,6 +17,11 @@ test('validateMeeting : projet et titre obligatoires', () => {
   assert.equal(hasErrors(validateMeeting({ projectId: 'p', title: 'Revue' })), false)
 })
 
+test('validateMeeting : date prévue facultative, refusée si invalide (bloc 16)', () => {
+  assert.equal(hasErrors(validateMeeting({ projectId: 'p', title: 'Revue', scheduledAt: '2026-12-05T14:30' })), false)
+  assert.equal(validateMeeting({ projectId: 'p', title: 'Revue', scheduledAt: 'demain' }).scheduledAt, 'Date invalide')
+})
+
 test('validateTask : acteur sans projet refusé, date au format AAAA-MM-JJ', () => {
   assert.ok(validateTask({ title: 'T', assigneeId: 'u' }).assigneeId)
   assert.ok(validateTask({ title: 'T', dueDate: '01/12/2026' }).dueDate)

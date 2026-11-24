@@ -249,3 +249,27 @@ test (comment on s'assure qu'il ne revient pas) → leçon.
 - **Correction** : colonnes en `minmax(…)` et largeur minimale de 650 px ; en dessous, le tableau défile horizontalement au lieu d'être coupé.
 - **Test** : vérifié dans le navigateur à 929 px de large : toutes les colonnes sont visibles.
 - **Leçon** : vérifier une page à la largeur d'un portable ordinaire, pas seulement sur un grand écran.
+
+### BUG-31 — Focus clavier perdu en changeant de mois dans le calendrier
+- **Bloc** : 16
+- **Symptôme** : dans le calendrier, la touche Page suivante affichait bien le mois suivant, mais plus aucune case n'avait le focus (`document.activeElement` = la page). L'utilisateur au clavier devait recommencer avec Tab.
+- **Cause** : le jour actif (état React) et le mois (paramètre d'URL) changent dans **deux rendus successifs**. Au premier rendu, le jour visé n'est pas encore dans la grille : la page retombait sur « aujourd'hui », lui donnait le focus, puis cette case disparaissait au second rendu.
+- **Correction** : `CalendarPage.jsx` garde la demande de focus tant que la case **visée** (`activeKey`) n'existe pas, et ne la donne qu'à elle.
+- **Test** : dans le navigateur, depuis le jour courant : Page suivante (même jour, mois suivant), Flèche bas (semaine suivante), puis Page précédente deux fois : le focus suit la bonne case à chaque étape, y compris d'un mois à l'autre.
+- **Leçon** : un état réparti entre React et l'URL ne se met pas à jour d'un seul coup. Une action qui dépend des deux doit attendre que les deux soient à jour.
+
+### BUG-32 — Majuscule au nom du mois dans le calendrier
+- **Bloc** : 16
+- **Symptôme** : les titres du calendrier mettaient une majuscule au jour **et** au mois (« Mardi … Novembre … »).
+- **Cause** : la propriété CSS `text-transform: capitalize` met une majuscule à **chaque mot**. C'est l'usage anglais, pas le français.
+- **Correction** : la majuscule est ajoutée à la première lettre seulement, dans `monthLabel` et `dayLabel` (`utils/calendar.js`) ; la règle CSS est retirée.
+- **Test** : `calendar.test.js` vérifie que seule la première lettre du titre du mois et du titre du jour est en majuscule.
+- **Leçon** : les outils de mise en forme suivent souvent les règles typographiques anglaises. En français, la majuscule ne va qu'au début de la phrase et aux noms propres.
+
+### BUG-33 — Une vérification a écrit dans la base de développement
+- **Bloc** : 16
+- **Symptôme** : un serveur de vérification lancé sur la base `veridian_verif` répondait 500 sur `/api/calendar`, et le compte de démonstration créé se retrouvait dans la base **`veridian`** (développement).
+- **Cause** : les serveurs de développement (`start.ps1`) occupaient déjà les ports 3000 et 5173. Le second backend n'a pas pu écouter le port, et les requêtes arrivaient au premier, branché sur `veridian`. Comme cette base n'avait pas reçu les migrations récentes, la colonne `scheduled_at` y manquait, d'où l'erreur 500. Le port du backend était en plus codé en dur dans `vite.config.js`.
+- **Correction** : les lignes ajoutées par erreur ont été retirées par leurs identifiants, dans une transaction. `vite.config.js` lit maintenant `BACKEND_URL`, et une seconde instance se lance sur d'autres ports (backend `PORT=3001 DB_NAME=veridian_verif`, Vite `--port 5174 --strictPort` avec `BACKEND_URL=http://localhost:3001`).
+- **Test** : la vérification du calendrier a été refaite sur les ports 3001/5174 ; `/api/health` répond par le proxy de Vite.
+- **Leçon** : avant de lancer un serveur de test, vérifier que le port est libre, et utiliser `--strictPort` pour qu'un port occupé soit une erreur visible. Après un changement de branche, relancer `start.ps1` pour appliquer les migrations : le code d'une branche suppose que ses migrations sont appliquées.

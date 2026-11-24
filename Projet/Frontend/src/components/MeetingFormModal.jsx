@@ -9,7 +9,7 @@ import { validateMeeting, hasErrors } from '../utils/validation.js'
 export default function MeetingFormModal({ onClose, onCreated, projectId = '' }) {
   const [projects, setProjects] = useState([])
   const [loadingProjects, setLoadingProjects] = useState(true)
-  const [form, setForm] = useState({ projectId, title: '', description: '' })
+  const [form, setForm] = useState({ projectId, title: '', description: '', scheduledAt: '' })
   const [errors, setErrors] = useState({})
   const [serverError, setServerError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -40,6 +40,8 @@ export default function MeetingFormModal({ onClose, onCreated, projectId = '' })
         projectId: form.projectId,
         title: form.title.trim(),
         description: form.description.trim(),
+        // L'heure saisie est locale : le navigateur la convertit en instant UTC (ISO)
+        scheduledAt: form.scheduledAt ? new Date(form.scheduledAt).toISOString() : undefined,
       })
       onCreated(data.meeting)
     } catch (err) {
@@ -64,6 +66,11 @@ export default function MeetingFormModal({ onClose, onCreated, projectId = '' })
         <Field id="meeting-title" label="Titre *" error={errors.title}>
           <input id="meeting-title" style={inputStyle} value={form.title} onChange={set('title')} maxLength={200}
             placeholder="Ex. : Revue de sprint" aria-invalid={Boolean(errors.title)} />
+        </Field>
+        <Field id="meeting-date" label="Date et heure prévues" error={errors.scheduledAt}
+          hint="Facultatif : place la réunion dans le calendrier.">
+          <input id="meeting-date" type="datetime-local" style={inputStyle} value={form.scheduledAt}
+            onChange={set('scheduledAt')} aria-invalid={Boolean(errors.scheduledAt)} />
         </Field>
         <Field id="meeting-description" label="Description" error={errors.description}>
           <textarea id="meeting-description" style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }}

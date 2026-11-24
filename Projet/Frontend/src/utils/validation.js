@@ -19,11 +19,13 @@ export function validateProject({ name, description }) {
   return errors
 }
 
-export function validateMeeting({ projectId, title, description }) {
+export function validateMeeting({ projectId, title, description, scheduledAt }) {
   const errors = {}
   if (!projectId) errors.projectId = 'Choisissez un projet'
   text(errors, 'title', title, { label: 'Le titre', max: 200, required: true })
   text(errors, 'description', description, { label: 'La description', max: 2000 })
+  // Bloc 16 : date prévue facultative (valeur d'un <input type="datetime-local">)
+  if (scheduledAt && Number.isNaN(new Date(scheduledAt).getTime())) errors.scheduledAt = 'Date invalide'
   return errors
 }
 

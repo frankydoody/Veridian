@@ -160,6 +160,7 @@ export default function ProjectDetailPage() {
         )}
         <p style={{ margin: '0.4rem 0 0', fontSize: '12px', color: 'var(--color-text-faint)' }}>
           Créé le {formatDate(project.created_at)}{isOwner ? ' · vous êtes propriétaire' : ''}
+          {' · '}<Link to={`/calendar?projet=${project.id}`} style={{ color: 'var(--color-ai)' }}>Voir le calendrier du projet</Link>
         </p>
       </div>
 
@@ -181,7 +182,7 @@ export default function ProjectDetailPage() {
                   {m.title}
                 </Link>
                 <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>
-                  {labelOf(MEETING_STATUS, m.status).label} · {formatDateTime(m.created_at)}
+                  {labelOf(MEETING_STATUS, m.status).label} · {m.scheduled_at ? `prévue le ${formatDateTime(m.scheduled_at)}` : formatDateTime(m.created_at)}
                 </div>
               </li>
             ))}

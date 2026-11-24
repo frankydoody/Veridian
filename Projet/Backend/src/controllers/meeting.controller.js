@@ -6,7 +6,7 @@ import {
   findAllMeetings,  
 } from '../models/meeting.model.js';
 import { findProjectById } from '../models/project.model.js';
-import { isUuid, cleanText } from '../utils/validation.utils.js';
+import { isUuid, cleanText, parseScheduledAt } from '../utils/validation.utils.js';
 
 
 export const createMeetingHandler = async (req, res, next) => {
@@ -19,6 +19,8 @@ export const createMeetingHandler = async (req, res, next) => {
     if (titleField.error) return res.status(400).json({ message: titleField.error });
     const descriptionField = cleanText(req.body.description, { label: 'La description', max: 2000 });
     if (descriptionField.error) return res.status(400).json({ message: descriptionField.error });
+    const scheduledField = parseScheduledAt(req.body.scheduledAt);
+    if (scheduledField.error) return res.status(400).json({ message: scheduledField.error });
     const title = titleField.value;
     const description = descriptionField.value;
 
@@ -34,7 +36,8 @@ export const createMeetingHandler = async (req, res, next) => {
       projectId,
       title,
       description,
-      req.user.id
+      req.user.id,
+      scheduledField.value
     );
 
     return res.status(201).json({

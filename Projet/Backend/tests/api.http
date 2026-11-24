@@ -265,3 +265,27 @@ Authorization: Bearer {{token}}
 ### Tableau de bord : compteurs réels de l'utilisateur connecté et prochaines échéances
 GET {{baseUrl}}/dashboard
 Authorization: Bearer {{token}}
+
+### ─── Bloc 16 : calendrier ──────────────────────────────────────────────
+### Créer une réunion avec une date prévue (instant ISO ; le navigateur convertit l'heure locale)
+POST {{baseUrl}}/meetings
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "projectId": "COLLE_PROJECT_ID_ICI",
+  "title": "Planification",
+  "scheduledAt": "2026-12-05T19:30:00.000Z"
+}
+
+### Calendrier de tous mes projets : réunions et échéances entre deux jours (bornes incluses, 92 jours au plus)
+GET {{baseUrl}}/calendar?from=2026-11-30&to=2027-01-10
+Authorization: Bearer {{token}}
+
+### Calendrier d'un seul projet (404 si je n'en suis pas membre)
+GET {{baseUrl}}/calendar?from=2026-11-30&to=2027-01-10&projectId=COLLE_PROJECT_ID_ICI
+Authorization: Bearer {{token}}
+
+### Plage invalide → 400
+GET {{baseUrl}}/calendar?from=2026-01-01&to=2026-12-31
+Authorization: Bearer {{token}}

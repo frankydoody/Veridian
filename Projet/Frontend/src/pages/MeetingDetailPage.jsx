@@ -402,6 +402,9 @@ function MeetingView({ data, setData, maxMb, showAdd, setShowAdd, handleChanged,
           <Link to={`/projects/${meeting.project_id}`} style={{ color: 'var(--color-ai)' }}>{meeting.project_name}</Link>
           <Badge {...status} />
           <Badge {...analysis} />
+          {meeting.scheduled_at && (
+            <span style={{ color: 'var(--color-text-muted)', fontSize: '12px' }}>Prévue le {formatDateTime(meeting.scheduled_at)}</span>
+          )}
           <span style={{ color: 'var(--color-text-faint)', fontSize: '12px' }}>Créée le {formatDateTime(meeting.created_at)}</span>
         </div>
         {meeting.description && (
