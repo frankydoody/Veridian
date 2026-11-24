@@ -2,7 +2,10 @@
 // Pastilles d'état réelles dans l'en-tête : la clé Gemini est-elle configurée ?
 // Les courriels partent-ils vraiment (SMTP) ou sont-ils seulement affichés (mode console) ?
 // Lit GET /api/health, qui ne renvoie que des indicateurs (jamais de secret).
+// Bloc 18 : si la boîte courriel de test (Mailpit) est utilisée, un lien y mène, filtré sur
+// les courriels de l'utilisateur connecté.
 import { useEffect, useState } from 'react'
+import { mailboxLink } from '../utils/mailbox.js'
 
 function Pill({ ok, label, title }) {
   const color = ok ? 'var(--color-ai)' : 'var(--color-amber)'
@@ -21,7 +24,7 @@ function Pill({ ok, label, title }) {
   )
 }
 
-export default function ServiceStatus() {
+export default function ServiceStatus({ userEmail }) {
   const [services, setServices] = useState(null)
 
   useEffect(() => {
@@ -45,6 +48,17 @@ export default function ServiceStatus() {
         label={services.ai ? 'IA configurée' : 'IA non configurée'}
         title={services.ai ? "Une clé Gemini est présente dans .env (sa validité n'est pas vérifiée ici)" : 'GEMINI_API_KEY absente du fichier .env : l\'analyse des réunions ne fonctionnera pas'}
       />
+      {mailboxLink(services.mailbox, userEmail) && (
+        <a
+          href={mailboxLink(services.mailbox, userEmail)}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ textDecoration: 'none' }}
+          title="Boîte de test locale (Mailpit) : les courriels envoyés par Veridian y arrivent, aucun ne sort de ce PC. S'ouvre dans un nouvel onglet."
+        >
+          <Pill ok label="📬 Boîte courriel de test" />
+        </a>
+      )}
       {services.email === 'console' && (
         <Pill
           ok={false}

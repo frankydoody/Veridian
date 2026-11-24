@@ -318,7 +318,7 @@ export default function Layout() {
           <div style={{ flex: 1 }} />
 
           {/* État réel des services (clé Gemini, SMTP) */}
-          <ServiceStatus />
+          <ServiceStatus userEmail={user?.email} />
 
           {/* Menu compte (avatar + dropdown) */}
           <AccountMenu user={user} onLogout={handleLogout} />
