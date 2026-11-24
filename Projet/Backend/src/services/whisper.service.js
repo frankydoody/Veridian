@@ -78,6 +78,16 @@ export const checkFfmpeg = async () => {
   }
 };
 
+/** true si la commande existe et se termine sans erreur (vérification d'installation, bloc 18). */
+export const commandWorks = async (command, args, { timeoutMs = 120000 } = {}) => {
+  try {
+    const { code, timedOut } = await run(command, args, { timeoutMs });
+    return code === 0 && !timedOut;
+  } catch {
+    return false;
+  }
+};
+
 // Uniquement pour les tests : refaire la vérification de ffmpeg
 export const resetFfmpegCheck = () => { ffmpegChecked = false; };
 

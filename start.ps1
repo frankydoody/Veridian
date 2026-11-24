@@ -7,7 +7,9 @@
 # Options :
 #   -SkipWhisper   n'installe pas Python / ffmpeg / Whisper (pas de transcription audio)
 #   -InstallOnly   installe et prepare tout, mais ne lance pas les serveurs
-#   -NoSeed        n'ajoute pas les donnees de demonstration (base vide)
+#   -DonneesTest   ajoute les donnees de test (3 comptes fictifs, mot de passe 12345678)
+#   -Verifier      verifie seulement l'installation (base, migrations, cle Gemini,
+#                  Whisper, ffmpeg, SMTP, ports), sans rien installer ni demarrer
 #
 # Le script fonctionne sur un PC sur lequel RIEN n'est installe : il installe
 # ce qui manque (via winget), et ne touche pas a ce qui est deja present.
@@ -23,9 +25,10 @@
 #   4. Installe les dependances npm (premier clone, ou apres un git pull)
 #   5. Demarre Docker Desktop, puis PostgreSQL + pgvector (docker compose)
 #   6. Cree le schema de la base, puis applique les migrations non encore appliquees
-#      Sur une base sans aucun utilisateur : ajoute les donnees de demonstration
+#      Avec -DonneesTest seulement : ajoute les donnees de test
 #      (3 comptes, mot de passe 12345678 ; voir Projet\Backend\database\seed.js)
-#   7. Ouvre le backend et le frontend (npm run dev) dans DEUX fenetres, puis le navigateur
+#   7. Verification rapide de l'installation (npm run verifier -- --sans-ia)
+#   8. Ouvre le backend et le frontend (npm run dev) dans DEUX fenetres, puis le navigateur
 #
 # Si Windows doit redemarrer (premiere installation de Docker / WSL 2), le script
 # propose de redemarrer et se relance tout seul a l'ouverture de session suivante.
@@ -37,6 +40,9 @@
 param(
   [switch]$SkipWhisper,
   [switch]$InstallOnly,
+  [switch]$DonneesTest,
+  [switch]$Verifier,
+  # Ancienne option, sans effet : la base est maintenant vide par defaut
   [switch]$NoSeed
 )
 
@@ -752,22 +758,41 @@ function Initialize-Database {
   else { Ok 'Base de donnees a jour (aucune migration a appliquer).' }
 }
 
-# Ajoute les donnees de demonstration (database\seed.js) uniquement si la base
-# ne contient AUCUN utilisateur : une base deja utilisee n'est jamais modifiee.
+# Ajoute les donnees de test (database\seed.js) seulement avec -DonneesTest.
+# seed.js ne fait rien si elles existent deja (compte admin@example.com present) :
+# relancer l'option est sans danger.
 function Initialize-Seed {
-  if ($NoSeed) { Warn 'Option -NoSeed : donnees de demonstration non ajoutees.'; return }
-  $count = Invoke-Sql 'SELECT COUNT(*) FROM users;'
-  if ($count -ne '0') { Ok 'La base contient deja des utilisateurs : donnees de demonstration non ajoutees.'; return }
+  if (-not $DonneesTest) { Ok 'Aucune donnee de test ajoutee (option -DonneesTest pour en ajouter).'; return }
 
-  Info 'Ajout des donnees de demonstration (3 comptes, 3 projets, reunions, decisions, taches)...'
+  Info 'Ajout des donnees de test (3 comptes fictifs, 4 projets, reunions analysees, taches)...'
   $seedFile = Join-Path $Backend 'database\seed.js'
   if (-not (Test-Path $seedFile)) { Warn "seed.js introuvable : $seedFile"; return }
   Push-Location $Backend
   try {
     & node $seedFile
-    if ($LASTEXITCODE -ne 0) { Warn 'Les donnees de demonstration n''ont pas pu etre ajoutees (l''application fonctionne quand meme).' }
-    else { Ok 'Donnees de demonstration ajoutees : admin@example.com / mot de passe 12345678' }
+    if ($LASTEXITCODE -ne 0) { Warn 'Les donnees de test n''ont pas pu etre ajoutees (l''application fonctionne quand meme).' }
+    else { Ok 'Donnees de test pretes : admin@example.com / mot de passe 12345678' }
   } finally { Pop-Location }
+}
+
+# Verification de l'installation (scripts\verifier.js). Code de sortie dans
+# $script:VerifierExitCode : 0 = rien de bloquant, 1 = au moins un probleme.
+# Ni "return" ni tube : la sortie de node va directement a la console
+# (sinon PowerShell 5.1 la capture et peut abimer les accents).
+function Invoke-Verifier([string[]]$VerifierArgs) {
+  Push-Location $Backend
+  try {
+    & node 'scripts\verifier.js' @VerifierArgs
+    $script:VerifierExitCode = $LASTEXITCODE
+  } finally { Pop-Location }
+}
+
+# -Verifier : controle seul, sans rien installer ni demarrer
+function Invoke-VerifyOnly {
+  if (-not (Get-Command node -ErrorAction SilentlyContinue)) { Fail 'Node.js est introuvable : lance d''abord Demarrer.bat pour installer Veridian.' }
+  if (-not (Test-Path (Join-Path $Backend 'node_modules'))) { Fail 'Dependances absentes : lance d''abord Demarrer.bat pour installer Veridian.' }
+  Invoke-Verifier @()
+  exit $script:VerifierExitCode
 }
 
 # -----------------------------------------------------------------------------
@@ -808,6 +833,8 @@ function Start-Servers {
 # -----------------------------------------------------------------------------
 
 function Main {
+  if ($Verifier) { Invoke-VerifyOnly }
+
   Write-Host ''
   Info 'Veridian - installation et demarrage'
   Write-Host ''
@@ -828,6 +855,14 @@ function Main {
   Initialize-Database
   Initialize-Seed
 
+  Info 'Verification de l''installation (sans appel a Gemini ; complete : .\start.ps1 -Verifier)...'
+  $verifierArgs = @('--sans-ia')
+  if ($SkipWhisper) { $verifierArgs += '--sans-whisper' }
+  Invoke-Verifier $verifierArgs
+  if ($script:VerifierExitCode -ne 0) {
+    Warn 'Des problemes sont signales ci-dessus : l''application demarre quand meme, mais certaines fonctions peuvent echouer.'
+  }
+
   if ($InstallOnly) {
     Write-Host ''
     Ok 'Installation terminee (option -InstallOnly : les serveurs ne sont pas lances).'
@@ -843,7 +878,8 @@ function Main {
   Ok '  Frontend : http://localhost:5173'
   Ok '  Backend  : http://localhost:3000'
   Ok '  BD       : localhost:5432 (via Docker)'
-  Ok '  Compte   : admin@example.com / 12345678 (donnees de demonstration)'
+  if ($DonneesTest) { Ok '  Compte   : admin@example.com / 12345678 (donnees de test)' }
+  else { Ok '  Compte   : cree le tien avec "S''inscrire"' }
   Ok '============================================================'
   Write-Host ''
   Info 'Pour tout arreter : Ctrl+C dans chaque fenetre, puis :'

@@ -338,3 +338,27 @@ test (comment on s'assure qu'il ne revient pas) → leçon.
   - `.env.example` est mis à jour.
 - **Test** : `tests/unit/gemini.test.js`, avec les messages réels de l'API (clé refusée, modèle fermé, surcharge, clé absente). Vérifié aussi avec une vraie clé neuve : `gemini-3.5-flash` produit une analyse complète (projets existant et nouveau, décision, tâches avec dates), et les embeddings ont 768 dimensions.
 - **Leçon** : un service externe change sans prévenir. Il ne faut pas figer un numéro de version comme seul choix : prévoir des secours durables (alias), et traduire chaque type d'erreur en action à faire pour l'utilisateur.
+
+### BUG-41 — Le résultat de la vérification se perdait dans start.ps1
+- **Bloc** : 18
+- **Symptôme** : dans la première version de `Invoke-Verifier`, le code de retour comparé à 0 n'était jamais 0, même quand tout allait bien. Le rapport de `node scripts\verifier.js` n'apparaissait pas non plus à l'écran.
+- **Cause** : en PowerShell, tout ce qu'une fonction écrit sur sa sortie fait partie de sa valeur de retour. La sortie de `node` et le `return $LASTEXITCODE` formaient donc un tableau de lignes, et non un nombre. Ajouter `| Out-Host` réglait l'affichage, mais faisait passer le texte par PowerShell 5.1, qui peut abîmer les accents selon la page de code de la console.
+- **Correction** : `Invoke-Verifier` n'a plus de `return` ni de tube. La commande `node` écrit directement dans la console, et le code de sortie est rangé dans `$script:VerifierExitCode`.
+- **Test** : `start.ps1 -Verifier` affiche le rapport accentué et sort avec le code 0. Avec un autre programme sur le port 5173, il sort avec le code 1.
+- **Leçon** : une fonction PowerShell n'est pas une fonction C. Pour renvoyer un code, il ne faut rien laisser d'autre sur sa sortie.
+
+### BUG-42 — Conflit sur tout le fichier .gitignore en intégrant l'installateur Linux
+- **Bloc** : 18
+- **Symptôme** : la fusion de `fix/installation-linux` dans le bloc 18 marquait en conflit **toutes** les lignes de `.gitignore`, alors que chaque branche n'y avait ajouté que quelques lignes.
+- **Cause** : une version du fichier avait des fins de ligne Windows (CRLF), l'autre des fins de ligne Unix (LF). Pour Git, chaque ligne était donc différente (voir aussi BUG-05 et le `.gitattributes`).
+- **Correction** : comparer les trois versions sans tenir compte des fins de ligne, puis garder les deux ajouts (`coverage/` et `.veridian-logs/`). Le commentaire qui citait des fournisseurs d'IA non utilisés a été remplacé par la liste réelle des secrets (clé Gemini, secret JWT, mot de passe SMTP).
+- **Test** : `git diff` du fichier fusionné ne montre que les deux ajouts.
+- **Leçon** : un conflit sur tout un fichier vient presque toujours des fins de ligne. Il faut comparer avec `diff --strip-trailing-cr` avant de résoudre à la main.
+
+### BUG-43 — Variables de configuration sans effet dans .env.example
+- **Bloc** : 18
+- **Symptôme** : `.env.example` et le README proposaient `AI_PROVIDER` et `WHISPER_MODE`, alors que changer leur valeur ne changeait rien. À l'inverse, `EMBED_MODEL` et `UPLOAD_DIR`, réellement lues par le code, n'étaient documentées nulle part.
+- **Cause** : ces variables dataient des premiers blocs, avant que le code ne se fixe sur Gemini et sur Whisper en local. Personne ne comparait la documentation au code.
+- **Correction** : liste établie à partir du code (`grep process.env`). Les deux variables mortes sont retirées. Les deux variables manquantes sont ajoutées, avec un commentaire pour chacune.
+- **Test** : chaque variable de `.env.example` apparaît dans `src/`, et inversement.
+- **Leçon** : une option sans effet induit en erreur. La documentation de configuration doit partir du code, pas d'un souvenir.

@@ -63,3 +63,6 @@ Desktop.ini
 # ========================
 # Rapport de couverture généré par « npm run test:coverage » (recréé à chaque exécution)
 coverage/
+
+# Journaux et PID des serveurs lances par start.sh (Linux, sans ecran)
+.veridian-logs/
