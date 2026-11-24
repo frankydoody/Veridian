@@ -1,8 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
-import HomePage from './pages/HomePage.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
+import SessionNotice from './components/SessionNotice.jsx';
 import Layout from './components/Layout.jsx';
 import DashboardPage  from './pages/DashboardPage'
 import MeetingsPage   from './pages/MeetingsPage'
@@ -15,7 +15,7 @@ function App() {
   return (
     <Routes>
       {/* Routes publiques */}
-      <Route path="/login"    element={<LoginPage />} />
+      <Route path="/login"    element={<><SessionNotice /><LoginPage /></>} />
       <Route path="/register" element={<RegisterPage />} />
 
       {/* Routes protégées — nécessite d'être connecté */}
