@@ -17,5 +17,24 @@ services:
       timeout: 5s
       retries: 5
 
+  # Boite courriel de test : un vrai serveur SMTP local qui RECOIT tous les courriels
+  # envoyes par Veridian (aucun ne sort vers Internet) et les affiche sur
+  # http://localhost:8025. Utilise quand SMTP_HOST=localhost et SMTP_PORT=1025 (.env).
+  # Ports lies a 127.0.0.1 : la page n'a pas de connexion, elle ne doit donc pas etre
+  # joignable depuis le reseau.
+  mailpit:
+    image: axllent/mailpit:v1.32.0
+    container_name: veridian_mail
+    restart: unless-stopped
+    environment:
+      MP_DATABASE: /data/mailpit.db
+      MP_MAX_MESSAGES: 2000
+    ports:
+      - "127.0.0.1:1025:1025"
+      - "127.0.0.1:8025:8025"
+    volumes:
+      - mailpit_data:/data
+
 volumes:
   postgres_data:
+  mailpit_data:

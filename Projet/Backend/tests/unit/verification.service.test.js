@@ -1,6 +1,6 @@
 import { describe, test, expect, jest } from '@jest/globals';
 import {
-  buildChecks, runChecks, formatReport, hasErrors, missingMigrations, startupNotices, STATUS,
+  buildChecks, runChecks, formatReport, hasErrors, missingMigrations, startupNotices, isLocalMailbox, STATUS,
 } from '../../src/services/verification.service.js';
 
 // Bloc 18 — vérification de l'installation : chaque dépendance est simulée.
@@ -42,9 +42,11 @@ describe('missingMigrations', () => {
 });
 
 describe('Installation saine', () => {
-  test('tout est OK, sauf rien', async () => {
+  test('tout est OK (la boîte de test, non utilisée avec un SMTP réel, est ignorée)', async () => {
     const r = await run(healthyDeps());
-    expect(Object.values(r).every((c) => c.status === STATUS.OK)).toBe(true);
+    const { 'Boîte courriel de test': mailbox, ...others } = r;
+    expect(Object.values(others).every((c) => c.status === STATUS.OK)).toBe(true);
+    expect(mailbox.status).toBe(STATUS.SKIP);
     expect(r['Migrations'].detail).toMatch(/2 appliquées.*002_b\.sql/);
     expect(r['Port 3000 (backend)'].detail).toBe('libre');
   });
@@ -178,5 +180,45 @@ describe('startupNotices', () => {
   test('configuration complète : serveur SMTP indiqué, sans mot de passe', () => {
     const notices = startupNotices({ SMTP_HOST: 'smtp.gmail.com', SMTP_PORT: '587', SMTP_PASSWORD: 'secret', GEMINI_API_KEY: 'k' });
     expect(notices).toEqual(['📧 Courriels : envoi réel par smtp.gmail.com:587']);
+  });
+});
+
+describe('Boîte courriel de test (Mailpit)', () => {
+  const mailpitEnv = { ...env, SMTP_HOST: '127.0.0.1', SMTP_PORT: '1025', MAILBOX_URL: 'http://localhost:8025/' };
+
+  test('isLocalMailbox : seulement 127.0.0.1 ou localhost sur le port 1025', () => {
+    expect(isLocalMailbox({ SMTP_HOST: '127.0.0.1', SMTP_PORT: '1025' })).toBe(true);
+    expect(isLocalMailbox({ SMTP_HOST: 'localhost', SMTP_PORT: 1025 })).toBe(true);
+    expect(isLocalMailbox({ SMTP_HOST: 'smtp.gmail.com', SMTP_PORT: '587' })).toBe(false);
+    expect(isLocalMailbox({ SMTP_HOST: '127.0.0.1', SMTP_PORT: '587' })).toBe(false);
+  });
+
+  test('Mailpit démarré : SMTP et boîte OK, l\'API d\'information est interrogée', async () => {
+    const deps = healthyDeps({ env: mailpitEnv, fetchText: jest.fn(async () => '{"Version":"v1.32.0"}') });
+    const r = await run(deps);
+    expect(r['Courriels (SMTP)'].detail).toMatch(/boîte de test locale Mailpit/);
+    expect(r['Boîte courriel de test']).toMatchObject({ status: STATUS.OK });
+    expect(deps.fetchText).toHaveBeenCalledWith('http://localhost:8025/api/v1/info');
+  });
+
+  test('Mailpit arrêté : deux erreurs qui disent de lancer docker compose', async () => {
+    const deps = healthyDeps({
+      env: mailpitEnv,
+      smtpVerify: jest.fn(async () => { throw Object.assign(new Error('x'), { code: 'ECONNREFUSED' }); }),
+      fetchText: jest.fn(async () => null),
+    });
+    const r = await run(deps);
+    expect(r['Courriels (SMTP)'].detail).toMatch(/Mailpit ne répond pas.*docker compose up -d/);
+    expect(r['Boîte courriel de test'].detail).toMatch(/veridian_mail/);
+  });
+
+  test('SMTP réel sans MAILBOX_URL : contrôle de la boîte ignoré', async () => {
+    const r = await run(healthyDeps());
+    expect(r['Boîte courriel de test'].status).toBe(STATUS.SKIP);
+  });
+
+  test('message de démarrage : boîte de test annoncée avec son adresse', () => {
+    expect(startupNotices({ ...mailpitEnv, GEMINI_API_KEY: 'k' })[0])
+      .toBe('📬 Courriels : boîte de test locale Mailpit (http://localhost:8025/), aucun courriel ne sort de ce PC.');
   });
 });
