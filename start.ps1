@@ -23,7 +23,8 @@
 #      les active au besoin, puis installe Node.js (LTS), Docker Desktop, et - sauf -SkipWhisper - Python,
 #      ffmpeg et Whisper (modele inclus), seulement s'ils manquent
 #   4. Installe les dependances npm (premier clone, ou apres un git pull)
-#   5. Demarre Docker Desktop, puis PostgreSQL + pgvector (docker compose)
+#   5. Demarre Docker Desktop, puis PostgreSQL + pgvector et la boite courriel
+#      de test Mailpit (docker compose)
 #   6. Cree le schema de la base, puis applique les migrations non encore appliquees
 #      Avec -DonneesTest seulement : ajoute les donnees de test
 #      (3 comptes, mot de passe 12345678 ; voir Projet\Backend\database\seed.js)
@@ -84,9 +85,7 @@ $EnvDefaults = [ordered]@{
   DB_USER          = 'veridian_user'
   DB_PASSWORD      = 'veridian_pass'
   JWT_EXPIRES_IN   = '7d'
-  AI_PROVIDER      = 'gemini'
   AI_MODEL         = 'gemini-3.5-flash'
-  WHISPER_MODE     = 'local'
   WHISPER_MODEL    = 'small'
   WHISPER_LANGUAGE = 'fr'
 }
@@ -244,6 +243,29 @@ function Set-EnvKey($path, $key, $value) {
   return (Set-EnvKeyIfMissing $path $key $value)
 }
 
+# Courriels : sans serveur SMTP reel (SMTP_HOST vide), Veridian envoie a la boite de
+# test locale Mailpit (conteneur veridian_mail de docker-compose.yml). Les courriels
+# partent vraiment par SMTP, mais restent sur ce PC : on les lit sur
+# http://localhost:8025 (lien dans l'en-tete de l'application). Un SMTP reel deja
+# renseigne n'est jamais modifie.
+function Initialize-MailSettings {
+  $cur = Read-EnvFile $EnvFile
+  $smtpHost = if ($cur.ContainsKey('SMTP_HOST')) { $cur['SMTP_HOST'] } else { '' }
+  $mailbox  = if ($cur.ContainsKey('MAILBOX_URL')) { $cur['MAILBOX_URL'] } else { '' }
+  if ($smtpHost -eq '') {
+    Set-EnvKey $EnvFile 'SMTP_HOST' '127.0.0.1' | Out-Null
+    Set-EnvKey $EnvFile 'SMTP_PORT' '1025' | Out-Null
+    Set-EnvKey $EnvFile 'SMTP_SECURE' 'false' | Out-Null
+    Set-EnvKey $EnvFile 'MAILBOX_URL' 'http://localhost:8025' | Out-Null
+    Ok 'Courriels : boite de test locale Mailpit (http://localhost:8025), aucun courriel ne sort de ce PC.'
+  } elseif (($smtpHost -eq '127.0.0.1' -or $smtpHost -eq 'localhost') -and $cur['SMTP_PORT'] -eq '1025') {
+    Set-EnvKeyIfMissing $EnvFile 'MAILBOX_URL' 'http://localhost:8025' | Out-Null
+  } elseif ($mailbox -ne '') {
+    Set-EnvKey $EnvFile 'MAILBOX_URL' '' | Out-Null
+    Info "Courriels : SMTP reel ($smtpHost), lien vers la boite de test retire."
+  }
+}
+
 function Initialize-EnvFile {
   $isNew = -not (Test-Path $EnvFile)
   if ($isNew) {
@@ -263,6 +285,8 @@ function Initialize-EnvFile {
     if (Set-EnvKey $EnvFile $key $EnvForced[$key]) { $fixed += $key }
   }
   if ($fixed.Count -gt 0) { Warn ("Valeurs corrigees dans .env pour correspondre a Docker/frontend : " + ($fixed -join ', ')) }
+
+  Initialize-MailSettings
 
   # Anciens modeles Gemini retires : remplaces par le modele par defaut
   $cur = Read-EnvFile $EnvFile
@@ -883,7 +907,7 @@ function Main {
   Ok '============================================================'
   Write-Host ''
   Info 'Pour tout arreter : Ctrl+C dans chaque fenetre, puis :'
-  Info '  docker compose down    (arrete PostgreSQL)'
+  Info '  docker compose down    (arrete PostgreSQL et la boite courriel de test)'
   Info '  docker compose down -v (arrete + supprime les donnees)'
 }
 

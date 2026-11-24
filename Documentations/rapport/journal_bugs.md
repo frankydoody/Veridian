@@ -362,3 +362,11 @@ test (comment on s'assure qu'il ne revient pas) → leçon.
 - **Correction** : liste établie à partir du code (`grep process.env`). Les deux variables mortes sont retirées. Les deux variables manquantes sont ajoutées, avec un commentaire pour chacune.
 - **Test** : chaque variable de `.env.example` apparaît dans `src/`, et inversement.
 - **Leçon** : une option sans effet induit en erreur. La documentation de configuration doit partir du code, pas d'un souvenir.
+
+### BUG-44 — Test « installation saine » cassé par un contrôle ignoré
+- **Bloc** : 18
+- **Symptôme** : après l'ajout du contrôle « Boîte courriel de test », le test `tout est OK` de `verification.service.test.js` échouait alors que rien n'était en panne.
+- **Cause** : le test exigeait que **tous** les contrôles soient « OK ». Or, avec un SMTP réel et sans `MAILBOX_URL`, le nouveau contrôle est « ignoré », ce qui est le comportement voulu.
+- **Correction** : le test vérifie que tous les contrôles sont OK, sauf la boîte de test, qui doit être ignorée.
+- **Test** : `npm test` ; d'autres tests couvrent la boîte de test démarrée et arrêtée.
+- **Leçon** : un test qui affirme « tout » doit dire ce que « tout » comprend. Sinon, chaque nouvel élément le casse sans rapport avec un vrai défaut.

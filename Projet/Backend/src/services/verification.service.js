@@ -13,6 +13,10 @@ const warn = (detail) => ({ status: STATUS.WARN, detail });
 const error = (detail) => ({ status: STATUS.ERROR, detail });
 const skip = (detail) => ({ status: STATUS.SKIP, detail });
 
+/** true si le SMTP configuré est la boîte de test locale Mailpit (docker-compose.yml). */
+export const isLocalMailbox = (env) =>
+  ['127.0.0.1', 'localhost'].includes(env.SMTP_HOST) && String(env.SMTP_PORT) === '1025';
+
 /** Migrations présentes dans le dossier mais absentes de schema_migrations, dans l'ordre. */
 export const missingMigrations = (files, applied) => {
   const done = new Set(applied);
@@ -139,17 +143,36 @@ export const buildChecks = (deps, { skipAi = false, skipWhisper = false } = {}) 
       run: async () => {
         if (!env.SMTP_HOST) {
           return warn('SMTP non configuré : courriels simulés (affichés dans la console du backend). '
-            + 'Renseignez SMTP_HOST, SMTP_USER et SMTP_PASSWORD pour de vrais envois.');
+            + 'Relancez le script de démarrage pour utiliser la boîte de test locale (Mailpit), '
+            + 'ou renseignez SMTP_HOST, SMTP_USER et SMTP_PASSWORD pour de vrais envois.');
         }
+        const local = isLocalMailbox(env);
         try {
           await deps.smtpVerify(); // connexion et authentification, sans envoyer de courriel
-          return ok(`${env.SMTP_HOST}:${env.SMTP_PORT || 587} joignable, identifiants acceptés`);
+          return ok(local
+            ? `boîte de test locale Mailpit (${env.SMTP_HOST}:1025) : les courriels restent sur ce PC`
+            : `${env.SMTP_HOST}:${env.SMTP_PORT || 587} joignable, identifiants acceptés`);
         } catch (e) {
+          if (local) {
+            return error('Mailpit ne répond pas sur le port 1025 : démarrez Docker Desktop puis « docker compose up -d » '
+              + 'à la racine du dépôt (ou relancez le script de démarrage).');
+          }
           const auth = e.code === 'EAUTH' || /auth|credentials|535/i.test(e.message);
           return error(auth
             ? 'identifiants refusés : utilisez un mot de passe d\'application (Gmail : https://myaccount.google.com/apppasswords) dans SMTP_PASSWORD.'
             : `${env.SMTP_HOST}:${env.SMTP_PORT || 587} injoignable (${e.code || e.message}) : vérifiez SMTP_HOST, SMTP_PORT et SMTP_SECURE.`);
         }
+      },
+    },
+    {
+      name: 'Boîte courriel de test',
+      run: async () => {
+        if (!env.MAILBOX_URL) return skip('non utilisée (MAILBOX_URL vide)');
+        const base = env.MAILBOX_URL.replace(/\/+$/, '');
+        const info = await deps.fetchText(`${base}/api/v1/info`);
+        return info?.includes('"Version"')
+          ? ok(`${base} (lien « Boîte courriel de test » dans l'application)`)
+          : error(`${base} ne répond pas : démarrez Docker Desktop puis « docker compose up -d » (conteneur veridian_mail).`);
       },
     },
     ...[
@@ -205,9 +228,13 @@ export const hasErrors = (results) => results.some((r) => r.status === STATUS.ER
  */
 export const startupNotices = (env = process.env) => {
   const notices = [];
-  notices.push(env.SMTP_HOST
-    ? `📧 Courriels : envoi réel par ${env.SMTP_HOST}:${env.SMTP_PORT || 587}`
-    : '⚠️ SMTP non configuré : courriels simulés (affichés dans cette console, aucun envoi réel).');
+  if (!env.SMTP_HOST) {
+    notices.push('⚠️ SMTP non configuré : courriels simulés (affichés dans cette console, aucun envoi réel).');
+  } else if (isLocalMailbox(env)) {
+    notices.push(`📬 Courriels : boîte de test locale Mailpit${env.MAILBOX_URL ? ` (${env.MAILBOX_URL})` : ''}, aucun courriel ne sort de ce PC.`);
+  } else {
+    notices.push(`📧 Courriels : envoi réel par ${env.SMTP_HOST}:${env.SMTP_PORT || 587}`);
+  }
   if (!env.GEMINI_API_KEY) {
     notices.push('⚠️ GEMINI_API_KEY vide : analyse des réunions et mémoire IA indisponibles (voir Projet/Backend/.env).');
   }

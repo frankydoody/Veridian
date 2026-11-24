@@ -54,6 +54,8 @@ app.get('/api/health', (req, res) => {
     services: {
       ai: Boolean(process.env.GEMINI_API_KEY),
       email: process.env.SMTP_HOST ? 'smtp' : 'console',
+      // Bloc 18 : adresse de la boîte courriel de test (Mailpit), affichée en lien dans l'en-tête
+      mailbox: process.env.MAILBOX_URL || null,
     },
     // Le navigateur refuse un fichier trop gros AVANT de l'envoyer
     limits: { audioMb: Math.round(maxAudioBytes() / 1024 / 1024) },

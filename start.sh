@@ -14,7 +14,8 @@
 #   2. Fichier .env : créé ou complété (secret JWT généré, valeurs imposées)
 #   3. Node.js 20+, Docker (+ compose), Python/ffmpeg/Whisper : installés si absents
 #   4. Dépendances npm (backend et frontend) : installées ou mises à jour
-#   5. Base PostgreSQL (Docker) : démarrage, schéma, migrations non appliquées
+#   5. Base PostgreSQL et boîte courriel de test Mailpit (Docker) : démarrage,
+#      schéma, migrations non appliquées
 #   6. Données de test : seulement avec --donnees-test (la base reste vide sinon)
 #   7. Vérification rapide de l'installation (npm run verifier -- --sans-ia)
 #   8. Backend et frontend dans deux terminaux (ou en arrière-plan sans écran)
@@ -192,8 +193,8 @@ initialize_env_file() {
 
   local added=() fixed=() pair key value
   for pair in PORT=3000 DB_HOST=localhost DB_PORT=5432 DB_NAME=veridian DB_USER=veridian_user \
-              DB_PASSWORD=veridian_pass JWT_EXPIRES_IN=7d AI_PROVIDER=gemini AI_MODEL=gemini-3.5-flash \
-              WHISPER_MODE=local WHISPER_MODEL=small WHISPER_LANGUAGE=fr; do
+              DB_PASSWORD=veridian_pass JWT_EXPIRES_IN=7d AI_MODEL=gemini-3.5-flash \
+              WHISPER_MODEL=small WHISPER_LANGUAGE=fr; do
     key="${pair%%=*}"; value="${pair#*=}"
     env_set_if_missing "$key" "$value" && added+=("$key")
   done
@@ -211,6 +212,21 @@ initialize_env_file() {
   if [[ "$model" =~ ^gemini-(1\.|2\.0|2\.5) ]]; then
     env_set AI_MODEL gemini-3.5-flash >/dev/null
     warn "Modèle $model retiré par Google (ou fermé aux nouveaux comptes) : remplacé par gemini-3.5-flash."
+  fi
+
+  # Courriels : sans serveur SMTP réel (SMTP_HOST vide), Veridian envoie à la boîte de test
+  # locale Mailpit (conteneur veridian_mail) : vrais envois SMTP, mais qui restent sur ce PC
+  # (lecture sur http://localhost:8025). Un SMTP réel déjà renseigné n'est jamais modifié.
+  local smtp_host; smtp_host="$(env_get SMTP_HOST)"
+  if [ -z "$smtp_host" ]; then
+    env_set SMTP_HOST 127.0.0.1 >/dev/null; env_set SMTP_PORT 1025 >/dev/null
+    env_set SMTP_SECURE false >/dev/null; env_set MAILBOX_URL http://localhost:8025 >/dev/null
+    ok "Courriels : boîte de test locale Mailpit (http://localhost:8025), aucun courriel ne sort de ce PC."
+  elif { [ "$smtp_host" = "127.0.0.1" ] || [ "$smtp_host" = "localhost" ]; } && [ "$(env_get SMTP_PORT)" = "1025" ]; then
+    env_set_if_missing MAILBOX_URL http://localhost:8025 >/dev/null || true
+  elif [ -n "$(env_get MAILBOX_URL)" ]; then
+    env_set MAILBOX_URL "" >/dev/null
+    info "Courriels : SMTP réel ($smtp_host), lien vers la boîte de test retiré."
   fi
 
   # Clé Gemini : indispensable pour l'IA. Demandée une seule fois, en mode interactif.
